@@ -1,7 +1,8 @@
-from flask import Flask, request, jsonify, render_template, send_file, send_from_directory
-import json, os, random, string, zipfile, io, tempfile
+from flask import Flask, request, jsonify, render_template, send_file, send_from_directory, session, redirect, url_for
+import json, os, random, string, zipfile, io, tempfile, csv
 from datetime import datetime
-from PIL import Image, ImageOps
+from functools import wraps
+from PIL import Image, ImageOps, ImageEnhance, ImageFilter
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -14,12 +15,14 @@ SETTINGS_FILE = os.path.join(RUNTIME_DIR, "settings.json")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(ASSET_DIR, exist_ok=True)
 app.config["SIGNATURE_UPLOAD_PASSWORD"] = os.environ.get("SIGNATURE_UPLOAD_PASSWORD", "admin123")
+app.config["ADMIN_PANEL_PASSWORD"] = os.environ.get("ADMIN_PANEL_PASSWORD", "admin123")
 app.config["GOOGLE_DRIVE_ROOT_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_ROOT_FOLDER_ID", "").strip()
 app.config["GOOGLE_DRIVE_PHOTOS_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_PHOTOS_FOLDER_ID", "").strip()
 app.config["GOOGLE_DRIVE_BACKGROUNDS_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_BACKGROUNDS_FOLDER_ID", "").strip()
 app.config["GOOGLE_DRIVE_SIGNATURES_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_SIGNATURES_FOLDER_ID", "").strip()
 
 _drive_service = None
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "medical-id-card-secret")
 
 for bundled_dir, runtime_dir in [
     (os.path.join(BASE_DIR, "static", "uploads"), UPLOAD_DIR),
@@ -183,6 +186,15 @@ def download_drive_file(file_id):
     return buffer.getvalue()
 
 
+def admin_required(view_func):
+    @wraps(view_func)
+    def wrapped(*args, **kwargs):
+        if not session.get("admin_authenticated"):
+            return jsonify({"error": "Unauthorized"}), 401
+        return view_func(*args, **kwargs)
+    return wrapped
+
+
 def make_asset_slug(value):
     safe = secure_filename((value or "").strip())
     return safe or "default"
@@ -210,23 +222,73 @@ def gen_serial():
     rand_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
     return f"ID-{date_part}-{rand_part}"
 
-def autocrop_passport(img_path, out_path):
-    """Crop image to passport style (3:4 ratio), face-centered best effort."""
-    img = Image.open(img_path).convert("RGB")
+def detect_primary_face(img):
+    try:
+        import cv2
+        import numpy as np
+    except Exception:
+        return None
+
+    rgb = np.array(img)
+    gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+    cascade_path = os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml")
+    face_cascade = cv2.CascadeClassifier(cascade_path)
+    faces = face_cascade.detectMultiScale(
+        gray,
+        scaleFactor=1.1,
+        minNeighbors=5,
+        minSize=(60, 60),
+    )
+    if len(faces) == 0:
+        return None
+    return max(faces, key=lambda face: face[2] * face[3])
+
+
+def crop_passport_frame(img, face_box=None):
     w, h = img.size
     target_ratio = 3 / 4
+
+    if face_box is not None:
+        fx, fy, fw, fh = [int(v) for v in face_box]
+        crop_h = min(h, max(int(fh * 3.2), 220))
+        crop_w = int(crop_h * target_ratio)
+
+        if crop_w > w:
+            crop_w = w
+            crop_h = int(crop_w / target_ratio)
+
+        center_x = fx + fw // 2
+        face_center_y = fy + fh // 2
+        center_y = int(face_center_y + fh * 0.55)
+
+        left = max(0, min(center_x - crop_w // 2, w - crop_w))
+        top = max(0, min(center_y - crop_h // 2, h - crop_h))
+        return img.crop((left, top, left + crop_w, top + crop_h))
+
     current_ratio = w / h
     if current_ratio > target_ratio:
         new_w = int(h * target_ratio)
         left = (w - new_w) // 2
-        img = img.crop((left, 0, left + new_w, h))
-    else:
-        new_h = int(w / target_ratio)
-        top = max(0, int((h - new_h) * 0.2))
-        img = img.crop((0, top, w, top + new_h))
+        return img.crop((left, 0, left + new_w, h))
+
+    new_h = int(w / target_ratio)
+    top = max(0, int((h - new_h) * 0.16))
+    return img.crop((0, top, w, min(h, top + new_h)))
+
+
+def autocrop_passport(img_path, out_path):
+    """Create a 3:4 passport crop that prioritizes the largest detected face."""
+    img = Image.open(img_path)
+    img = ImageOps.exif_transpose(img).convert("RGB")
+    face_box = detect_primary_face(img)
+    img = crop_passport_frame(img, face_box)
     img = img.resize((300, 400), Image.LANCZOS)
-    img = ImageOps.exif_transpose(img)
-    img.save(out_path, "JPEG", quality=90)
+    img = ImageEnhance.Brightness(img).enhance(1.03)
+    img = ImageEnhance.Contrast(img).enhance(1.08)
+    img = ImageEnhance.Color(img).enhance(1.03)
+    img = ImageEnhance.Sharpness(img).enhance(1.18)
+    img = img.filter(ImageFilter.UnsharpMask(radius=1.4, percent=120, threshold=2))
+    img.save(out_path, "JPEG", quality=92)
 
 
 def save_background_image(file_storage, institute_name):
@@ -263,7 +325,24 @@ def index():
 
 @app.route("/admin")
 def admin():
+    if not session.get("admin_authenticated"):
+        return render_template("admin_login.html")
     return render_template("admin.html")
+
+
+@app.route("/admin/login", methods=["POST"])
+def admin_login():
+    password = request.form.get("password", "")
+    if password == app.config["ADMIN_PANEL_PASSWORD"]:
+        session["admin_authenticated"] = True
+        return redirect(url_for("admin"))
+    return render_template("admin_login.html", error="Incorrect admin password"), 401
+
+
+@app.route("/admin/logout", methods=["POST"])
+def admin_logout():
+    session.pop("admin_authenticated", None)
+    return redirect(url_for("admin"))
 
 
 @app.route("/api/settings")
@@ -314,6 +393,7 @@ def upload_photo():
 
 
 @app.route("/api/upload-background", methods=["POST"])
+@admin_required
 def upload_background():
     if "background" not in request.files:
         return jsonify({"error": "No file"}), 400
@@ -393,6 +473,12 @@ def batch_summary():
     return jsonify(summary)
 
 
+@app.route("/api/batch-records")
+def batch_records():
+    records, institute = get_filtered_records()
+    return jsonify({"records": records, "institute": institute})
+
+
 @app.route("/api/submit-batch", methods=["POST"])
 def submit_batch():
     payload = request.json or {}
@@ -419,11 +505,13 @@ def submit_batch():
     })
 
 @app.route("/api/records")
+@admin_required
 def get_records():
     records, institute = get_filtered_records()
     return jsonify({"records": records, "institute": institute})
 
 @app.route("/api/delete/<serial_no>", methods=["DELETE"])
+@admin_required
 def delete_record(serial_no):
     records = load_records()
     record_to_delete = next((r for r in records if r.get("serial_no") == serial_no), None)
@@ -438,6 +526,7 @@ def delete_record(serial_no):
     return jsonify({"status": "deleted"})
 
 @app.route("/api/export-excel")
+@admin_required
 def export_excel():
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
@@ -482,12 +571,38 @@ def export_excel():
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 @app.route("/api/export-zip")
+@admin_required
 def export_zip():
     records, institute_filter = get_filtered_records()
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        csv_buf = io.StringIO()
+        writer = csv.writer(csv_buf)
+        writer.writerow([
+            "Serial No", "Profile Type", "Name", "Course/Designation", "Employee ID", "Department",
+            "Date of Birth", "Contact No", "Blood Group", "Address", "Valid Upto",
+            "Institute", "Photo File", "Photo URL", "Saved At", "Submitted At"
+        ])
         for rec in records:
             serial = rec.get("serial_no", "")
+            writer.writerow([
+                rec.get("serial_no", ""),
+                rec.get("profile_type", ""),
+                rec.get("name", ""),
+                rec.get("course") or rec.get("designation", ""),
+                rec.get("employee_id", ""),
+                rec.get("department", ""),
+                rec.get("dob", ""),
+                rec.get("contact", ""),
+                rec.get("blood_group", ""),
+                rec.get("address", ""),
+                rec.get("valid_upto", ""),
+                rec.get("institute_name", ""),
+                f"{serial}.jpg" if serial else "",
+                rec.get("photo_url", ""),
+                rec.get("saved_at", ""),
+                rec.get("submitted_at", ""),
+            ])
             photo_path = os.path.join(UPLOAD_DIR, f"{serial}.jpg")
             if os.path.exists(photo_path):
                 zf.write(photo_path, f"photos/{serial}.jpg")
@@ -495,8 +610,7 @@ def export_zip():
                 photo_bytes = download_drive_file(rec.get("photo_drive_id"))
                 if photo_bytes:
                     zf.writestr(f"photos/{serial}.jpg", photo_bytes)
-        # Also add JSON export
-        zf.writestr("records.json", json.dumps(records, indent=2))
+        zf.writestr("records.csv", csv_buf.getvalue())
     buf.seek(0)
     institute = institute_filter or (records[0].get("institute_name", "IDCardRecords") if records else "IDCardRecords")
     institute_safe = "".join(c for c in institute if c.isalnum() or c in "_ -")

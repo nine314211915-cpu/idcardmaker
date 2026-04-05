@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #fdf8f0;
+    --red: #8b0000;
+    --red-soft: #f9e8e8;
+    --border: #ddd0c0;
+    --text: #2c1810;
+    --muted: #7a6a60;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #fdf8f0, #f5ede0);
+    font-family: 'Source Sans 3', sans-serif;
+    color: var(--text);
+    padding: 20px;
+  }
+  .login-box {
+    width: 100%;
+    max-width: 420px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 18px 40px rgba(139, 0, 0, 0.12);
+  }
+  .login-head {
+    background: var(--red);
+    color: white;
+    padding: 18px 22px;
+  }
+  .login-head h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    margin-bottom: 4px;
+  }
+  .login-head p { font-size: 13px; opacity: 0.9; }
+  .login-body { padding: 22px; }
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-size: 14px;
+    outline: none;
+  }
+  input:focus { border-color: var(--red); }
+  .btn {
+    width: 100%;
+    margin-top: 14px;
+    padding: 11px 14px;
+    border: none;
+    border-radius: 7px;
+    background: var(--red);
+    color: white;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .error {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border-radius: 7px;
+    background: var(--red-soft);
+    color: var(--red);
+    font-size: 13px;
+    border: 1px solid #efcaca;
+  }
+  .back-link {
+    display: inline-block;
+    margin-top: 12px;
+    color: var(--red);
+    text-decoration: none;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+  <div class="login-box">
+    <div class="login-head">
+      <h1>Admin Panel Login</h1>
+      <p>Enter the admin password to manage records and downloads.</p>
+    </div>
+    <div class="login-body">
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+      <form method="post" action="{{ url_for('admin_login') }}">
+        <label for="password">Admin Password</label>
+        <input type="password" id="password" name="password" required autofocus>
+        <button class="btn" type="submit">Open Admin Panel</button>
+      </form>
+      <a class="back-link" href="{{ url_for('index') }}">Back to data entry</a>
+    </div>
+  </div>
+</body>
+</html>
