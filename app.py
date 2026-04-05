@@ -11,6 +11,7 @@ RUNTIME_DIR = tempfile.gettempdir() if os.environ.get("VERCEL") else BASE_DIR
 UPLOAD_DIR = os.path.join(RUNTIME_DIR, "static", "uploads")
 ASSET_DIR = os.path.join(RUNTIME_DIR, "static", "assets")
 DATA_FILE = os.path.join(RUNTIME_DIR, "records.json")
+CERTIFICATE_DATA_FILE = os.path.join(RUNTIME_DIR, "certificates.json")
 SETTINGS_FILE = os.path.join(RUNTIME_DIR, "settings.json")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(ASSET_DIR, exist_ok=True)
@@ -39,6 +40,7 @@ for bundled_dir, runtime_dir in [
 
 for bundled_file, runtime_file in [
     (os.path.join(BASE_DIR, "records.json"), DATA_FILE),
+    (os.path.join(BASE_DIR, "certificates.json"), CERTIFICATE_DATA_FILE),
     (os.path.join(BASE_DIR, "settings.json"), SETTINGS_FILE),
 ]:
     if bundled_file == runtime_file or not os.path.isfile(bundled_file) or os.path.exists(runtime_file):
@@ -57,6 +59,18 @@ def save_records(records):
         json.dump(records, f, indent=2)
 
 
+def load_certificates():
+    if os.path.exists(CERTIFICATE_DATA_FILE):
+        with open(CERTIFICATE_DATA_FILE, "r") as f:
+            return json.load(f)
+    return []
+
+
+def save_certificates(certificates):
+    with open(CERTIFICATE_DATA_FILE, "w") as f:
+        json.dump(certificates, f, indent=2)
+
+
 def load_settings():
     defaults = {
         "background_url": "",
@@ -64,6 +78,8 @@ def load_settings():
         "signature_drive_id": "",
         "backgrounds": {},
         "background_drive_ids": {},
+        "certificate_backgrounds": {},
+        "certificate_background_drive_ids": {},
     }
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, "r") as f:
@@ -73,6 +89,12 @@ def load_settings():
                 pass
     if not isinstance(defaults.get("backgrounds"), dict):
         defaults["backgrounds"] = {}
+    if not isinstance(defaults.get("background_drive_ids"), dict):
+        defaults["background_drive_ids"] = {}
+    if not isinstance(defaults.get("certificate_backgrounds"), dict):
+        defaults["certificate_backgrounds"] = {}
+    if not isinstance(defaults.get("certificate_background_drive_ids"), dict):
+        defaults["certificate_background_drive_ids"] = {}
     return defaults
 
 
@@ -222,6 +244,12 @@ def gen_serial():
     rand_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
     return f"ID-{date_part}-{rand_part}"
 
+
+def gen_certificate_no():
+    date_part = datetime.now().strftime("%Y%m%d")
+    rand_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+    return f"CERT-{date_part}-{rand_part}"
+
 def detect_primary_face(img):
     try:
         import cv2
@@ -291,18 +319,27 @@ def autocrop_passport(img_path, out_path):
     img.save(out_path, "JPEG", quality=92)
 
 
-def save_background_image(file_storage, institute_name):
+def save_image_asset(file_storage, filename, kind):
     img = Image.open(file_storage.stream)
     img = ImageOps.exif_transpose(img).convert("RGB")
-    filename = f"card_background_{make_asset_slug(institute_name)}.jpg"
     local_path = os.path.join(ASSET_DIR, filename)
     img.save(local_path, "JPEG", quality=92)
     drive_id = None
     drive_url = None
     if is_drive_enabled():
         with open(local_path, "rb") as f:
-            drive_id, drive_url = upload_bytes_to_drive(f.read(), filename, "image/jpeg", "backgrounds")
+            drive_id, drive_url = upload_bytes_to_drive(f.read(), filename, "image/jpeg", kind)
     return drive_url or f"/generated-assets/{filename}", drive_id
+
+
+def save_background_image(file_storage, institute_name):
+    filename = f"card_background_{make_asset_slug(institute_name)}.jpg"
+    return save_image_asset(file_storage, filename, "backgrounds")
+
+
+def save_certificate_background_image(file_storage, institute_name):
+    filename = f"certificate_background_{make_asset_slug(institute_name)}.jpg"
+    return save_image_asset(file_storage, filename, "backgrounds")
 
 
 def save_signature_image(file_storage):
@@ -310,6 +347,24 @@ def save_signature_image(file_storage):
     img = ImageOps.exif_transpose(img)
     if img.mode not in ("RGBA", "LA"):
         img = img.convert("RGBA")
+    img = img.convert("RGBA")
+    pixels = []
+    for r, g, b, a in img.getdata():
+        if a == 0:
+            pixels.append((r, g, b, a))
+            continue
+        brightness = (r + g + b) / 3
+        channel_spread = max(r, g, b) - min(r, g, b)
+        if brightness > 235 and channel_spread < 22:
+            pixels.append((255, 255, 255, 0))
+            continue
+        ink_boost = max(0, int((235 - brightness) * 1.35))
+        alpha = max(70, min(255, ink_boost + 70))
+        pixels.append((20, 20, 20, alpha))
+    img.putdata(pixels)
+    bbox = img.getbbox()
+    if bbox:
+        img = img.crop(bbox)
     local_path = os.path.join(ASSET_DIR, "hod_signature.png")
     img.save(local_path, "PNG")
     drive_id = None
@@ -320,8 +375,18 @@ def save_signature_image(file_storage):
     return drive_url or "/generated-assets/hod_signature.png", drive_id
 
 @app.route("/")
+def home():
+    return render_template("home.html")
+
+
+@app.route("/id-card")
 def index():
     return render_template("index.html")
+
+
+@app.route("/certificate")
+def certificate():
+    return render_template("certificate.html")
 
 @app.route("/admin")
 def admin():
@@ -353,6 +418,17 @@ def get_settings():
     return jsonify({
         "background_url": background_url,
         "signature_url": settings.get("signature_url", ""),
+        "institute": institute
+    })
+
+
+@app.route("/api/certificate-settings")
+def get_certificate_settings():
+    settings = load_settings()
+    institute = (request.args.get("institute") or "").strip()
+    background_url = settings.get("certificate_backgrounds", {}).get(institute, "") if institute else ""
+    return jsonify({
+        "background_url": background_url,
         "institute": institute
     })
 
@@ -420,6 +496,33 @@ def upload_background():
     return jsonify({"status": "saved", "background_url": background_url, "institute": institute})
 
 
+@app.route("/api/upload-certificate-background", methods=["POST"])
+@admin_required
+def upload_certificate_background():
+    if "background" not in request.files:
+        return jsonify({"error": "No file"}), 400
+    institute = (request.form.get("institute") or "").strip()
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    file_storage = request.files["background"]
+    if not secure_filename(file_storage.filename):
+        return jsonify({"error": "Invalid filename"}), 400
+    try:
+        background_url, background_drive_id = save_certificate_background_image(file_storage, institute)
+    except Exception:
+        return jsonify({"error": "Unable to process certificate background image"}), 400
+
+    settings = load_settings()
+    old_drive_id = settings.setdefault("certificate_background_drive_ids", {}).get(institute)
+    if old_drive_id and old_drive_id != background_drive_id:
+        delete_drive_file(old_drive_id)
+    settings.setdefault("certificate_backgrounds", {})[institute] = background_url
+    if background_drive_id:
+        settings.setdefault("certificate_background_drive_ids", {})[institute] = background_drive_id
+    save_settings(settings)
+    return jsonify({"status": "saved", "background_url": background_url, "institute": institute})
+
+
 @app.route("/api/upload-signature", methods=["POST"])
 def upload_signature():
     if request.form.get("password", "") != app.config["SIGNATURE_UPLOAD_PASSWORD"]:
@@ -463,6 +566,38 @@ def submit():
     records.append(data)
     save_records(records)
     return jsonify({"status": "saved"})
+
+
+@app.route("/api/certificates", methods=["GET", "POST"])
+def certificates_api():
+    if request.method == "POST":
+        data = request.json or {}
+        if not (data.get("recipient_name") or "").strip():
+            return jsonify({"error": "Recipient name is required"}), 400
+        institute_name = (data.get("institute_name") or "").strip()
+        if not institute_name:
+            return jsonify({"error": "Institute is required"}), 400
+
+        certificates = load_certificates()
+        certificate_no = (data.get("certificate_no") or "").strip() or gen_certificate_no()
+        data["certificate_no"] = certificate_no
+        data["saved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        for certificate in certificates:
+            if certificate.get("certificate_no") == certificate_no:
+                certificate.update(data)
+                save_certificates(certificates)
+                return jsonify({"status": "updated", "certificate_no": certificate_no})
+
+        certificates.append(data)
+        save_certificates(certificates)
+        return jsonify({"status": "saved", "certificate_no": certificate_no})
+
+    certificates = load_certificates()
+    institute = (request.args.get("institute") or "").strip()
+    if institute:
+        certificates = [c for c in certificates if (c.get("institute_name") or "").strip() == institute]
+    return jsonify({"certificates": certificates, "institute": institute})
 
 
 @app.route("/api/batch-summary")

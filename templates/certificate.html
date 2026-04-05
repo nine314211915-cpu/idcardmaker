@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certificate Page</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --cream:#fdf8f0; --red:#8b0000; --red-soft:#f9e8e8; --gold:#b5860d; --text:#2c1810; --muted:#7a6a60; --border:#ddd0c0; --shadow:0 12px 28px rgba(139,0,0,.08); }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { min-height:100vh; font-family:'Source Sans 3',sans-serif; background:linear-gradient(180deg,#fbf5ec 0%, var(--cream) 100%); color:var(--text); }
+  header { background:var(--red); color:#fff; padding:14px 24px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; box-shadow:0 3px 10px rgba(0,0,0,.25); }
+  .logo-icon { width:48px; height:48px; background:#fff; border-radius:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .logo-icon svg { width:28px; height:28px; }
+  .brand-block h1 { font-family:'Playfair Display',serif; font-size:20px; }
+  .brand-block p { font-size:12px; opacity:.88; }
+  .right-brand { margin-left:auto; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .nav-link { background:rgba(255,255,255,.15); color:#fff; padding:7px 14px; border-radius:6px; text-decoration:none; font-size:12px; border:1px solid rgba(255,255,255,.25); }
+  .page { max-width:1360px; margin:0 auto; padding:20px 16px 28px; display:grid; grid-template-columns:minmax(0,1fr) 640px; gap:18px; align-items:start; }
+  .panel { background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow); overflow:hidden; }
+  .panel-head { background:var(--red); color:#fff; padding:12px 16px; font-family:'Playfair Display',serif; font-size:16px; }
+  .panel-body { padding:16px; }
+  .helper { margin-bottom:14px; padding:11px 12px; border-radius:10px; background:var(--cream); border:1px solid var(--border); color:var(--muted); font-size:12px; line-height:1.5; }
+  .section-title { margin:16px 0 12px; padding-bottom:6px; border-bottom:1px solid var(--border); color:var(--red); font-size:14px; font-family:'Playfair Display',serif; }
+  .form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  .form-group { display:flex; flex-direction:column; gap:5px; }
+  .form-group.full { grid-column:1 / -1; }
+  label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.45px; color:var(--muted); }
+  input, select, textarea { width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:8px; font-size:13px; font-family:inherit; outline:none; }
+  textarea { resize:vertical; min-height:92px; line-height:1.45; }
+  .inline-actions, .inline-field-row { display:flex; gap:8px; flex-wrap:wrap; }
+  .field-actions { display:flex; justify-content:flex-end; margin-top:6px; }
+  .inline-field-row > * { flex:1; min-width:180px; }
+  .btn, .record-item button { border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .btn { padding:10px 14px; border:none; }
+  .btn-primary { background:var(--red); color:#fff; }
+  .btn-outline { background:#fff; color:var(--red); border:1px solid var(--red); }
+  .btn-soft { background:var(--cream); color:var(--text); border:1px solid var(--border); }
+  .preview-wrap { position:sticky; top:16px; }
+  .certificate-sheet { position:relative; width:100%; aspect-ratio:1.58 / 1; border-radius:14px; overflow:hidden; border:10px solid #f6ecd6; background:#fff; box-shadow:0 18px 36px rgba(67,25,8,.12); }
+  .certificate-sheet::before { content:""; position:absolute; inset:0; background-image:var(--cert-bg-image,none); background-size:cover; background-position:center; opacity:.28; }
+  .certificate-sheet.classic { background:linear-gradient(180deg,#ffffff 0%, #fffaf4 100%); }
+  .certificate-sheet.royal { background:linear-gradient(180deg,#ffffff 0%, #f7faff 100%); border-color:#e8eef9; }
+  .certificate-sheet.emerald { background:linear-gradient(180deg,#ffffff 0%, #f8fffb 100%); border-color:#e4f2ea; }
+  .certificate-inner { position:relative; z-index:1; padding:24px 28px 22px; height:100%; display:grid; grid-template-columns:minmax(0,1fr) 110px; gap:16px; }
+  .certificate-main { display:flex; flex-direction:column; align-items:flex-start; text-align:left; padding-left:8px; }
+  .certificate-kicker { letter-spacing:2px; text-transform:uppercase; font-size:11px; color:var(--muted); }
+  .certificate-title { font-family:'Playfair Display',serif; font-size:30px; line-height:1.1; color:var(--red); margin-top:10px; align-self:center; }
+  .certificate-institute { margin-top:8px; font-size:13px; font-weight:700; color:var(--gold); align-self:center; }
+  .certificate-body { width:100%; max-width:620px; margin-top:14px; font-size:14px; line-height:1.62; text-align:justify; text-justify:inter-word; }
+  .certificate-name { margin-top:14px; font-family:'Playfair Display',serif; font-size:28px; color:#6b1d12; border-bottom:1px solid rgba(107,29,18,.18); padding-bottom:7px; min-width:68%; align-self:center; text-align:center; }
+  .certificate-subtext { width:100%; max-width:620px; margin-top:8px; font-size:13px; color:var(--muted); text-align:left; }
+  .certificate-footer { margin-top:auto; width:100%; display:flex; justify-content:space-between; align-items:flex-end; gap:18px; padding-top:14px; }
+  .certificate-meta { font-size:12px; color:var(--muted); line-height:1.6; text-align:left; }
+  .certificate-sign { min-width:170px; text-align:center; }
+  .signature-line { border-top:1px solid var(--text); margin-bottom:6px; }
+  .sign-name { font-weight:700; color:var(--red); }
+  .sign-role { font-size:12px; color:var(--muted); }
+  .signature-preview {
+    max-width: 140px;
+    max-height: 40px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto 6px;
+    mix-blend-mode: multiply;
+  }
+  .certificate-photo-panel { display:flex; justify-content:flex-end; }
+  .certificate-photo { width:96px; height:122px; border-radius:10px; border:1px solid rgba(107,29,18,.18); background:rgba(255,255,255,.82); display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:11px; text-align:center; overflow:hidden; }
+  .certificate-photo img { width:100%; height:100%; object-fit:cover; }
+  .certificate-sheet.has-photo .certificate-inner { grid-template-columns:minmax(0,1fr) 118px; }
+  .certificate-sheet.has-photo .certificate-main { align-items:flex-start; }
+  .certificate-sheet.has-photo .certificate-body,
+  .certificate-sheet.has-photo .certificate-subtext { max-width:100%; }
+  .record-list { display:grid; gap:8px; margin-top:12px; }
+  .upload-box { border:2px dashed var(--border); border-radius:10px; background:var(--cream); padding:14px 12px; text-align:center; cursor:pointer; color:var(--muted); font-size:12px; }
+  .upload-box strong { display:block; color:var(--red); margin-bottom:3px; font-size:13px; }
+  .mini-helper { margin-top:6px; font-size:11px; color:var(--muted); line-height:1.4; }
+  .record-item { border:1px solid var(--border); border-radius:9px; background:#fff; padding:10px 11px; }
+  .record-item strong { display:block; color:var(--red); font-size:13px; }
+  .record-item span { display:block; font-size:12px; color:var(--muted); margin-top:2px; }
+  .record-item button { margin-top:8px; padding:6px 10px; border:1px solid var(--border); background:var(--cream); color:var(--red); }
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:#1a5c1a; color:#fff; padding:11px 18px; border-radius:8px; font-size:13px; font-weight:700; transition:transform .3s; z-index:3000; }
+  .toast.show { transform:translateX(-50%) translateY(0); }
+  .hidden { display:none !important; }
+  @media (max-width:1024px) { .page { grid-template-columns:1fr; } .preview-wrap { position:static; } }
+  @media (max-width:768px) { header { padding:14px 16px; } .page { padding-top:16px; } .form-grid, .certificate-inner { grid-template-columns:1fr; } .certificate-footer { flex-direction:column; align-items:stretch; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#8b0000" stroke-width="1.8"><path d="M12 3l7 4-7 4-7-4 7-4z"></path><path d="M5 14l7 4 7-4"></path><path d="M12 8v10"></path><path d="M9 12h6"></path></svg></div>
+  <div class="brand-block"><h1>Certificate Page</h1><p>Create certificates with built-in themes or your own uploaded background</p></div>
+  <div class="right-brand"><a href="/" class="nav-link">Home</a><a href="/id-card" class="nav-link">ID Card Page</a><a href="/admin" class="nav-link">Admin Panel</a></div>
+</header>
+<div class="page">
+  <div class="panel">
+    <div class="panel-head">Certificate Entry</div>
+    <div class="panel-body">
+      <div class="helper">Use built-in themes for quick certificates. If you need a custom design, upload the institute certificate background from the admin panel and it will apply here automatically.</div>
+      <div class="section-title">Certificate Setup</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Institute Name</label><select id="certificateInstitute" onchange="handleInstituteChange()"><option value="Govt. Medical College, Jhunjhunu">Govt. Medical College, Jhunjhunu</option><option value="Dist. Collector, Jhunjhunu">Dist. Collector, Jhunjhunu</option><option value="PHED Water Works Jhunjhunu">PHED Water Works Jhunjhunu</option><option value="Govt. Nursing College, Jhunjhunu">Govt. Nursing College, Jhunjhunu</option><option value="Govt. Community Health Centre (CHC), Jhunjhunu">Govt. Community Health Centre (CHC), Jhunjhunu</option><option value="Govt. Primary Health Centre (PHC), Jhunjhunu">Govt. Primary Health Centre (PHC), Jhunjhunu</option><option value="Govt. Health Sub Centre, Jhunjhunu">Govt. Health Sub Centre, Jhunjhunu</option><option value="Other">Other</option></select></div>
+        <div class="form-group hidden" id="otherInstituteWrap"><label>Other Institute</label><input type="text" id="otherInstituteName" placeholder="Enter institute name" oninput="updatePreview(); loadCertificateSettings(); loadCertificateList()"></div>
+        <div class="form-group"><label>Certificate Title</label><select id="certificateTitle" onchange="updatePreview()"><option value="Certificate of Achievement">Certificate of Achievement</option><option value="Certificate of Appreciation">Certificate of Appreciation</option><option value="Certificate of Participation">Certificate of Participation</option><option value="Certificate of Completion">Certificate of Completion</option><option value="Certificate of Recognition">Certificate of Recognition</option></select></div>
+        <div class="form-group"><label>Photo Mode</label><div class="inline-field-row"><select id="photoModeSelect" onchange="setPhotoMode(this.value)"><option value="without">Without Photo</option><option value="with">With Photo</option></select><div class="upload-box hidden" id="photoUploadGroup" onclick="document.getElementById('certificatePhotoInput').click()"><strong>Upload Photo</strong>Choose the recipient photo</div></div><input type="file" id="certificatePhotoInput" accept="image/*" style="display:none" onchange="handleCertificatePhoto(this)"><div class="mini-helper hidden" id="photoUploadStatus">No certificate photo uploaded yet.</div></div>
+        <div class="form-group"><label>Theme Style</label><select id="themeStyle" onchange="updatePreview()"><option value="classic">Classic Red</option><option value="royal">Royal Blue</option><option value="emerald">Emerald Gold</option></select></div>
+        <div class="form-group"><label>Certificate No</label><input type="text" id="certificateNo" placeholder="Auto-generated on save" oninput="updatePreview()"></div>
+      </div>
+      <div class="section-title">Recipient Details</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Recipient Name</label><input type="text" id="recipientName" placeholder="Enter recipient name" oninput="updatePreview()"></div>
+        <div class="form-group"><label>Issue Date</label><input type="date" id="issueDate" onchange="updatePreview()"></div>
+        <div class="form-group full"><label>Presented For</label><input type="text" id="presentedFor" placeholder="For outstanding service / participation / achievement" oninput="updatePreview()"></div>
+        <div class="form-group full"><label>Achievement Text</label><textarea id="achievementText" placeholder="Write the certificate body text here" oninput="updatePreview()"></textarea><div class="field-actions"><button class="btn btn-soft" type="button" onclick="enhanceAchievementText()">AI Enhance Text</button></div></div>
+      </div>
+      <div class="section-title">Signatory & Design</div>
+      <div class="form-grid">
+        <div class="form-group"><label>Signatory Name</label><input type="text" id="signatoryName" placeholder="Enter signatory name" oninput="updatePreview()"></div>
+        <div class="form-group"><label>Signatory Designation</label><input type="text" id="signatoryRole" placeholder="Principal / HOD / Officer In-Charge" oninput="updatePreview()"></div>
+        <div class="form-group full"><label>Signatory Signature</label><div class="inline-field-row"><div class="upload-box" onclick="document.getElementById('certificateSignatureInput').click()"><strong>Upload Signature</strong>Password required once to update the sign photo</div><input type="file" id="certificateSignatureInput" accept="image/*" style="display:none" onchange="handleCertificateSignature(this)"><div class="helper" id="signatureUploadStatus" style="margin:0">Current sign photo will appear in the certificate preview near the signatory.</div></div></div>
+      </div>
+      <div class="inline-actions"><button class="btn btn-primary" type="button" onclick="saveCertificate()">Save Certificate</button><button class="btn btn-soft" type="button" onclick="resetCertificateForm()">Reset Form</button></div>
+      <div class="section-title">Recent Certificates</div>
+      <div class="record-list" id="certificateList"><div class="helper">No certificates saved for this institute yet.</div></div>
+    </div>
+  </div>
+  <div class="preview-wrap">
+    <div class="panel">
+      <div class="panel-head">Certificate Preview</div>
+      <div class="panel-body">
+        <div class="certificate-sheet classic" id="certificateSheet">
+          <div class="certificate-inner">
+            <div class="certificate-main">
+              <div class="certificate-kicker">Official Certificate</div>
+              <div class="certificate-title" id="previewTitle">Certificate of Achievement</div>
+              <div class="certificate-institute" id="previewInstitute">Govt. Medical College, Jhunjhunu</div>
+              <div class="certificate-body">This certificate is proudly presented to</div>
+              <div class="certificate-name" id="previewName">Recipient Name</div>
+              <div class="certificate-subtext" id="previewPresentedFor">for outstanding contribution and dedicated service.</div>
+              <div class="certificate-body" id="previewAchievement">In recognition of sincere effort, discipline, and valuable participation.</div>
+              <div class="certificate-footer">
+                <div class="certificate-meta"><div><strong>Certificate No:</strong> <span id="previewCertificateNo">Auto on Save</span></div><div><strong>Date:</strong> <span id="previewIssueDate">-</span></div></div>
+                <div class="certificate-sign"><img class="signature-preview hidden" id="previewSignatureImage" alt="Signature"><div class="signature-line"></div><div class="sign-name" id="previewSignatoryName">Signatory Name</div><div class="sign-role" id="previewSignatoryRole">Designation</div></div>
+              </div>
+            </div>
+            <div class="certificate-photo-panel hidden" id="previewPhotoPanel"><div class="certificate-photo" id="previewPhotoBox">Optional<br>Photo</div></div>
+          </div>
+        </div>
+        <div class="mini-helper" id="previewCertificateNote" style="text-align:center; margin-top:10px;">Only for presentation. Original certificate will be issued by the institute.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast">Certificate saved</div>
+<script>
+const INSTITUTES = ['Govt. Medical College, Jhunjhunu','Dist. Collector, Jhunjhunu','PHED Water Works Jhunjhunu','Govt. Nursing College, Jhunjhunu','Govt. Community Health Centre (CHC), Jhunjhunu','Govt. Primary Health Centre (PHC), Jhunjhunu','Govt. Health Sub Centre, Jhunjhunu'];
+let photoMode='without', currentPhotoMeta={url:'',drive_id:''}, defaultBackgroundUrl='', currentSignatureUrl='', editingCertificateNo='';
+document.getElementById('issueDate').value = new Date().toISOString().split('T')[0];
+function getInstituteValue(){ const institute=document.getElementById('certificateInstitute').value; return institute==='Other'?(document.getElementById('otherInstituteName').value.trim()||'Other'):institute; }
+function handleInstituteChange(){ document.getElementById('otherInstituteWrap').classList.toggle('hidden', document.getElementById('certificateInstitute').value!=='Other'); loadCertificateSettings(); loadCertificateList(); updatePreview(); }
+function setPhotoMode(mode){ photoMode=mode==='with'?'with':'without'; document.getElementById('photoModeSelect').value=photoMode; document.getElementById('photoUploadGroup').classList.toggle('hidden',photoMode!=='with'); document.getElementById('photoUploadStatus').classList.toggle('hidden',photoMode!=='with'); document.getElementById('previewPhotoPanel').classList.toggle('hidden',photoMode!=='with'); updatePreview(); }
+async function loadCertificateSettings(){ try{ const [certRes, appRes]=await Promise.all([fetch(`/api/certificate-settings?institute=${encodeURIComponent(getInstituteValue())}`),fetch(`/api/settings?institute=${encodeURIComponent(getInstituteValue())}`)]); const certData=await certRes.json(); const appData=await appRes.json(); defaultBackgroundUrl=certData.background_url||''; currentSignatureUrl=appData.signature_url||''; document.getElementById('signatureUploadStatus').textContent=currentSignatureUrl?'Signature ready for this certificate.':'No signature uploaded yet. Upload it with password.'; }catch(e){ defaultBackgroundUrl=''; currentSignatureUrl=''; document.getElementById('signatureUploadStatus').textContent='Unable to load signature right now.'; } applyBackground(); updatePreview(); }
+function applyBackground(){ document.getElementById('certificateSheet').style.setProperty('--cert-bg-image',defaultBackgroundUrl?`url("${defaultBackgroundUrl}")`:'none'); }
+async function handleCertificatePhoto(input){ if(!input.files.length) return; const formData=new FormData(); formData.append('photo',input.files[0]); try{ const res=await fetch('/api/upload-photo',{method:'POST',body:formData}); const data=await res.json(); if(!res.ok) throw new Error(data.error||'Upload failed'); currentPhotoMeta={url:data.photo_url||'',drive_id:data.photo_drive_id||''}; document.getElementById('photoUploadStatus').textContent='Certificate photo uploaded successfully.'; updatePreview(); }catch(e){ alert(e.message||'Photo upload failed.'); } input.value=''; }
+async function handleCertificateSignature(input){ if(!input.files.length) return; const password=window.prompt('Enter signature upload password'); if(password===null){ input.value=''; return; } const formData=new FormData(); formData.append('signature',input.files[0]); formData.append('password',password); try{ const res=await fetch('/api/upload-signature',{method:'POST',body:formData}); const data=await res.json(); if(!res.ok) throw new Error(data.error||'Signature upload failed'); currentSignatureUrl=data.signature_url||''; document.getElementById('signatureUploadStatus').textContent='Signature uploaded successfully.'; updatePreview(); }catch(e){ alert(e.message||'Signature upload failed.'); } input.value=''; }
+function updatePreview(){ const sheet=document.getElementById('certificateSheet'); const hasPhoto=photoMode==='with'; sheet.className=`certificate-sheet ${document.getElementById('themeStyle').value}${hasPhoto?' has-photo':''}`; document.getElementById('previewTitle').textContent=document.getElementById('certificateTitle').value||'Certificate of Achievement'; document.getElementById('previewInstitute').textContent=getInstituteValue()||'Institute Name'; document.getElementById('previewName').textContent=document.getElementById('recipientName').value||'Recipient Name'; document.getElementById('previewPresentedFor').textContent=document.getElementById('presentedFor').value||'for outstanding contribution and dedicated service.'; document.getElementById('previewAchievement').textContent=document.getElementById('achievementText').value||'In recognition of sincere effort, discipline, and valuable participation.'; document.getElementById('previewCertificateNo').textContent=document.getElementById('certificateNo').value||'Auto on Save'; document.getElementById('previewIssueDate').textContent=formatDate(document.getElementById('issueDate').value)||'-'; document.getElementById('previewSignatoryName').textContent=document.getElementById('signatoryName').value||'Signatory Name'; document.getElementById('previewSignatoryRole').textContent=document.getElementById('signatoryRole').value||'Designation'; document.getElementById('previewPhotoBox').innerHTML=(hasPhoto&&currentPhotoMeta.url)?`<img src="${currentPhotoMeta.url}?t=${Date.now()}" alt="Recipient photo">`:'Optional<br>Photo'; document.getElementById('previewCertificateNote').textContent='Only for presentation. Original certificate will be issued by the institute.'; const signatureImage=document.getElementById('previewSignatureImage'); if(currentSignatureUrl){ signatureImage.src=`${currentSignatureUrl}${currentSignatureUrl.includes('?')?'&':'?'}t=${Date.now()}`; signatureImage.classList.remove('hidden'); } else { signatureImage.removeAttribute('src'); signatureImage.classList.add('hidden'); } }
+function formatDate(value){ if(!value) return ''; const parts=value.split('-'); return parts.length===3?`${parts[2]}/${parts[1]}/${parts[0]}`:value; }
+function enhanceAchievementText(){ const recipient=document.getElementById('recipientName').value.trim()||'the recipient'; const title=document.getElementById('certificateTitle').value||'Certificate of Achievement'; const presentedFor=document.getElementById('presentedFor').value.trim()||'outstanding contribution and dedicated service'; const institute=getInstituteValue()||'the institute'; const dateText=formatDate(document.getElementById('issueDate').value)||'this occasion'; const baseText=document.getElementById('achievementText').value.trim(); const enhanced=`This ${title.toLowerCase()} is proudly presented to ${recipient} in recognition of ${presentedFor}. ${baseText ? baseText.charAt(0).toUpperCase()+baseText.slice(1).replace(/\s+$/,'') : recipient+' has demonstrated commitment, professionalism, and meaningful contribution to '+institute+'.'} This recognition is awarded on ${dateText} with appreciation for the positive impact created through dedicated effort and service.`; document.getElementById('achievementText').value=enhanced; updatePreview(); }
+async function saveCertificate(){ const recipientName=document.getElementById('recipientName').value.trim(); if(!recipientName){ alert('Please enter recipient name.'); return; } const payload={ certificate_no:editingCertificateNo||document.getElementById('certificateNo').value.trim(), institute_name:getInstituteValue(), certificate_title:document.getElementById('certificateTitle').value, recipient_name:recipientName, presented_for:document.getElementById('presentedFor').value.trim(), achievement_text:document.getElementById('achievementText').value.trim(), certificate_note:'Only for presentation. Original certificate will be issued by the institute.', issue_date:document.getElementById('issueDate').value, signatory_name:document.getElementById('signatoryName').value.trim(), signatory_role:document.getElementById('signatoryRole').value.trim(), theme_style:document.getElementById('themeStyle').value, photo_mode:photoMode, photo_url:currentPhotoMeta.url||'', photo_drive_id:currentPhotoMeta.drive_id||'', certificate_background_url:defaultBackgroundUrl||'' }; try{ const res=await fetch('/api/certificates',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const data=await res.json(); if(!res.ok) throw new Error(data.error||'Save failed'); editingCertificateNo=data.certificate_no||''; document.getElementById('certificateNo').value=editingCertificateNo; updatePreview(); showToast((data.status==='updated'?'Updated':'Saved')+' certificate '+editingCertificateNo); await loadCertificateList(); }catch(e){ alert(e.message||'Certificate save failed.'); } }
+async function loadCertificateList(){ const list=document.getElementById('certificateList'); try{ const res=await fetch(`/api/certificates?institute=${encodeURIComponent(getInstituteValue())}`); const data=await res.json(); const certificates=data.certificates||[]; if(!certificates.length){ list.innerHTML='<div class="helper">No certificates saved for this institute yet.</div>'; return; } list.innerHTML=certificates.slice().reverse().map(c=>`<div class="record-item"><strong>${escapeHtml(c.recipient_name||'Unnamed')}</strong><span>${escapeHtml(c.certificate_title||'-')}</span><span>${escapeHtml(c.certificate_no||'-')} | ${escapeHtml(c.issue_date||'-')}</span><button type="button" onclick="editCertificate('${c.certificate_no}')">Edit</button></div>`).join(''); }catch(e){ list.innerHTML='<div class="helper">Unable to load certificates right now.</div>'; } }
+async function editCertificate(certificateNo){ const res=await fetch(`/api/certificates?institute=${encodeURIComponent(getInstituteValue())}`); const data=await res.json(); const certificate=(data.certificates||[]).find(item=>item.certificate_no===certificateNo); if(!certificate){ alert('Certificate not found.'); return; } editingCertificateNo=certificate.certificate_no||''; const instituteValue=certificate.institute_name||''; if(INSTITUTES.includes(instituteValue)){ document.getElementById('certificateInstitute').value=instituteValue; document.getElementById('otherInstituteName').value=''; } else { document.getElementById('certificateInstitute').value='Other'; document.getElementById('otherInstituteName').value=instituteValue; } document.getElementById('certificateTitle').value=certificate.certificate_title||'Certificate of Achievement'; document.getElementById('certificateNo').value=certificate.certificate_no||''; document.getElementById('recipientName').value=certificate.recipient_name||''; document.getElementById('presentedFor').value=certificate.presented_for||''; document.getElementById('achievementText').value=certificate.achievement_text||''; document.getElementById('issueDate').value=certificate.issue_date||new Date().toISOString().split('T')[0]; document.getElementById('signatoryName').value=certificate.signatory_name||''; document.getElementById('signatoryRole').value=certificate.signatory_role||''; document.getElementById('themeStyle').value=certificate.theme_style||'classic'; currentPhotoMeta={url:certificate.photo_url||'',drive_id:certificate.photo_drive_id||''}; await handleInstituteChange(); setPhotoMode(certificate.photo_mode==='with'?'with':'without'); updatePreview(); showToast('Loaded certificate '+certificateNo); }
+function resetCertificateForm(){ editingCertificateNo=''; document.getElementById('certificateNo').value=''; document.getElementById('recipientName').value=''; document.getElementById('presentedFor').value=''; document.getElementById('achievementText').value=''; document.getElementById('signatoryName').value=''; document.getElementById('signatoryRole').value=''; document.getElementById('issueDate').value=new Date().toISOString().split('T')[0]; document.getElementById('themeStyle').value='classic'; currentPhotoMeta={url:'',drive_id:''}; document.getElementById('photoUploadStatus').textContent='No certificate photo uploaded yet.'; setPhotoMode('without'); applyBackground(); updatePreview(); }
+function escapeHtml(value){ return String(value||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function showToast(message){ const toast=document.getElementById('toast'); toast.textContent=message; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),3200); }
+handleInstituteChange(); setPhotoMode('without'); updatePreview();
+</script>
+</body>
+</html>

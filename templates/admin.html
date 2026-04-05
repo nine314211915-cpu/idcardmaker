@@ -513,7 +513,9 @@
       <span class="brand-chip">AI Enabled</span>
       <a href="https://aipexlabs.in" target="_blank" rel="noopener noreferrer">Aipexlabs.in</a>
     </div>
-    <a href="/" class="nav-link">New Entry</a>
+    <a href="/" class="nav-link">Home</a>
+    <a href="/id-card" class="nav-link">ID Card Page</a>
+    <a href="/certificate" class="nav-link">Certificate Page</a>
     <form method="post" action="/admin/logout" style="margin:0">
       <button class="nav-link" type="submit" style="background:rgba(255,255,255,0.08)">Logout</button>
     </form>
@@ -567,6 +569,18 @@
     <div class="asset-box">
       <div class="asset-preview" id="backgroundPreview">No preview</div>
     </div>
+    <div class="asset-box">
+      <h3>Certificate Background</h3>
+      <p>Upload one certificate background for the selected institute. Users can use the built-in themes while the admin background stays institute-specific.</p>
+      <div class="asset-actions">
+        <button class="btn btn-green" type="button" onclick="document.getElementById('certificateBackgroundInput').click()">Upload Certificate Background</button>
+        <span class="asset-status" id="certificateBackgroundStatus">No certificate background uploaded yet.</span>
+      </div>
+      <input type="file" id="certificateBackgroundInput" accept="image/*" style="display:none" onchange="handleCertificateBackgroundUpload(this)">
+    </div>
+    <div class="asset-box">
+      <div class="asset-preview" id="certificateBackgroundPreview">No preview</div>
+    </div>
   </div>
 </div>
 
@@ -611,7 +625,7 @@
 <script>
 let allRecords = [];
 let deleteTarget = null;
-let appSettings = { background_url: '', signature_url: '' };
+let appSettings = { background_url: '', signature_url: '', certificate_background_url: '' };
 const COLLEGE_INSTITUTES = ['Govt. Medical College, Jhunjhunu', 'Govt. Nursing College, Jhunjhunu'];
 
 function getSelectedInstitute() {
@@ -636,26 +650,49 @@ function getFilteredRecords() {
 async function loadSettings() {
   try {
     const institute = encodeURIComponent(getSelectedInstitute());
-    const res = await fetch(`/api/settings?institute=${institute}`);
-    appSettings = await res.json();
+    const [cardRes, certificateRes] = await Promise.all([
+      fetch(`/api/settings?institute=${institute}`),
+      fetch(`/api/certificate-settings?institute=${institute}`)
+    ]);
+    const cardSettings = await cardRes.json();
+    const certificateSettings = await certificateRes.json();
+    appSettings = {
+      ...cardSettings,
+      certificate_background_url: certificateSettings.background_url || ''
+    };
     renderBackgroundPreview();
   } catch (e) {
-    appSettings = { background_url: '', signature_url: '' };
+    appSettings = { background_url: '', signature_url: '', certificate_background_url: '' };
   }
 }
 
 function renderBackgroundPreview() {
   const preview = document.getElementById('backgroundPreview');
   const status = document.getElementById('backgroundStatus');
+  const certificatePreview = document.getElementById('certificateBackgroundPreview');
+  const certificateStatus = document.getElementById('certificateBackgroundStatus');
   if (!getSelectedInstitute()) {
     preview.textContent = 'Select an institute';
     status.textContent = 'Choose an institute to view or upload its background.';
+    certificatePreview.textContent = 'Select an institute';
+    certificateStatus.textContent = 'Choose an institute to view or upload its certificate background.';
   } else if (appSettings.background_url) {
     preview.innerHTML = `<img src="${appSettings.background_url}?t=${Date.now()}" alt="Card background preview">`;
     status.textContent = 'Background uploaded and active.';
   } else {
     preview.textContent = 'No preview';
     status.textContent = 'No background uploaded yet.';
+  }
+
+  if (!getSelectedInstitute()) {
+    return;
+  }
+  if (appSettings.certificate_background_url) {
+    certificatePreview.innerHTML = `<img src="${appSettings.certificate_background_url}?t=${Date.now()}" alt="Certificate background preview">`;
+    certificateStatus.textContent = 'Certificate background uploaded and active.';
+  } else {
+    certificatePreview.textContent = 'No preview';
+    certificateStatus.textContent = 'No certificate background uploaded yet.';
   }
 }
 
@@ -678,6 +715,29 @@ async function handleBackgroundUpload(input) {
     renderBackgroundPreview();
   } catch (e) {
     alert(e.message || 'Background upload failed.');
+  }
+  input.value = '';
+}
+
+async function handleCertificateBackgroundUpload(input) {
+  if (!input.files.length) return;
+  const institute = getSelectedInstitute();
+  if (!institute) {
+    alert('Please select an institute first.');
+    input.value = '';
+    return;
+  }
+  const formData = new FormData();
+  formData.append('background', input.files[0]);
+  formData.append('institute', institute);
+  try {
+    const res = await fetch('/api/upload-certificate-background', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+    appSettings.certificate_background_url = data.background_url;
+    renderBackgroundPreview();
+  } catch (e) {
+    alert(e.message || 'Certificate background upload failed.');
   }
   input.value = '';
 }
