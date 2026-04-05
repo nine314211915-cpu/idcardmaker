@@ -1,18 +1,41 @@
 from flask import Flask, request, jsonify, render_template, send_file, send_from_directory
-import json, os, random, string, zipfile, io
+import json, os, random, string, zipfile, io, tempfile
 from datetime import datetime
 from PIL import Image, ImageOps
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
-ASSET_DIR = os.path.join(BASE_DIR, "static", "assets")
-DATA_FILE = os.path.join(BASE_DIR, "records.json")
-SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
+RUNTIME_DIR = tempfile.gettempdir() if os.environ.get("VERCEL") else BASE_DIR
+UPLOAD_DIR = os.path.join(RUNTIME_DIR, "static", "uploads")
+ASSET_DIR = os.path.join(RUNTIME_DIR, "static", "assets")
+DATA_FILE = os.path.join(RUNTIME_DIR, "records.json")
+SETTINGS_FILE = os.path.join(RUNTIME_DIR, "settings.json")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(ASSET_DIR, exist_ok=True)
 app.config["SIGNATURE_UPLOAD_PASSWORD"] = os.environ.get("SIGNATURE_UPLOAD_PASSWORD", "admin123")
+
+for bundled_dir, runtime_dir in [
+    (os.path.join(BASE_DIR, "static", "uploads"), UPLOAD_DIR),
+    (os.path.join(BASE_DIR, "static", "assets"), ASSET_DIR),
+]:
+    if bundled_dir == runtime_dir or not os.path.isdir(bundled_dir):
+        continue
+    for filename in os.listdir(bundled_dir):
+        src = os.path.join(bundled_dir, filename)
+        dst = os.path.join(runtime_dir, filename)
+        if os.path.isfile(src) and not os.path.exists(dst):
+            with open(src, "rb") as src_file, open(dst, "wb") as dst_file:
+                dst_file.write(src_file.read())
+
+for bundled_file, runtime_file in [
+    (os.path.join(BASE_DIR, "records.json"), DATA_FILE),
+    (os.path.join(BASE_DIR, "settings.json"), SETTINGS_FILE),
+]:
+    if bundled_file == runtime_file or not os.path.isfile(bundled_file) or os.path.exists(runtime_file):
+        continue
+    with open(bundled_file, "rb") as src_file, open(runtime_file, "wb") as dst_file:
+        dst_file.write(src_file.read())
 
 def load_records():
     if os.path.exists(DATA_FILE):
@@ -94,7 +117,7 @@ def save_background_image(file_storage, institute_name):
     img = ImageOps.exif_transpose(img).convert("RGB")
     filename = f"card_background_{make_asset_slug(institute_name)}.jpg"
     img.save(os.path.join(ASSET_DIR, filename), "JPEG", quality=92)
-    return f"/static/assets/{filename}"
+    return f"/generated-assets/{filename}"
 
 
 def save_signature_image(file_storage):
@@ -103,7 +126,7 @@ def save_signature_image(file_storage):
     if img.mode not in ("RGBA", "LA"):
         img = img.convert("RGBA")
     img.save(os.path.join(ASSET_DIR, "hod_signature.png"), "PNG")
-    return "/static/assets/hod_signature.png"
+    return "/generated-assets/hod_signature.png"
 
 @app.route("/")
 def index():
@@ -128,6 +151,10 @@ def get_settings():
 @app.route("/uploads/<filename>")
 def uploaded_file(filename):
     return send_from_directory(UPLOAD_DIR, filename)
+
+@app.route("/generated-assets/<filename>")
+def generated_asset(filename):
+    return send_from_directory(ASSET_DIR, filename)
 
 @app.route("/api/upload-photo", methods=["POST"])
 def upload_photo():
