@@ -38,6 +38,36 @@ Server runs at: http://localhost:5050
 - Records: `records.json`
 - Photos: `static/uploads/{SERIAL_NO}.jpg`
 
+## Google Drive Uploads
+
+You can make user uploads go to Google Drive through the backend.
+
+Required environment variables:
+
+- `GOOGLE_SERVICE_ACCOUNT_JSON` = full Google service account JSON in one line
+  or
+- `GOOGLE_SERVICE_ACCOUNT_FILE` = path to the service account JSON file
+
+Optional folder variables:
+
+- `GOOGLE_DRIVE_ROOT_FOLDER_ID`
+- `GOOGLE_DRIVE_PHOTOS_FOLDER_ID`
+- `GOOGLE_DRIVE_BACKGROUNDS_FOLDER_ID`
+- `GOOGLE_DRIVE_SIGNATURES_FOLDER_ID`
+
+How it works:
+
+- user uploads from the website
+- Flask receives the file
+- Flask uploads it to Google Drive
+- the saved record stores the returned Drive image URL and Drive file ID
+
+Important:
+
+- share the destination Drive folder with the service account email
+- for Vercel, add the environment variables in Project Settings
+- uploaded images are made public-read so they can display inside the app
+
 ## File Structure
 
 ```

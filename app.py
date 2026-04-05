@@ -14,6 +14,12 @@ SETTINGS_FILE = os.path.join(RUNTIME_DIR, "settings.json")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(ASSET_DIR, exist_ok=True)
 app.config["SIGNATURE_UPLOAD_PASSWORD"] = os.environ.get("SIGNATURE_UPLOAD_PASSWORD", "admin123")
+app.config["GOOGLE_DRIVE_ROOT_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_ROOT_FOLDER_ID", "").strip()
+app.config["GOOGLE_DRIVE_PHOTOS_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_PHOTOS_FOLDER_ID", "").strip()
+app.config["GOOGLE_DRIVE_BACKGROUNDS_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_BACKGROUNDS_FOLDER_ID", "").strip()
+app.config["GOOGLE_DRIVE_SIGNATURES_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_SIGNATURES_FOLDER_ID", "").strip()
+
+_drive_service = None
 
 for bundled_dir, runtime_dir in [
     (os.path.join(BASE_DIR, "static", "uploads"), UPLOAD_DIR),
@@ -49,7 +55,13 @@ def save_records(records):
 
 
 def load_settings():
-    defaults = {"background_url": "", "signature_url": "", "backgrounds": {}}
+    defaults = {
+        "background_url": "",
+        "signature_url": "",
+        "signature_drive_id": "",
+        "backgrounds": {},
+        "background_drive_ids": {},
+    }
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, "r") as f:
             try:
@@ -64,6 +76,111 @@ def load_settings():
 def save_settings(settings):
     with open(SETTINGS_FILE, "w") as f:
         json.dump(settings, f, indent=2)
+
+
+def load_drive_service_account_info():
+    raw_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
+    if raw_json:
+        return json.loads(raw_json)
+
+    file_path = os.environ.get("GOOGLE_SERVICE_ACCOUNT_FILE", "").strip()
+    if file_path and os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return None
+
+
+def is_drive_enabled():
+    return load_drive_service_account_info() is not None
+
+
+def get_drive_service():
+    global _drive_service
+    if _drive_service is not None:
+        return _drive_service
+
+    service_account_info = load_drive_service_account_info()
+    if not service_account_info:
+        return None
+
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+
+    credentials = service_account.Credentials.from_service_account_info(
+        service_account_info,
+        scopes=["https://www.googleapis.com/auth/drive"],
+    )
+    _drive_service = build("drive", "v3", credentials=credentials, cache_discovery=False)
+    return _drive_service
+
+
+def get_drive_folder_id(kind):
+    return (
+        app.config.get(f"GOOGLE_DRIVE_{kind.upper()}_FOLDER_ID")
+        or app.config["GOOGLE_DRIVE_ROOT_FOLDER_ID"]
+        or None
+    )
+
+
+def make_drive_public(service, file_id):
+    service.permissions().create(
+        fileId=file_id,
+        body={"type": "anyone", "role": "reader"},
+        fields="id",
+    ).execute()
+
+
+def build_drive_view_url(file_id):
+    return f"https://drive.google.com/uc?export=view&id={file_id}"
+
+
+def upload_bytes_to_drive(file_bytes, filename, mime_type, kind):
+    service = get_drive_service()
+    if service is None:
+        return None, None
+
+    from googleapiclient.http import MediaIoBaseUpload
+
+    metadata = {"name": filename}
+    folder_id = get_drive_folder_id(kind)
+    if folder_id:
+        metadata["parents"] = [folder_id]
+
+    media = MediaIoBaseUpload(io.BytesIO(file_bytes), mimetype=mime_type, resumable=False)
+    created = service.files().create(body=metadata, media_body=media, fields="id").execute()
+    file_id = created["id"]
+    make_drive_public(service, file_id)
+    return file_id, build_drive_view_url(file_id)
+
+
+def delete_drive_file(file_id):
+    if not file_id:
+        return
+    service = get_drive_service()
+    if service is None:
+        return
+    try:
+        service.files().delete(fileId=file_id).execute()
+    except Exception:
+        pass
+
+
+def download_drive_file(file_id):
+    if not file_id:
+        return None
+    service = get_drive_service()
+    if service is None:
+        return None
+
+    from googleapiclient.http import MediaIoBaseDownload
+
+    request = service.files().get_media(fileId=file_id)
+    buffer = io.BytesIO()
+    downloader = MediaIoBaseDownload(buffer, request)
+    done = False
+    while not done:
+        _, done = downloader.next_chunk()
+    return buffer.getvalue()
 
 
 def make_asset_slug(value):
@@ -116,8 +233,14 @@ def save_background_image(file_storage, institute_name):
     img = Image.open(file_storage.stream)
     img = ImageOps.exif_transpose(img).convert("RGB")
     filename = f"card_background_{make_asset_slug(institute_name)}.jpg"
-    img.save(os.path.join(ASSET_DIR, filename), "JPEG", quality=92)
-    return f"/generated-assets/{filename}"
+    local_path = os.path.join(ASSET_DIR, filename)
+    img.save(local_path, "JPEG", quality=92)
+    drive_id = None
+    drive_url = None
+    if is_drive_enabled():
+        with open(local_path, "rb") as f:
+            drive_id, drive_url = upload_bytes_to_drive(f.read(), filename, "image/jpeg", "backgrounds")
+    return drive_url or f"/generated-assets/{filename}", drive_id
 
 
 def save_signature_image(file_storage):
@@ -125,8 +248,14 @@ def save_signature_image(file_storage):
     img = ImageOps.exif_transpose(img)
     if img.mode not in ("RGBA", "LA"):
         img = img.convert("RGBA")
-    img.save(os.path.join(ASSET_DIR, "hod_signature.png"), "PNG")
-    return "/generated-assets/hod_signature.png"
+    local_path = os.path.join(ASSET_DIR, "hod_signature.png")
+    img.save(local_path, "PNG")
+    drive_id = None
+    drive_url = None
+    if is_drive_enabled():
+        with open(local_path, "rb") as f:
+            drive_id, drive_url = upload_bytes_to_drive(f.read(), "hod_signature.png", "image/png", "signatures")
+    return drive_url or "/generated-assets/hod_signature.png", drive_id
 
 @app.route("/")
 def index():
@@ -169,9 +298,19 @@ def upload_photo():
     try:
         autocrop_passport(raw_path, final_path)
         os.remove(raw_path)
-    except Exception as e:
+    except Exception:
         os.rename(raw_path, final_path)
-    return jsonify({"serial_no": serial, "photo_url": f"/uploads/{filename}"})
+    photo_url = f"/uploads/{filename}"
+    photo_drive_id = None
+    if is_drive_enabled():
+        try:
+            with open(final_path, "rb") as photo_file:
+                photo_drive_id, drive_url = upload_bytes_to_drive(photo_file.read(), filename, "image/jpeg", "photos")
+                if drive_url:
+                    photo_url = drive_url
+        except Exception:
+            photo_drive_id = None
+    return jsonify({"serial_no": serial, "photo_url": photo_url, "photo_drive_id": photo_drive_id})
 
 
 @app.route("/api/upload-background", methods=["POST"])
@@ -185,11 +324,16 @@ def upload_background():
     if not secure_filename(file_storage.filename):
         return jsonify({"error": "Invalid filename"}), 400
     try:
-        background_url = save_background_image(file_storage, institute)
+        background_url, background_drive_id = save_background_image(file_storage, institute)
     except Exception:
         return jsonify({"error": "Unable to process background image"}), 400
     settings = load_settings()
+    old_drive_id = settings.setdefault("background_drive_ids", {}).get(institute)
+    if old_drive_id and old_drive_id != background_drive_id:
+        delete_drive_file(old_drive_id)
     settings.setdefault("backgrounds", {})[institute] = background_url
+    if background_drive_id:
+        settings.setdefault("background_drive_ids", {})[institute] = background_drive_id
     if settings.get("background_url") and not settings["backgrounds"].get("default"):
         settings["backgrounds"]["default"] = settings["background_url"]
     save_settings(settings)
@@ -206,11 +350,15 @@ def upload_signature():
     if not secure_filename(file_storage.filename):
         return jsonify({"error": "Invalid filename"}), 400
     try:
-        signature_url = save_signature_image(file_storage)
+        signature_url, signature_drive_id = save_signature_image(file_storage)
     except Exception:
         return jsonify({"error": "Unable to process signature image"}), 400
     settings = load_settings()
+    old_signature_drive_id = settings.get("signature_drive_id")
+    if old_signature_drive_id and old_signature_drive_id != signature_drive_id:
+        delete_drive_file(old_signature_drive_id)
     settings["signature_url"] = signature_url
+    settings["signature_drive_id"] = signature_drive_id or ""
     save_settings(settings)
     return jsonify({"status": "saved", "signature_url": signature_url})
 
@@ -278,8 +426,11 @@ def get_records():
 @app.route("/api/delete/<serial_no>", methods=["DELETE"])
 def delete_record(serial_no):
     records = load_records()
+    record_to_delete = next((r for r in records if r.get("serial_no") == serial_no), None)
     records = [r for r in records if r.get("serial_no") != serial_no]
     save_records(records)
+    if record_to_delete and record_to_delete.get("photo_drive_id"):
+        delete_drive_file(record_to_delete.get("photo_drive_id"))
     # Delete photo
     photo_path = os.path.join(UPLOAD_DIR, f"{serial_no}.jpg")
     if os.path.exists(photo_path):
@@ -340,6 +491,10 @@ def export_zip():
             photo_path = os.path.join(UPLOAD_DIR, f"{serial}.jpg")
             if os.path.exists(photo_path):
                 zf.write(photo_path, f"photos/{serial}.jpg")
+            elif rec.get("photo_drive_id"):
+                photo_bytes = download_drive_file(rec.get("photo_drive_id"))
+                if photo_bytes:
+                    zf.writestr(f"photos/{serial}.jpg", photo_bytes)
         # Also add JSON export
         zf.writestr("records.json", json.dumps(records, indent=2))
     buf.seek(0)

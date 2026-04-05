@@ -963,6 +963,7 @@ let currentType = 'student';
 let appSettings = { background_url: '', signature_url: '' };
 let pendingSignaturePassword = '';
 let lastLoadedSubmittedSerial = '';
+let currentPhotoMeta = { url: '', drive_id: '' };
 
 document.getElementById('insertedDate').value = new Date().toISOString().split('T')[0];
 
@@ -1172,6 +1173,10 @@ async function handlePhotoUpload(input) {
   try {
     const res = await fetch('/api/upload-photo', { method: 'POST', body: formData });
     const data = await res.json();
+    currentPhotoMeta = {
+      url: data.photo_url || '',
+      drive_id: data.photo_drive_id || ''
+    };
     document.getElementById('serialNo').value = data.serial_no;
     document.getElementById('previewSerial').textContent = data.serial_no;
     document.getElementById('prevSerial').textContent = data.serial_no;
@@ -1260,7 +1265,8 @@ async function saveCurrentCard() {
     contact: document.getElementById('contact').value,
     address: document.getElementById('address').value,
     inserted_date: document.getElementById('insertedDate').value,
-    photo_url: `/uploads/${serial}.jpg`,
+    photo_url: currentPhotoMeta.url || `/uploads/${serial}.jpg`,
+    photo_drive_id: currentPhotoMeta.drive_id || '',
   };
   if (effectiveType === 'student') {
     payload.course = document.getElementById('course').value;
@@ -1402,12 +1408,18 @@ function populateFormFromRecord(record) {
   document.getElementById('employeeId').value = record.employee_id || '';
 
   if (record.photo_url) {
+    currentPhotoMeta = {
+      url: record.photo_url,
+      drive_id: record.photo_drive_id || ''
+    };
     const photoUrl = record.photo_url + '?t=' + Date.now();
     document.getElementById('photoPreviewImg').src = photoUrl;
     document.getElementById('photoPlaceholder').style.display = 'none';
     document.getElementById('photoPreviewWrap').classList.add('visible');
     document.getElementById('photoArea').classList.add('has-photo');
     document.getElementById('cardPhotoWrap').innerHTML = `<img src="${photoUrl}" alt="Photo">`;
+  } else {
+    currentPhotoMeta = { url: '', drive_id: '' };
   }
 
   updatePreview();
@@ -1430,7 +1442,8 @@ async function saveCurrentCard() {
     contact: document.getElementById('contact').value,
     address: document.getElementById('address').value,
     inserted_date: document.getElementById('insertedDate').value,
-    photo_url: `/uploads/${serial}.jpg`,
+    photo_url: currentPhotoMeta.url || `/uploads/${serial}.jpg`,
+    photo_drive_id: currentPhotoMeta.drive_id || '',
   };
 
   if (effectiveType === 'student') {
@@ -1496,11 +1509,13 @@ function resetForm() {
   document.getElementById('address').value = '';
   document.getElementById('insertedDate').value = new Date().toISOString().split('T')[0];
   document.getElementById('photoInput').value = '';
+  document.getElementById('cameraInput').value = '';
   document.getElementById('photoPlaceholder').style.display = '';
   document.getElementById('photoPreviewWrap').classList.remove('visible');
   document.getElementById('photoArea').classList.remove('has-photo');
   document.getElementById('cardPhotoWrap').innerHTML = '<span>Photo</span>';
   document.getElementById('previewSerial').textContent = '-';
+  currentPhotoMeta = { url: '', drive_id: '' };
 
   if (type === 'student') {
     document.getElementById('course').value = '';
