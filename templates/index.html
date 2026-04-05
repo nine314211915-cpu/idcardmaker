@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Medical College — ID Card System</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #fdf8f0;
+    --cream2: #f5ede0;
+    --red: #8b0000;
+    --red-light: #c0392b;
+    --red-soft: #f9e8e8;
+    --gold: #b5860d;
+    --text: #2c1810;
+    --muted: #7a6a60;
+    --border: #ddd0c0;
+    --white: #fff;
+    --shadow: 0 2px 12px rgba(139,0,0,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 13px;
+    background: var(--cream);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--red);
+    color: white;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+  }
+  header .logo-icon {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, #fff7ea, #ffffff);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.35);
+  }
+  header .logo-icon svg { width: 28px; height: 28px; }
+  header .brand-block { display: flex; flex-direction: column; gap: 3px; }
+  header .right-brand {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.22);
+    border-radius: 12px;
+  }
+  header .brand-top {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    opacity: 0.9;
+  }
+  header .brand-top a,
+  header .brand-top a:visited {
+    color: white;
+    text-decoration: none;
+  }
+  header .brand-top a:hover { text-decoration: underline; }
+  header .brand-chip {
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-weight: 600;
+  }
+  header h1 { font-family: 'Playfair Display', serif; font-size: 18px; line-height: 1.1; }
+  header p { font-size: 11px; opacity: 0.85; }
+  header .credit-line {
+    width: 100%;
+    font-size: 11px;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.92);
+    padding-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.16);
+  }
+  header .credit-line strong { color: #ffe6b8; }
+  header .nav-link {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 12px;
+    border: 1px solid rgba(255,255,255,0.3);
+    transition: background 0.2s;
+  }
+  header .nav-link:hover { background: rgba(255,255,255,0.25); }
+
+  /* MAIN LAYOUT */
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 16px;
+    align-items: start;
+  }
+
+  /* PANEL */
+  .panel {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .panel-header {
+    background: var(--red);
+    color: white;
+    padding: 10px 16px;
+    font-family: 'Playfair Display', serif;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-body { padding: 14px; }
+
+  /* TYPE SELECTOR */
+  .type-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    max-width: 220px;
+  }
+  .type-selector.single { grid-template-columns: 1fr; }
+  .triple-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 220px) minmax(0, 220px) minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    margin-bottom: 14px;
+  }
+  .helper-text {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+    padding-top: 8px;
+  }
+  .hidden-block { display: none !important; }
+  .type-btn {
+    padding: 10px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    background: var(--cream);
+    cursor: pointer;
+    text-align: center;
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    transition: all 0.2s;
+  }
+  .type-btn.active {
+    border-color: var(--red);
+    background: var(--red-soft);
+    color: var(--red);
+  }
+  .type-btn .icon { font-size: 20px; display: block; margin-bottom: 4px; }
+
+  /* FORM */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .compact-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    margin-bottom: 10px;
+  }
+  .compact-field {
+    max-width: 340px;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 3px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  label .req { color: var(--red); }
+  input, select, textarea {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-size: 12px;
+    font-family: 'Source Sans 3', sans-serif;
+    background: white;
+    color: var(--text);
+    transition: border 0.2s;
+    outline: none;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--red);
+    box-shadow: 0 0 0 2px rgba(139,0,0,0.07);
+  }
+  input[readonly] {
+    background: var(--cream2);
+    color: var(--muted);
+    cursor: default;
+  }
+  textarea { resize: vertical; min-height: 52px; }
+
+  /* PHOTO UPLOAD */
+  .photo-upload-area {
+    border: 2px dashed var(--border);
+    border-radius: 6px;
+    background: var(--cream);
+    cursor: pointer;
+    transition: all 0.2s;
+    overflow: hidden;
+    position: relative;
+    max-width: 280px;
+  }
+  .photo-upload-area:hover { border-color: var(--red); background: var(--red-soft); }
+  .photo-upload-area.has-photo { border-style: solid; border-color: var(--red); }
+  .photo-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 8px;
+    gap: 4px;
+    min-height: 80px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .photo-placeholder .icon { font-size: 24px; }
+  .photo-preview-wrap {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+  }
+  .photo-preview-wrap.visible { display: flex; }
+  .photo-preview-wrap img {
+    width: 52px; height: 70px;
+    object-fit: cover;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+  }
+  .photo-preview-wrap .photo-info { flex: 1; font-size: 11px; }
+  .photo-preview-wrap .photo-info strong { color: var(--red); font-size: 12px; display: block; }
+  .photo-preview-wrap .change-photo {
+    font-size: 10px;
+    color: var(--red);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  #photoInput { display: none; }
+
+  /* DIVIDER */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 12px 0;
+  }
+
+  /* SUBMIT */
+  .btn-submit {
+    width: 100%;
+    padding: 11px;
+    background: var(--red);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: 'Playfair Display', serif;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .btn-submit:hover { background: var(--red-light); }
+  .btn-submit:active { transform: scale(0.99); }
+  .btn-submit.secondary {
+    background: white;
+    color: var(--red);
+    border: 1px solid var(--red);
+  }
+  .btn-submit.secondary:hover { background: var(--red-soft); }
+  .action-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .batch-box {
+    margin-top: 14px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--cream);
+  }
+  .batch-meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .batch-pill {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+  .batch-pill strong {
+    display: block;
+    color: var(--red);
+    font-size: 15px;
+    margin-top: 2px;
+  }
+  .submitted-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .submitted-card {
+    width: 100%;
+    text-align: left;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: white;
+    padding: 9px 10px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .submitted-card:hover {
+    border-color: var(--red);
+    background: var(--red-soft);
+  }
+  .submitted-card strong {
+    display: block;
+    color: var(--red);
+    font-size: 12px;
+  }
+  .submitted-card span {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .batch-note {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  /* SUCCESS TOAST */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: #1a5c1a;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: transform 0.3s;
+    z-index: 1000;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* CARD PREVIEW */
+  .card-preview-wrap {
+    position: sticky;
+    top: 16px;
+  }
+  .id-card {
+    background: white;
+    border: 2px solid var(--red);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(139,0,0,0.15);
+    position: relative;
+  }
+  .id-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: var(--card-bg, none);
+    background-size: cover;
+    background-position: center;
+    opacity: 0.14;
+    pointer-events: none;
+  }
+  .id-card > * {
+    position: relative;
+    z-index: 1;
+  }
+  .card-header {
+    background: var(--red);
+    color: white;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-header .ch-icon {
+    width: 28px; height: 28px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .card-header .ch-text { flex: 1; }
+  .card-header .ch-text .institute-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  .card-header .ch-text .sub { font-size: 9px; opacity: 0.8; letter-spacing: 0.5px; text-transform: uppercase; }
+  .card-body {
+    padding: 12px;
+    display: flex;
+    gap: 10px;
+  }
+  .card-photo {
+    width: 72px; height: 90px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--cream2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: var(--muted);
+    text-align: center;
+  }
+  .card-photo img { width: 100%; height: 100%; object-fit: cover; border-radius: 3px; }
+  .card-info { flex: 1; }
+  .card-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 14px;
+    color: var(--red);
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+  .card-role {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--gold);
+    margin-bottom: 6px;
+  }
+  .card-fields { display: grid; gap: 2px; }
+  .cf-row { display: flex; gap: 4px; align-items: flex-start; font-size: 10px; }
+  .cf-label { color: var(--muted); min-width: 56px; font-weight: 600; }
+  .cf-val { color: var(--text); flex: 1; }
+  .card-serial-bar {
+    background: var(--cream2);
+    border-top: 1px solid var(--border);
+    padding: 6px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .card-serial-bar .serial { font-size: 10px; font-weight: 700; color: var(--red); letter-spacing: 0.5px; font-family: monospace; }
+  .card-serial-bar .badge {
+    font-size: 9px;
+    background: var(--red);
+    color: white;
+    padding: 2px 7px;
+    border-radius: 10px;
+  }
+  .card-disclaimer {
+    padding: 7px 12px;
+    font-size: 9px;
+    color: var(--muted);
+    border-top: 1px dashed var(--border);
+    text-align: center;
+    font-style: italic;
+  }
+  .valid-bar {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 12px;
+    background: var(--red-soft);
+    border-top: 1px solid var(--border);
+    font-size: 9px;
+  }
+  .valid-bar span { color: var(--red); font-weight: 600; }
+  .signature-strip {
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px 12px 6px;
+    background: rgba(255,255,255,0.9);
+    border-top: 1px dashed var(--border);
+  }
+  .signature-box {
+    width: 108px;
+    text-align: center;
+  }
+  .signature-box img {
+    max-width: 100%;
+    max-height: 34px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto 4px;
+    mix-blend-mode: multiply;
+  }
+  .signature-box .sig-line {
+    border-top: 1px solid var(--text);
+    margin-bottom: 2px;
+  }
+  .signature-box .sig-label {
+    font-size: 8px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    color: var(--red);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .institute-row { margin-bottom: 12px; }
+  .signature-admin-box {
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px;
+    min-height: 100%;
+  }
+  .signature-admin-box h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    color: var(--red);
+    margin-bottom: 4px;
+  }
+  .signature-admin-box p {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    line-height: 1.4;
+  }
+  .signature-status {
+    font-size: 11px;
+    color: var(--red);
+    margin-bottom: 8px;
+  }
+  .btn-mini {
+    padding: 8px 10px;
+    background: var(--red);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 12px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .btn-mini:hover { background: var(--red-light); }
+
+  .loading-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(139,0,0,0.08);
+    backdrop-filter: blur(2px);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--red);
+    font-weight: 600;
+  }
+  .loading-overlay.show { display: flex; }
+  .spinner {
+    width: 32px; height: 32px;
+    border: 3px solid var(--border);
+    border-top-color: var(--red);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 768px) {
+    .container { grid-template-columns: 1fr; }
+    .card-preview-wrap { position: static; }
+    .form-grid { grid-template-columns: 1fr; }
+    .compact-grid, .triple-grid { grid-template-columns: 1fr; }
+    .photo-upload-area, .compact-field, .type-selector { max-width: none; }
+    header .right-brand { margin-left: 0; width: 100%; justify-content: space-between; }
+    .action-grid, .batch-meta { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#8b0000" stroke-width="1.8">
+      <path d="M12 3l7 4-7 4-7-4 7-4z"/>
+      <path d="M5 14l7 4 7-4"/>
+      <path d="M12 8v10"/>
+      <path d="M9 12h6"/>
+    </svg>
+  </div>
+  <div class="brand-block">
+    <h1>ID Card Data Collection System</h1>
+    <p>Institute and Department Identity Card Entry</p>
+  </div>
+  <div class="right-brand">
+    <div class="brand-top">
+      <span class="brand-chip">AI Enabled</span>
+      <a href="https://aipexlabs.in" target="_blank" rel="noopener noreferrer">Aipexlabs.in</a>
+    </div>
+    <a href="/admin" class="nav-link">Admin Panel</a>
+  </div>
+  <div class="credit-line">
+    Developed by <strong>Aipexlabs.in</strong> | CEO: <strong>Ayushman Arya</strong> | Developers: <strong>Manavi Arya</strong>, <strong>Garvit Arya</strong> | Legal Adviser: <strong>Anushka Arya</strong>
+  </div>
+</header>
+
+<div class="container">
+  <!-- LEFT: FORM -->
+  <div>
+    <div class="panel">
+      <div class="panel-header">New Entry - ID Card Data</div>
+      <div class="panel-body">
+
+        <!-- Institute Name -->
+        <div class="compact-grid institute-row">
+          <div class="form-group compact-field">
+            <label>Institute Name <span class="req">*</span></label>
+            <select id="instituteName" onchange="handleInstituteChange()">
+              <option value="Govt. Medical College, Jhunjhunu">Govt. Medical College, Jhunjhunu</option>
+              <option value="Dist. Collector, Jhunjhunu">Dist. Collector, Jhunjhunu</option>
+              <option value="PHED Water Works Jhunjhunu">PHED Water Works Jhunjhunu</option>
+              <option value="Govt. Nursing College, Jhunjhunu">Govt. Nursing College, Jhunjhunu</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group compact-field" id="otherInstituteWrap" style="display:none">
+            <label>Other Institute / Office <span class="req">*</span></label>
+            <input type="text" id="otherInstituteName" placeholder="Enter institute or office name" oninput="updatePreview(); loadSettings()">
+          </div>
+          <div class="signature-admin-box" style="display:none">
+            <h3>HOD Signature</h3>
+            <p>Upload once with password. It will appear on every ID card preview and saved card layout.</p>
+            <div class="signature-status" id="signatureStatus">No signature uploaded yet.</div>
+            <button class="btn-mini" type="button" onclick="startSignatureUpload()">Upload Signature</button>
+            <input type="file" id="signatureInput" accept="image/*" style="display:none" onchange="handleSignatureUpload(this)">
+          </div>
+        </div>
+
+        <!-- Profile Type -->
+        <div class="section-title" id="profileTitle">Select Profile Type</div>
+        <div class="triple-grid">
+        <div class="type-selector" id="typeSelector">
+          <button class="type-btn active" onclick="setType('student')" id="btnStudent">
+            <span class="icon">🎓</span>Student / Intern
+          </button>
+          <button class="type-btn" onclick="setType('lecturer')" id="btnLecturer">
+            <span class="icon">👨‍🏫</span>Lecturer / Teacher
+          </button>
+        </div>
+        <div class="helper-text" id="modeHelper">Choose student or teacher for college cards.</div>
+        <div class="signature-admin-box">
+          <h3>HOD Signature</h3>
+          <p>Upload once with password. It will appear on every ID card preview and saved card layout.</p>
+          <div class="signature-status" id="signatureStatusAlt">No signature uploaded yet.</div>
+          <button class="btn-mini" type="button" onclick="startSignatureUpload()">Upload Signature</button>
+        </div>
+        </div>
+
+        <!-- Photo + Serial -->
+        <div class="form-grid" style="margin-bottom:10px">
+          <div class="form-group compact-field">
+            <label>Photo Upload <span class="req">*</span> — AI Auto-Crop (Passport Style)</label>
+            <div class="photo-upload-area" id="photoArea" onclick="document.getElementById('photoInput').click()">
+              <div class="photo-placeholder" id="photoPlaceholder">
+                <span class="icon">📷</span>
+                <span>Click to upload photo</span>
+                <span style="font-size:10px">Will be auto-cropped to passport style</span>
+              </div>
+              <div class="photo-preview-wrap" id="photoPreviewWrap">
+                <img id="photoPreviewImg" src="" alt="Preview">
+                <div class="photo-info">
+                  <strong id="previewSerial">—</strong>
+                  Passport-style crop applied
+                  <br><span class="change-photo" onclick="event.stopPropagation(); document.getElementById('photoInput').click()">Change Photo</span>
+                </div>
+              </div>
+            </div>
+            <input type="file" id="photoInput" accept="image/*" onchange="handlePhotoUpload(this)">
+          </div>
+          <div class="form-group compact-field">
+            <label>Serial Number (Auto-Generated)</label>
+            <input type="text" id="serialNo" readonly placeholder="Upload photo to generate">
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Common Fields -->
+        <div class="section-title" id="detailsTitle">Personal Information</div>
+        <div class="form-grid">
+          <div class="form-group compact-field">
+            <label>Full Name <span class="req">*</span></label>
+            <input type="text" id="name" placeholder="Enter full name" oninput="updatePreview()">
+          </div>
+
+          <!-- Student Fields -->
+          <div class="form-group student-field">
+            <label id="courseLabel">Course <span class="req">*</span></label>
+            <select id="course" onchange="updatePreview()"></select>
+          </div>
+          <div class="form-group student-field">
+            <label>Valid Upto</label>
+            <input type="date" id="validUpto" onchange="updatePreview()">
+          </div>
+
+          <!-- Lecturer Fields (hidden by default) -->
+          <div class="form-group lecturer-field" style="display:none">
+            <label id="designationLabel">Designation <span class="req">*</span></label>
+            <select id="designation" onchange="updatePreview()"></select>
+          </div>
+          <div class="form-group lecturer-field" style="display:none">
+            <label id="departmentLabel">Department</label>
+            <select id="department" onchange="updatePreview()"></select>
+          </div>
+
+          <div class="form-group lecturer-field" style="display:none" id="employeeIdGroup">
+            <label>Employee ID <span class="req">*</span></label>
+            <input type="text" id="employeeId" placeholder="Enter employee ID" oninput="updatePreview()">
+          </div>
+
+          <div class="form-group">
+            <label>Date of Birth <span class="req">*</span></label>
+            <input type="date" id="dob" onchange="updatePreview()">
+          </div>
+          <div class="form-group">
+            <label>Contact No <span class="req">*</span></label>
+            <input type="tel" id="contact" placeholder="10-digit mobile" maxlength="10" oninput="updatePreview()">
+          </div>
+
+          <div class="form-group student-field">
+            <label>Blood Group</label>
+            <select id="bloodGroup" onchange="updatePreview()">
+              <option value="">Select</option>
+              <option>A+</option><option>A-</option>
+              <option>B+</option><option>B-</option>
+              <option>AB+</option><option>AB-</option>
+              <option>O+</option><option>O-</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="insertedDateGroup">
+            <label>Inserted Date</label>
+            <input type="date" id="insertedDate" oninput="updatePreview()">
+          </div>
+
+          <div class="form-group full">
+            <label>Address</label>
+            <textarea id="address" placeholder="Full address" oninput="updatePreview()"></textarea>
+          </div>
+        </div>
+        <button class="btn-submit secondary" type="button" onclick="saveCurrentCard()">Save ID Card</button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: CARD PREVIEW -->
+  <div class="card-preview-wrap">
+    <div class="panel">
+      <div class="panel-header">ID Card Preview</div>
+      <div class="panel-body" style="padding:10px">
+        <div class="id-card">
+          <div class="card-header">
+            <div class="ch-icon">🏥</div>
+            <div class="ch-text">
+              <div class="institute-name" id="prevInstitute">Institute Name</div>
+              <div class="sub" id="prevBadge">Student Identity Card</div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="card-photo" id="cardPhotoWrap">
+              <span>📷<br>Photo</span>
+            </div>
+            <div class="card-info">
+              <div class="card-name" id="prevName">Full Name</div>
+              <div class="card-role" id="prevRole">Course / Designation</div>
+              <div class="card-fields">
+                <div class="cf-row student-field"><span class="cf-label">Blood</span><span class="cf-val" id="prevBlood">—</span></div>
+                <div class="cf-row"><span class="cf-label">DOB</span><span class="cf-val" id="prevDob">—</span></div>
+                <div class="cf-row"><span class="cf-label">Contact</span><span class="cf-val" id="prevContact">—</span></div>
+                <div class="cf-row lecturer-field" style="display:none"><span class="cf-label">Dept</span><span class="cf-val" id="prevDept">—</span></div>
+                <div class="cf-row lecturer-field" style="display:none" id="prevEmployeeIdRow"><span class="cf-label">Emp ID</span><span class="cf-val" id="prevEmployeeId">—</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="card-serial-bar">
+            <span class="serial" id="prevSerial">ID-XXXXXXXX-XXXX</span>
+            <span class="badge" id="prevTypeBadge">STUDENT</span>
+          </div>
+          <div class="valid-bar">
+            <span>Valid Upto: <span id="prevValid">—</span></span>
+            <span>Issued: <span id="prevIssued">—</span></span>
+          </div>
+          <div class="signature-strip" id="signatureStrip" style="display:none">
+            <div class="signature-box">
+              <img id="signaturePreview" src="" alt="HOD Signature">
+              <div class="sig-line"></div>
+              <div class="sig-label" id="signatureLabel">Head of Department</div>
+            </div>
+          </div>
+          <div class="card-disclaimer">
+            ℹ This card is for information only. Actual card will be issued by the institute.
+          </div>
+        </div>
+
+        <div style="margin-top:10px; padding:8px; background:var(--cream); border-radius:5px; font-size:10px; color:var(--muted);">
+          <strong style="color:var(--red)">Note:</strong> This is a preview only. Submit the form to save data.
+        </div>
+        <div class="batch-box">
+          <div class="section-title" style="margin-bottom:8px">Batch Submission</div>
+          <div class="batch-meta">
+            <div class="batch-pill">Saved Cards<strong id="savedCardsCount">0</strong></div>
+            <div class="batch-pill">Submitted Cards<strong id="submittedCardsCount">0</strong></div>
+            <div class="batch-pill">Current Institute<strong id="batchInstituteName">-</strong></div>
+          </div>
+          <button class="btn-submit" type="button" onclick="submitWholeBatch()">Submit Whole Data</button>
+          <div class="batch-note">Click any submitted card below to load it back into the form and edit it.</div>
+          <div class="submitted-list" id="submittedCardsList">
+            <div class="batch-note">No submitted cards for this institute yet.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <span id="loadingText">Processing photo…</span>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">✅ Record saved successfully!</div>
+
+<script>
+const COLLEGE_INSTITUTES = ['Govt. Medical College, Jhunjhunu', 'Govt. Nursing College, Jhunjhunu'];
+const COLLEGE_COURSES = {
+  'Govt. Medical College, Jhunjhunu': ['MBBS 1st Year', 'MBBS 2nd Year', 'MBBS 3rd Year', 'MBBS Final Year', 'Intern (House Surgeon)', 'BDS 1st Year', 'BDS 2nd Year', 'BDS 3rd Year', 'BDS Final Year', 'MD/MS (PG)'],
+  'Govt. Nursing College, Jhunjhunu': ['B.Sc Nursing 1st Year', 'B.Sc Nursing 2nd Year', 'B.Sc Nursing 3rd Year', 'B.Sc Nursing 4th Year', 'GNM 1st Year', 'GNM 2nd Year', 'GNM 3rd Year', 'Post Basic Nursing', 'Intern']
+};
+const TEACHER_DESIGNATIONS = {
+  'Govt. Medical College, Jhunjhunu': ['Professor & HOD', 'Professor', 'Associate Professor', 'Assistant Professor', 'Senior Lecturer', 'Lecturer', 'Tutor / Demonstrator', 'Senior Resident', 'Junior Resident'],
+  'Govt. Nursing College, Jhunjhunu': ['Principal', 'Vice Principal', 'Professor', 'Associate Professor', 'Assistant Professor', 'Tutor', 'Clinical Instructor', 'Lecturer']
+};
+const DEPARTMENTS = {
+  'Govt. Medical College, Jhunjhunu': ['Anatomy', 'Physiology', 'Biochemistry', 'Pathology', 'Pharmacology', 'Microbiology', 'Forensic Medicine', 'Community Medicine', 'General Medicine', 'General Surgery', 'Obstetrics & Gynaecology', 'Paediatrics', 'Orthopaedics', 'ENT', 'Ophthalmology', 'Dermatology', 'Psychiatry', 'Radiology', 'Anaesthesiology', 'Administration'],
+  'Govt. Nursing College, Jhunjhunu': ['Academic Section', 'Community Health Nursing', 'Mental Health Nursing', 'Medical Surgical Nursing', 'Child Health Nursing', 'Obstetric Nursing', 'Administration'],
+  'Dist. Collector, Jhunjhunu': ['Administration', 'Revenue', 'Accounts', 'Establishment', 'Public Grievance', 'Record Room'],
+  'PHED Water Works Jhunjhunu': ['Water Supply', 'Maintenance', 'Accounts', 'Field Operations', 'Store', 'Administration'],
+  'Other': ['Administration', 'Office', 'Field Work', 'Accounts', 'Technical', 'Support']
+};
+const EMPLOYEE_DESIGNATIONS = {
+  'Dist. Collector, Jhunjhunu': [
+    'District Collector and District Magistrate',
+    'Additional District Collector and Additional District Magistrate',
+    'Assistant Collector',
+    'Tehsildar',
+    'Senior Patwari',
+    'Patwari',
+    'Junior Assistant',
+    'Inspector Land Record',
+    'Tehsil Revenue Accountant'
+  ],
+  'PHED Water Works Jhunjhunu': [
+    'Additional Chief Engineer',
+    'Superintending Engineer',
+    'Executive Engineer',
+    'Assistant Engineer',
+    'Junior Engineer',
+    'Junior Assistant',
+    'System Analyst (Joint Director)'
+  ],
+  'Other': [
+    'Assistant Collector',
+    'Tehsildar',
+    'Junior Assistant',
+    'Patwari',
+    'Assistant Engineer',
+    'Junior Engineer'
+  ]
+};
+
+let currentType = 'student';
+let appSettings = { background_url: '', signature_url: '' };
+let pendingSignaturePassword = '';
+let lastLoadedSubmittedSerial = '';
+
+document.getElementById('insertedDate').value = new Date().toISOString().split('T')[0];
+
+function getInstituteValue() {
+  const institute = document.getElementById('instituteName').value;
+  return institute === 'Other' ? (document.getElementById('otherInstituteName').value.trim() || 'Other') : institute;
+}
+
+function isCollegeMode() {
+  return COLLEGE_INSTITUTES.includes(document.getElementById('instituteName').value);
+}
+
+function populateSelect(selectId, items, placeholder) {
+  const select = document.getElementById(selectId);
+  const currentValue = select.value;
+  select.innerHTML = `<option value="">${placeholder}</option>` + items.map(item => `<option>${item}</option>`).join('');
+  if (items.includes(currentValue)) select.value = currentValue;
+}
+
+function handleInstituteChange() {
+  const institute = document.getElementById('instituteName').value;
+  const collegeMode = isCollegeMode();
+  document.getElementById('otherInstituteWrap').style.display = institute === 'Other' ? '' : 'none';
+
+  if (collegeMode) {
+    document.getElementById('profileTitle').textContent = 'Select Profile Type';
+    document.getElementById('detailsTitle').textContent = 'Personal Information';
+    document.getElementById('btnStudent').innerHTML = 'Student';
+    document.getElementById('btnLecturer').innerHTML = 'Teacher';
+    document.getElementById('btnLecturer').style.display = '';
+    document.getElementById('typeSelector').classList.remove('single');
+    document.getElementById('modeHelper').textContent = 'Choose student or teacher for college cards.';
+    document.getElementById('courseLabel').innerHTML = 'Course <span class="req">*</span>';
+    document.getElementById('designationLabel').innerHTML = 'Designation <span class="req">*</span>';
+    document.getElementById('departmentLabel').textContent = 'Department';
+    document.getElementById('signatureLabel').textContent = 'Head of Department';
+    document.getElementById('signatureStrip').style.display = appSettings.signature_url ? 'flex' : 'none';
+    document.querySelectorAll('.signature-admin-box').forEach(el => el.classList.remove('hidden-block'));
+    document.getElementById('employeeIdGroup').style.display = 'none';
+    document.getElementById('prevEmployeeIdRow').style.display = 'none';
+    populateSelect('course', COLLEGE_COURSES[institute] || COLLEGE_COURSES['Govt. Medical College, Jhunjhunu'], 'Select Course');
+    populateSelect('designation', TEACHER_DESIGNATIONS[institute] || TEACHER_DESIGNATIONS['Govt. Medical College, Jhunjhunu'], 'Select Designation');
+  } else {
+    currentType = 'employee';
+    document.getElementById('profileTitle').textContent = 'Employee Details';
+    document.getElementById('detailsTitle').textContent = 'Government Department Employee Details';
+    document.getElementById('btnStudent').innerHTML = 'Employee';
+    document.getElementById('btnLecturer').style.display = 'none';
+    document.getElementById('typeSelector').classList.add('single');
+    document.getElementById('modeHelper').textContent = 'Department offices use employee details only.';
+    document.getElementById('designationLabel').innerHTML = 'Designation <span class="req">*</span>';
+    document.getElementById('departmentLabel').textContent = 'Section / Branch';
+    document.querySelectorAll('.signature-admin-box').forEach(el => el.classList.add('hidden-block'));
+    document.getElementById('signatureStrip').style.display = 'none';
+    document.getElementById('employeeIdGroup').style.display = '';
+    document.getElementById('prevEmployeeIdRow').style.display = '';
+    populateSelect('designation', EMPLOYEE_DESIGNATIONS[institute] || EMPLOYEE_DESIGNATIONS['Other'], 'Select Designation');
+  }
+
+  populateSelect('department', DEPARTMENTS[institute] || DEPARTMENTS['Other'], collegeMode ? 'Select Department' : 'Select Section / Branch');
+  setType(collegeMode ? (currentType === 'employee' ? 'student' : currentType) : 'employee');
+  loadSettings();
+  loadBatchSummary();
+}
+
+function setType(type) {
+  currentType = type;
+  const effectiveType = isCollegeMode() ? type : 'employee';
+  document.getElementById('btnStudent').classList.toggle('active', effectiveType === 'student' || effectiveType === 'employee');
+  document.getElementById('btnLecturer').classList.toggle('active', effectiveType === 'lecturer');
+  document.querySelectorAll('.student-field').forEach(el => el.style.display = effectiveType === 'student' ? '' : 'none');
+  document.querySelectorAll('.lecturer-field').forEach(el => el.style.display = effectiveType === 'lecturer' || effectiveType === 'employee' ? '' : 'none');
+  updatePreview();
+}
+
+function showLoading(text) {
+  document.getElementById('loadingText').textContent = text;
+  document.getElementById('loadingOverlay').classList.add('show');
+}
+function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
+
+async function loadBatchSummary() {
+  try {
+    const institute = encodeURIComponent(getInstituteValue());
+    const res = await fetch(`/api/batch-summary?institute=${institute}`);
+    const data = await res.json();
+    document.getElementById('savedCardsCount').textContent = data.saved_count ?? 0;
+    document.getElementById('submittedCardsCount').textContent = data.submitted_count ?? 0;
+    document.getElementById('batchInstituteName').textContent = getInstituteValue() || '-';
+  } catch (e) {
+    document.getElementById('savedCardsCount').textContent = '0';
+    document.getElementById('submittedCardsCount').textContent = '0';
+    document.getElementById('batchInstituteName').textContent = getInstituteValue() || '-';
+  }
+  await loadSubmittedCards();
+}
+
+async function loadSubmittedCards() {
+  const list = document.getElementById('submittedCardsList');
+  try {
+    const institute = encodeURIComponent(getInstituteValue());
+    const res = await fetch(`/api/records?institute=${institute}`);
+    const data = await res.json();
+    const submittedRecords = (data.records || []).filter(record => record.submitted_at);
+    if (!submittedRecords.length) {
+      list.innerHTML = '<div class="batch-note">No submitted cards for this institute yet.</div>';
+      return;
+    }
+    list.innerHTML = submittedRecords.slice().reverse().map(record => `
+      <button class="submitted-card" type="button" onclick="editSubmittedCard('${record.serial_no}')">
+        <strong>${escapeHtml(record.name || 'Unnamed')}</strong>
+        <span>${escapeHtml(record.serial_no || '-')} | ${escapeHtml(record.course || record.designation || record.profile_type || '')}</span>
+        <span>Submitted: ${escapeHtml(record.submitted_at || '-')}</span>
+      </button>
+    `).join('');
+  } catch (e) {
+    list.innerHTML = '<div class="batch-note">Unable to load submitted cards right now.</div>';
+  }
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+async function loadSettings() {
+  try {
+    const institute = encodeURIComponent(getInstituteValue());
+    const res = await fetch(`/api/settings?institute=${institute}`);
+    appSettings = await res.json();
+    applyCardAssets();
+  } catch (e) {
+    appSettings = { background_url: '', signature_url: '' };
+  }
+}
+
+function applyCardAssets() {
+  const card = document.querySelector('.id-card');
+  if (appSettings.background_url) {
+    card.style.setProperty('--card-bg', `url("${appSettings.background_url}?t=${Date.now()}")`);
+  } else {
+    card.style.setProperty('--card-bg', 'none');
+  }
+
+  const signatureStrip = document.getElementById('signatureStrip');
+  const signaturePreview = document.getElementById('signaturePreview');
+  const signatureStatus = document.getElementById('signatureStatus');
+  const signatureStatusAlt = document.getElementById('signatureStatusAlt');
+  if (appSettings.signature_url && isCollegeMode()) {
+    signaturePreview.src = appSettings.signature_url + '?t=' + Date.now();
+    signatureStrip.style.display = 'flex';
+    signatureStatus.textContent = 'Signature uploaded and active on all cards.';
+    if (signatureStatusAlt) signatureStatusAlt.textContent = 'Signature uploaded and active on all cards.';
+  } else {
+    signaturePreview.src = '';
+    signatureStrip.style.display = 'none';
+    signatureStatus.textContent = 'No signature uploaded yet.';
+    if (signatureStatusAlt) signatureStatusAlt.textContent = 'No signature uploaded yet.';
+  }
+}
+
+function startSignatureUpload() {
+  const password = prompt('Enter password to upload the HOD signature:');
+  if (!password) return;
+  pendingSignaturePassword = password;
+  document.getElementById('signatureInput').click();
+}
+
+async function handleSignatureUpload(input) {
+  if (!input.files.length || !pendingSignaturePassword) return;
+  showLoading('Uploading HOD signature…');
+  const formData = new FormData();
+  formData.append('signature', input.files[0]);
+  formData.append('password', pendingSignaturePassword);
+  try {
+    const res = await fetch('/api/upload-signature', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+    appSettings.signature_url = data.signature_url;
+    applyCardAssets();
+    showToast('✅ HOD signature updated for all cards');
+  } catch (e) {
+    alert(e.message || 'Signature upload failed.');
+  }
+  pendingSignaturePassword = '';
+  input.value = '';
+  hideLoading();
+}
+
+async function handlePhotoUpload(input) {
+  if (!input.files.length) return;
+  showLoading('Uploading & cropping photo…');
+  const formData = new FormData();
+  formData.append('photo', input.files[0]);
+  try {
+    const res = await fetch('/api/upload-photo', { method: 'POST', body: formData });
+    const data = await res.json();
+    document.getElementById('serialNo').value = data.serial_no;
+    document.getElementById('previewSerial').textContent = data.serial_no;
+    document.getElementById('prevSerial').textContent = data.serial_no;
+    // Show cropped photo
+    const previewImg = document.getElementById('photoPreviewImg');
+    previewImg.src = data.photo_url + '?t=' + Date.now();
+    document.getElementById('photoPlaceholder').style.display = 'none';
+    document.getElementById('photoPreviewWrap').classList.add('visible');
+    document.getElementById('photoArea').classList.add('has-photo');
+    // Card photo
+    document.getElementById('cardPhotoWrap').innerHTML = `<img src="${data.photo_url}?t=${Date.now()}" alt="Photo">`;
+  } catch(e) {
+    alert('Photo upload failed. Please try again.');
+  }
+  hideLoading();
+  updatePreview();
+}
+
+function updatePreview() {
+  const effectiveType = isCollegeMode() ? currentType : 'employee';
+  const name = document.getElementById('name').value || 'Full Name';
+  const institute = getInstituteValue() || 'Institute Name';
+  const dob = document.getElementById('dob').value;
+  const contact = document.getElementById('contact').value;
+  const validUpto = document.getElementById('validUpto').value;
+  const insertedDate = document.getElementById('insertedDate').value;
+
+  document.getElementById('prevInstitute').textContent = institute;
+  document.getElementById('prevName').textContent = name;
+  document.getElementById('prevDob').textContent = dob ? formatDate(dob) : '—';
+  document.getElementById('prevContact').textContent = contact || '—';
+  document.getElementById('prevValid').textContent = effectiveType === 'student' && validUpto ? formatDate(validUpto) : '—';
+  document.getElementById('prevIssued').textContent = insertedDate ? formatDate(insertedDate) : '—';
+  document.getElementById('prevSerial').textContent = document.getElementById('serialNo').value || 'ID-XXXXXXXX-XXXX';
+
+  if (effectiveType === 'student') {
+    const course = document.getElementById('course').value;
+    const blood = document.getElementById('bloodGroup').value;
+    document.getElementById('prevRole').textContent = course || 'Course';
+    document.getElementById('prevBlood').textContent = blood || '—';
+    document.getElementById('prevDept').textContent = '—';
+    document.getElementById('prevEmployeeId').textContent = '—';
+    document.getElementById('prevBadge').textContent = 'Student Identity Card';
+    document.getElementById('prevTypeBadge').textContent = 'STUDENT';
+  } else if (effectiveType === 'lecturer') {
+    const desig = document.getElementById('designation').value;
+    const dept = document.getElementById('department').value;
+    document.getElementById('prevRole').textContent = desig || 'Designation';
+    document.getElementById('prevBlood').textContent = '—';
+    document.getElementById('prevDept').textContent = dept || '—';
+    document.getElementById('prevEmployeeId').textContent = '—';
+    document.getElementById('prevBadge').textContent = 'Teacher Identity Card';
+    document.getElementById('prevTypeBadge').textContent = 'TEACHER';
+  } else {
+    const desig = document.getElementById('designation').value;
+    const dept = document.getElementById('department').value;
+    document.getElementById('prevRole').textContent = desig || 'Employee Designation';
+    document.getElementById('prevBlood').textContent = '—';
+    document.getElementById('prevDept').textContent = dept || '—';
+    document.getElementById('prevEmployeeId').textContent = document.getElementById('employeeId').value || '—';
+    document.getElementById('prevBadge').textContent = 'Employee Identity Card';
+    document.getElementById('prevTypeBadge').textContent = 'EMPLOYEE';
+  }
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+async function saveCurrentCard() {
+  const effectiveType = isCollegeMode() ? currentType : 'employee';
+  const name = document.getElementById('name').value.trim();
+  const serial = document.getElementById('serialNo').value.trim();
+  if (!name) { alert('Please enter full name.'); return; }
+  if (!serial) { alert('Please upload a photo first to generate serial number.'); return; }
+
+  showLoading('Saving record…');
+  const payload = {
+    institute_name: getInstituteValue(),
+    serial_no: serial,
+    name,
+    profile_type: effectiveType,
+    dob: document.getElementById('dob').value,
+    contact: document.getElementById('contact').value,
+    address: document.getElementById('address').value,
+    inserted_date: document.getElementById('insertedDate').value,
+    photo_url: `/uploads/${serial}.jpg`,
+  };
+  if (effectiveType === 'student') {
+    payload.course = document.getElementById('course').value;
+    payload.valid_upto = document.getElementById('validUpto').value;
+    payload.blood_group = document.getElementById('bloodGroup').value;
+  } else {
+    payload.designation = document.getElementById('designation').value;
+    payload.department = document.getElementById('department').value;
+    payload.employee_id = document.getElementById('employeeId').value;
+  }
+
+  try {
+    await fetch('/api/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    showToast('✅ ID card saved. Serial: ' + serial);
+    loadBatchSummary();
+    resetForm();
+  } catch(e) {
+    alert('Save failed. Check server connection.');
+  }
+  hideLoading();
+}
+
+async function submitWholeBatch() {
+  const institute = getInstituteValue();
+  const totalCards = parseInt(document.getElementById('totalCards').value || '0', 10);
+  if (!institute || institute === 'Other') {
+    alert('Please select or enter the institute first.');
+    return;
+  }
+  if (!totalCards || totalCards < 1) {
+    alert('Please enter total number of cards for this batch.');
+    return;
+  }
+
+  showLoading('Submitting whole batch...');
+  try {
+    const res = await fetch('/api/submit-batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ institute_name: institute, total_cards: totalCards })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Batch submit failed');
+    showToast('✅ Whole batch submitted for ' + institute);
+    loadBatchSummary();
+  } catch (e) {
+    alert(e.message || 'Batch submit failed.');
+  }
+  hideLoading();
+}
+
+function resetForm() {
+  // Keep institute name and profile type for next entry
+  const institute = document.getElementById('instituteName').value;
+  const type = isCollegeMode() ? currentType : 'employee';
+  document.getElementById('name').value = '';
+  document.getElementById('serialNo').value = '';
+  document.getElementById('dob').value = '';
+  document.getElementById('contact').value = '';
+  document.getElementById('address').value = '';
+  document.getElementById('insertedDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('photoInput').value = '';
+  document.getElementById('photoPlaceholder').style.display = '';
+  document.getElementById('photoPreviewWrap').classList.remove('visible');
+  document.getElementById('photoArea').classList.remove('has-photo');
+  document.getElementById('cardPhotoWrap').innerHTML = '<span>📷<br>Photo</span>';
+  document.getElementById('otherInstituteName').value = '';
+  if (type === 'student') {
+    document.getElementById('course').value = '';
+    document.getElementById('validUpto').value = '';
+    document.getElementById('bloodGroup').value = '';
+  } else {
+    document.getElementById('course').value = '';
+    document.getElementById('designation').value = '';
+    document.getElementById('department').value = '';
+    document.getElementById('employeeId').value = '';
+  }
+  document.getElementById('instituteName').value = institute;
+  handleInstituteChange();
+  updatePreview();
+  loadBatchSummary();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+async function editSubmittedCard(serial) {
+  showLoading('Loading submitted card...');
+  try {
+    const institute = encodeURIComponent(getInstituteValue());
+    const res = await fetch(`/api/records?institute=${institute}`);
+    const data = await res.json();
+    const record = (data.records || []).find(item => item.serial_no === serial);
+    if (!record) throw new Error('Submitted card not found.');
+    populateFormFromRecord(record);
+    lastLoadedSubmittedSerial = serial;
+    showToast('Loaded submitted card for editing: ' + serial);
+  } catch (e) {
+    alert(e.message || 'Unable to load submitted card.');
+  }
+  hideLoading();
+}
+
+function populateFormFromRecord(record) {
+  const sourceInstitute = record.institute_name || '';
+  const knownInstitutes = [...COLLEGE_INSTITUTES, 'Dist. Collector, Jhunjhunu', 'PHED Water Works Jhunjhunu'];
+
+  if (knownInstitutes.includes(sourceInstitute)) {
+    document.getElementById('instituteName').value = sourceInstitute;
+    document.getElementById('otherInstituteName').value = '';
+  } else {
+    document.getElementById('instituteName').value = 'Other';
+    document.getElementById('otherInstituteName').value = sourceInstitute;
+  }
+
+  handleInstituteChange();
+  setType(record.profile_type === 'lecturer' ? 'lecturer' : (record.profile_type === 'student' ? 'student' : 'employee'));
+
+  document.getElementById('serialNo').value = record.serial_no || '';
+  document.getElementById('previewSerial').textContent = record.serial_no || '-';
+  document.getElementById('name').value = record.name || '';
+  document.getElementById('dob').value = record.dob || '';
+  document.getElementById('contact').value = record.contact || '';
+  document.getElementById('address').value = record.address || '';
+  document.getElementById('insertedDate').value = record.inserted_date || new Date().toISOString().split('T')[0];
+  document.getElementById('course').value = record.course || '';
+  document.getElementById('validUpto').value = record.valid_upto || '';
+  document.getElementById('bloodGroup').value = record.blood_group || '';
+  document.getElementById('designation').value = record.designation || '';
+  document.getElementById('department').value = record.department || '';
+  document.getElementById('employeeId').value = record.employee_id || '';
+
+  if (record.photo_url) {
+    const photoUrl = record.photo_url + '?t=' + Date.now();
+    document.getElementById('photoPreviewImg').src = photoUrl;
+    document.getElementById('photoPlaceholder').style.display = 'none';
+    document.getElementById('photoPreviewWrap').classList.add('visible');
+    document.getElementById('photoArea').classList.add('has-photo');
+    document.getElementById('cardPhotoWrap').innerHTML = `<img src="${photoUrl}" alt="Photo">`;
+  }
+
+  updatePreview();
+}
+
+async function saveCurrentCard() {
+  const effectiveType = isCollegeMode() ? currentType : 'employee';
+  const name = document.getElementById('name').value.trim();
+  const serial = document.getElementById('serialNo').value.trim();
+  if (!name) { alert('Please enter full name.'); return; }
+  if (!serial) { alert('Please upload a photo first to generate serial number.'); return; }
+
+  showLoading('Saving record...');
+  const payload = {
+    institute_name: getInstituteValue(),
+    serial_no: serial,
+    name,
+    profile_type: effectiveType,
+    dob: document.getElementById('dob').value,
+    contact: document.getElementById('contact').value,
+    address: document.getElementById('address').value,
+    inserted_date: document.getElementById('insertedDate').value,
+    photo_url: `/uploads/${serial}.jpg`,
+  };
+
+  if (effectiveType === 'student') {
+    payload.course = document.getElementById('course').value;
+    payload.valid_upto = document.getElementById('validUpto').value;
+    payload.blood_group = document.getElementById('bloodGroup').value;
+  } else {
+    payload.designation = document.getElementById('designation').value;
+    payload.department = document.getElementById('department').value;
+    payload.employee_id = document.getElementById('employeeId').value;
+  }
+
+  try {
+    const res = await fetch('/api/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Save failed');
+    showToast((data.status === 'updated' ? 'Updated' : 'Saved') + ' ID card. Serial: ' + serial);
+    await loadBatchSummary();
+    resetForm();
+  } catch (e) {
+    alert(e.message || 'Save failed. Check server connection.');
+  }
+  hideLoading();
+}
+
+async function submitWholeBatch() {
+  const institute = getInstituteValue();
+  if (!institute || institute === 'Other') {
+    alert('Please select or enter the institute first.');
+    return;
+  }
+
+  showLoading('Submitting whole batch...');
+  try {
+    const res = await fetch('/api/submit-batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ institute_name: institute })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Batch submit failed');
+    showToast('Submitted ' + data.total_cards + ' card(s) for ' + institute);
+    await loadBatchSummary();
+  } catch (e) {
+    alert(e.message || 'Batch submit failed.');
+  }
+  hideLoading();
+}
+
+function resetForm() {
+  const institute = document.getElementById('instituteName').value;
+  const otherInstitute = document.getElementById('otherInstituteName').value;
+  const type = isCollegeMode() ? currentType : 'employee';
+
+  document.getElementById('name').value = '';
+  document.getElementById('serialNo').value = '';
+  document.getElementById('dob').value = '';
+  document.getElementById('contact').value = '';
+  document.getElementById('address').value = '';
+  document.getElementById('insertedDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('photoInput').value = '';
+  document.getElementById('photoPlaceholder').style.display = '';
+  document.getElementById('photoPreviewWrap').classList.remove('visible');
+  document.getElementById('photoArea').classList.remove('has-photo');
+  document.getElementById('cardPhotoWrap').innerHTML = '<span>Photo</span>';
+  document.getElementById('previewSerial').textContent = '-';
+
+  if (type === 'student') {
+    document.getElementById('course').value = '';
+    document.getElementById('validUpto').value = '';
+    document.getElementById('bloodGroup').value = '';
+  } else {
+    document.getElementById('course').value = '';
+    document.getElementById('designation').value = '';
+    document.getElementById('department').value = '';
+    document.getElementById('employeeId').value = '';
+  }
+
+  document.getElementById('instituteName').value = institute;
+  document.getElementById('otherInstituteName').value = otherInstitute;
+  handleInstituteChange();
+  updatePreview();
+  loadBatchSummary();
+}
+
+// Init
+handleInstituteChange();
+updatePreview();
+loadSettings();
+loadBatchSummary();
+</script>
+</body>
+</html>

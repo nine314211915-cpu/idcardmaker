@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel - ID Card System</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #fdf8f0;
+    --cream2: #f5ede0;
+    --red: #8b0000;
+    --red-light: #c0392b;
+    --red-soft: #f9e8e8;
+    --gold: #b5860d;
+    --text: #2c1810;
+    --muted: #7a6a60;
+    --border: #ddd0c0;
+    --white: #fff;
+    --shadow: 0 2px 12px rgba(139, 0, 0, 0.08);
+    --green: #1a5c1a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Source Sans 3', sans-serif;
+    font-size: 13px;
+    background: var(--cream);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  header {
+    background: var(--red);
+    color: white;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+  }
+  header .logo-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #fff7ea, #ffffff);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.35);
+  }
+  header .logo-icon svg { width: 28px; height: 28px; }
+  header .brand-block { display: flex; flex-direction: column; gap: 3px; }
+  header .right-brand {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.22);
+    border-radius: 12px;
+  }
+  header .brand-top {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    opacity: 0.9;
+  }
+  header .brand-top a,
+  header .brand-top a:visited {
+    color: white;
+    text-decoration: none;
+  }
+  header .brand-top a:hover { text-decoration: underline; }
+  header .brand-chip {
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-weight: 600;
+  }
+  header h1 { font-family: 'Playfair Display', serif; font-size: 18px; }
+  header p { font-size: 11px; opacity: 0.85; }
+  header .credit-line {
+    width: 100%;
+    font-size: 11px;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.92);
+    padding-top: 6px;
+    border-top: 1px solid rgba(255,255,255,0.16);
+  }
+  header .credit-line strong { color: #ffe6b8; }
+  header .nav-link {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+  .toolbar, .asset-panel, .table-wrap {
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 16px;
+  }
+  .toolbar {
+    margin-top: 16px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .stats-bar {
+    display: flex;
+    gap: 12px;
+    margin-right: auto;
+    flex-wrap: wrap;
+  }
+  .stat-pill, .asset-box, .panel {
+    background: white;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+  }
+  .stat-pill {
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .stat-pill .num { font-weight: 700; color: var(--red); }
+  .btn {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: 'Source Sans 3', sans-serif;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+  }
+  .btn-red { background: var(--red); color: white; }
+  .btn-green { background: var(--green); color: white; }
+  .btn-outline { background: white; color: var(--text); border: 1px solid var(--border); }
+  .search-bar, .filter-select {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 7px 10px;
+    font-size: 12px;
+    font-family: 'Source Sans 3', sans-serif;
+    outline: none;
+  }
+  .search-bar { width: 200px; }
+  .asset-panel { margin-top: 12px; }
+  .asset-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+    gap: 12px;
+  }
+  .asset-box {
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .asset-box h3 {
+    font-family: 'Playfair Display', serif;
+    color: var(--red);
+    font-size: 15px;
+    margin-bottom: 6px;
+  }
+  .asset-box p {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.45;
+    margin-bottom: 10px;
+  }
+  .asset-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .asset-status {
+    font-size: 12px;
+    color: var(--red);
+  }
+  .asset-preview {
+    min-height: 120px;
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    background: var(--cream);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: var(--muted);
+  }
+  .asset-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .table-wrap { margin-top: 12px; margin-bottom: 24px; }
+  .panel {
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .panel-header {
+    background: var(--red);
+    color: white;
+    padding: 10px 16px;
+    font-family: 'Playfair Display', serif;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th {
+    background: var(--cream2);
+    padding: 9px 10px;
+    text-align: left;
+    font-weight: 700;
+    color: var(--red);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+  }
+  tbody tr { border-bottom: 1px solid var(--cream2); }
+  tbody tr:hover { background: var(--red-soft); }
+  tbody td { padding: 8px 10px; vertical-align: middle; }
+  .no-records, .loading-text {
+    text-align: center;
+    padding: 28px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .photo-thumb, .photo-placeholder-thumb {
+    width: 36px;
+    height: 48px;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+  }
+  .photo-thumb {
+    object-fit: cover;
+    cursor: pointer;
+  }
+  .photo-placeholder-thumb {
+    background: var(--cream2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .badge-student { background: #e8f4fd; color: #1a5276; }
+  .badge-lecturer { background: #fdf5e8; color: #8b5e0d; }
+  .badge-employee { background: #eaf7ed; color: #1a5c3a; }
+  .serial-code { font-family: monospace; font-size: 11px; color: var(--red); font-weight: 700; }
+  .action-btns { display: flex; gap: 4px; }
+  .btn-sm {
+    padding: 4px 8px;
+    font-size: 10px;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .btn-dl { background: var(--green); color: white; }
+  .btn-view { background: var(--red); color: white; }
+  .btn-del { background: #ddd; color: #666; }
+  .modal-overlay, .confirm-dialog, .lightbox {
+    display: none;
+    position: fixed;
+    inset: 0;
+  }
+  .modal-overlay.show, .confirm-dialog.show, .lightbox.show { display: flex; }
+  .modal-overlay {
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .modal {
+    background: white;
+    border-radius: 10px;
+    max-width: 500px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+  }
+  .modal-header {
+    background: var(--red);
+    color: white;
+    padding: 12px 16px;
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-close, .lightbox-close {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+  }
+  .modal-close { font-size: 18px; }
+  .modal-body { padding: 16px; }
+  .id-card {
+    border: 2px solid var(--red);
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    background: white;
+  }
+  .id-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: var(--card-bg, none);
+    background-size: cover;
+    background-position: center;
+    opacity: 0.14;
+    pointer-events: none;
+  }
+  .id-card > * {
+    position: relative;
+    z-index: 1;
+  }
+  .card-header {
+    background: var(--red);
+    color: white;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ch-text .institute-name { font-family: 'Playfair Display', serif; font-size: 12px; font-weight: 700; }
+  .ch-text .sub { font-size: 9px; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.5px; }
+  .card-body { padding: 12px; display: flex; gap: 10px; }
+  .card-photo, .card-photo-placeholder {
+    width: 72px;
+    height: 90px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .card-photo { object-fit: cover; }
+  .card-photo-placeholder {
+    background: var(--cream2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+  }
+  .card-info { flex: 1; }
+  .card-name { font-family: 'Playfair Display', serif; font-size: 14px; color: var(--red); font-weight: 700; margin-bottom: 2px; }
+  .card-role { font-size: 11px; font-weight: 600; color: var(--gold); margin-bottom: 6px; }
+  .cf-row { display: flex; gap: 4px; font-size: 10px; margin-bottom: 2px; }
+  .cf-label { color: var(--muted); min-width: 52px; font-weight: 600; }
+  .card-serial-bar {
+    background: var(--cream2);
+    border-top: 1px solid var(--border);
+    padding: 6px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .serial-disp { font-size: 10px; font-weight: 700; color: var(--red); font-family: monospace; }
+  .type-badge { font-size: 9px; background: var(--red); color: white; padding: 2px 7px; border-radius: 10px; }
+  .valid-bar {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 12px;
+    background: var(--red-soft);
+    border-top: 1px solid var(--border);
+    font-size: 9px;
+  }
+  .valid-bar span { color: var(--red); font-weight: 600; }
+  .signature-strip {
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px 12px 6px;
+    background: rgba(255, 255, 255, 0.92);
+    border-top: 1px dashed var(--border);
+  }
+  .signature-box { width: 108px; text-align: center; }
+  .signature-box img {
+    max-width: 100%;
+    max-height: 34px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto 4px;
+    mix-blend-mode: multiply;
+  }
+  .sig-line { border-top: 1px solid var(--text); margin-bottom: 2px; }
+  .sig-label { font-size: 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+  .disclaimer {
+    padding: 7px 12px;
+    font-size: 9px;
+    color: var(--muted);
+    border-top: 1px dashed var(--border);
+    text-align: center;
+    font-style: italic;
+  }
+  .modal-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .modal-actions .btn { flex: 1; justify-content: center; }
+  .lightbox {
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 2000;
+    align-items: center;
+    justify-content: center;
+  }
+  .lightbox img {
+    max-width: 80vw;
+    max-height: 80vh;
+    border-radius: 6px;
+    border: 3px solid white;
+  }
+  .lightbox-close {
+    position: fixed;
+    top: 20px;
+    right: 24px;
+    font-size: 28px;
+  }
+  .confirm-dialog {
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 3000;
+    align-items: center;
+    justify-content: center;
+  }
+  .confirm-box {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    max-width: 320px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  }
+  .confirm-box h3 {
+    color: var(--red);
+    font-family: 'Playfair Display', serif;
+    margin-bottom: 8px;
+  }
+  .confirm-box p {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .confirm-box .cbtn { display: flex; gap: 8px; }
+  .confirm-box .cbtn button {
+    flex: 1;
+    padding: 8px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  @media (max-width: 768px) {
+    .asset-grid { grid-template-columns: 1fr; }
+    header .right-brand { margin-left: 0; width: 100%; justify-content: space-between; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#8b0000" stroke-width="1.8">
+      <path d="M12 3l7 4-7 4-7-4 7-4z"></path>
+      <path d="M5 14l7 4 7-4"></path>
+      <path d="M12 8v10"></path>
+      <path d="M9 12h6"></path>
+    </svg>
+  </div>
+  <div class="brand-block">
+    <h1>Admin Panel - ID Card Records</h1>
+    <p>View, download and manage all submitted ID card data</p>
+  </div>
+  <div class="right-brand">
+    <div class="brand-top">
+      <span class="brand-chip">AI Enabled</span>
+      <a href="https://aipexlabs.in" target="_blank" rel="noopener noreferrer">Aipexlabs.in</a>
+    </div>
+    <a href="/" class="nav-link">New Entry</a>
+  </div>
+  <div class="credit-line">
+    Developed by <strong>Aipexlabs.in</strong> | CEO: <strong>Ayushman Arya</strong> | Developers: <strong>Manavi Arya</strong>, <strong>Garvit Arya</strong> | Legal Adviser: <strong>Anushka Arya</strong>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="stats-bar">
+    <div class="stat-pill">Total: <span class="num" id="statTotal">-</span></div>
+    <div class="stat-pill"><span id="statLabelPrimary">Students</span>: <span class="num" id="statStudents">-</span></div>
+    <div class="stat-pill"><span id="statLabelSecondary">Staff</span>: <span class="num" id="statFaculty">-</span></div>
+    <div class="stat-pill">Scope: <span class="num" id="statScope">All Institutes</span></div>
+  </div>
+  <select class="filter-select" id="instituteFilter" onchange="loadRecords()">
+    <option value="">All Institutes</option>
+    <option value="Govt. Medical College, Jhunjhunu">Govt. Medical College, Jhunjhunu</option>
+    <option value="Dist. Collector, Jhunjhunu">Dist. Collector, Jhunjhunu</option>
+    <option value="PHED Water Works Jhunjhunu">PHED Water Works Jhunjhunu</option>
+    <option value="Govt. Nursing College, Jhunjhunu">Govt. Nursing College, Jhunjhunu</option>
+    <option value="Other">Other</option>
+  </select>
+  <input type="text" class="search-bar" id="searchInput" placeholder="Search name / serial" oninput="filterTable()">
+  <select class="filter-select" id="typeFilter" onchange="filterTable()">
+    <option value="">All Types</option>
+    <option value="student">Student</option>
+    <option value="lecturer">Teacher</option>
+    <option value="employee">Employee</option>
+  </select>
+  <button class="btn btn-green" onclick="exportExcel()">Export Excel</button>
+  <button class="btn btn-red" onclick="exportZip()">Download ZIP</button>
+  <button class="btn btn-outline" onclick="loadRecords()">Refresh</button>
+</div>
+
+<div class="asset-panel">
+  <div class="asset-grid">
+    <div class="asset-box">
+      <h3>ID Card Background</h3>
+      <p>Upload one background image for the card design. It will show on the front preview and in the admin preview for every record.</p>
+      <div class="asset-actions">
+        <button class="btn btn-red" type="button" onclick="document.getElementById('backgroundInput').click()">Upload Background</button>
+        <span class="asset-status" id="backgroundStatus">No background uploaded yet.</span>
+      </div>
+      <input type="file" id="backgroundInput" accept="image/*" style="display:none" onchange="handleBackgroundUpload(this)">
+    </div>
+    <div class="asset-box">
+      <div class="asset-preview" id="backgroundPreview">No preview</div>
+    </div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <div class="panel">
+    <div class="panel-header">
+      <span>All Records</span>
+      <span style="font-size:11px;opacity:0.8" id="recordCount">Loading...</span>
+    </div>
+    <div id="tableContainer">
+      <div class="loading-text">Loading records...</div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="viewModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span>ID Card Preview</span>
+      <button class="modal-close" onclick="closeModal()">x</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close" onclick="closeLightbox()">x</button>
+  <img id="lightboxImg" src="" alt="">
+</div>
+
+<div class="confirm-dialog" id="confirmDialog">
+  <div class="confirm-box">
+    <h3>Confirm Delete</h3>
+    <p id="confirmMsg">This will permanently delete the record and photo.</p>
+    <div class="cbtn">
+      <button style="background:#eee;color:#333" onclick="closeConfirm()">Cancel</button>
+      <button style="background:#8b0000;color:white" onclick="doDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let allRecords = [];
+let deleteTarget = null;
+let appSettings = { background_url: '', signature_url: '' };
+const COLLEGE_INSTITUTES = ['Govt. Medical College, Jhunjhunu', 'Govt. Nursing College, Jhunjhunu'];
+
+function getSelectedInstitute() {
+  return document.getElementById('instituteFilter').value;
+}
+
+function isDepartmentInstitute() {
+  const institute = getSelectedInstitute();
+  return !!institute && !COLLEGE_INSTITUTES.includes(institute);
+}
+
+function getFilteredRecords() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const type = document.getElementById('typeFilter').value;
+  return allRecords.filter(r => {
+    const matchQ = !q || (r.name || '').toLowerCase().includes(q) || (r.serial_no || '').toLowerCase().includes(q);
+    const matchType = !type || r.profile_type === type;
+    return matchQ && matchType;
+  });
+}
+
+async function loadSettings() {
+  try {
+    const institute = encodeURIComponent(getSelectedInstitute());
+    const res = await fetch(`/api/settings?institute=${institute}`);
+    appSettings = await res.json();
+    renderBackgroundPreview();
+  } catch (e) {
+    appSettings = { background_url: '', signature_url: '' };
+  }
+}
+
+function renderBackgroundPreview() {
+  const preview = document.getElementById('backgroundPreview');
+  const status = document.getElementById('backgroundStatus');
+  if (!getSelectedInstitute()) {
+    preview.textContent = 'Select an institute';
+    status.textContent = 'Choose an institute to view or upload its background.';
+  } else if (appSettings.background_url) {
+    preview.innerHTML = `<img src="${appSettings.background_url}?t=${Date.now()}" alt="Card background preview">`;
+    status.textContent = 'Background uploaded and active.';
+  } else {
+    preview.textContent = 'No preview';
+    status.textContent = 'No background uploaded yet.';
+  }
+}
+
+async function handleBackgroundUpload(input) {
+  if (!input.files.length) return;
+  const institute = getSelectedInstitute();
+  if (!institute) {
+    alert('Please select an institute first.');
+    input.value = '';
+    return;
+  }
+  const formData = new FormData();
+  formData.append('background', input.files[0]);
+  formData.append('institute', institute);
+  try {
+    const res = await fetch('/api/upload-background', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+    appSettings.background_url = data.background_url;
+    renderBackgroundPreview();
+  } catch (e) {
+    alert(e.message || 'Background upload failed.');
+  }
+  input.value = '';
+}
+
+async function loadRecords() {
+  document.getElementById('tableContainer').innerHTML = '<div class="loading-text">Loading...</div>';
+  loadSettings();
+  try {
+    const institute = encodeURIComponent(getSelectedInstitute());
+    const res = await fetch(`/api/records?institute=${institute}`);
+    const data = await res.json();
+    allRecords = data.records || [];
+    const filtered = getFilteredRecords();
+    updateStats(filtered);
+    renderTable(filtered);
+  } catch (e) {
+    allRecords = [];
+    updateStats([]);
+    document.getElementById('tableContainer').innerHTML = '<div class="loading-text">Failed to load. Is the server running?</div>';
+  }
+}
+
+function updateStats(records) {
+  const source = records || allRecords;
+  const students = source.filter(r => r.profile_type === 'student').length;
+  const teachers = source.filter(r => r.profile_type === 'lecturer').length;
+  const employees = source.filter(r => r.profile_type === 'employee').length;
+  const sections = new Set(source.map(r => (r.department || '').trim()).filter(Boolean)).size;
+  document.getElementById('statTotal').textContent = source.length;
+  document.getElementById('statScope').textContent = getSelectedInstitute() || 'All Institutes';
+  if (isDepartmentInstitute()) {
+    document.getElementById('statLabelPrimary').textContent = 'Employees';
+    document.getElementById('statLabelSecondary').textContent = 'Sections';
+    document.getElementById('statStudents').textContent = employees;
+    document.getElementById('statFaculty').textContent = sections;
+  } else if (getSelectedInstitute()) {
+    document.getElementById('statLabelPrimary').textContent = 'Students';
+    document.getElementById('statLabelSecondary').textContent = 'Teachers';
+    document.getElementById('statStudents').textContent = students;
+    document.getElementById('statFaculty').textContent = teachers;
+  } else {
+    document.getElementById('statLabelPrimary').textContent = 'Students';
+    document.getElementById('statLabelSecondary').textContent = 'Staff';
+    document.getElementById('statStudents').textContent = students;
+    document.getElementById('statFaculty').textContent = teachers + employees;
+  }
+}
+
+function filterTable() {
+  const filtered = getFilteredRecords();
+  updateStats(filtered);
+  renderTable(filtered);
+}
+
+function renderTable(records) {
+  document.getElementById('recordCount').textContent = `${records.length} record(s)`;
+  if (!records.length) {
+    document.getElementById('tableContainer').innerHTML = '<div class="no-records">No records found</div>';
+    return;
+  }
+
+  let html = `
+    <div style="overflow-x:auto">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Photo</th>
+          <th>Serial No</th>
+          <th>Type</th>
+          <th>Name</th>
+          <th>Course / Designation</th>
+          <th>Employee ID</th>
+          <th>Dept</th>
+          <th>DOB</th>
+          <th>Contact</th>
+          <th>Blood</th>
+          <th>Valid Upto</th>
+          <th>Institute</th>
+          <th>Saved At</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  records.forEach((r, i) => {
+    const photoUrl = r.photo_url || '';
+    const photoHtml = photoUrl
+      ? `<img class="photo-thumb" src="${photoUrl}?t=${Date.now()}" alt="" onclick="showLightbox('${photoUrl}')" title="Click to enlarge">`
+      : `<div class="photo-placeholder-thumb">P</div>`;
+    const typeClass = r.profile_type === 'student' ? 'badge-student' : (r.profile_type === 'employee' ? 'badge-employee' : 'badge-lecturer');
+    const typeLabel = r.profile_type === 'student' ? 'Student' : (r.profile_type === 'employee' ? 'Employee' : 'Teacher');
+    const courseOrDesig = r.course || r.designation || '-';
+    const safeRecord = encodeURIComponent(JSON.stringify(r));
+
+    html += `
+      <tr>
+        <td style="color:var(--muted)">${i + 1}</td>
+        <td>${photoHtml}</td>
+        <td><span class="serial-code">${r.serial_no || '-'}</span></td>
+        <td><span class="badge ${typeClass}">${typeLabel}</span></td>
+        <td><strong>${r.name || '-'}</strong></td>
+        <td>${courseOrDesig}</td>
+        <td>${r.employee_id || '-'}</td>
+        <td>${r.department || '-'}</td>
+        <td>${formatDate(r.dob)}</td>
+        <td>${r.contact || '-'}</td>
+        <td>${r.blood_group || '-'}</td>
+        <td>${formatDate(r.valid_upto)}</td>
+        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.institute_name || ''}">${r.institute_name || '-'}</td>
+        <td style="color:var(--muted);white-space:nowrap">${r.saved_at || '-'}</td>
+        <td>
+          <div class="action-btns">
+            <button class="btn-sm btn-view" onclick="viewRecordFromEncoded('${safeRecord}')">View</button>
+            ${photoUrl ? `<a class="btn-sm btn-dl" href="${photoUrl}" download="${r.serial_no}.jpg">Photo</a>` : ''}
+            <button class="btn-sm btn-del" onclick="confirmDelete('${r.serial_no}', ${JSON.stringify(r.name || '')})">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  });
+
+  html += '</tbody></table></div>';
+  document.getElementById('tableContainer').innerHTML = html;
+}
+
+function formatDate(d) {
+  if (!d) return '-';
+  try {
+    const [y, m, day] = d.split('-');
+    return `${day}/${m}/${y}`;
+  } catch {
+    return d;
+  }
+}
+
+function viewRecordFromEncoded(encoded) {
+  viewRecord(JSON.parse(decodeURIComponent(encoded)));
+}
+
+function viewRecord(r) {
+  const courseOrDesig = r.course || r.designation || '-';
+  const photoHtml = r.photo_url
+    ? `<img class="card-photo" src="${r.photo_url}?t=${Date.now()}" alt="">`
+    : `<div class="card-photo-placeholder">P</div>`;
+  const typeLabel = r.profile_type === 'student' ? 'Student Identity Card' : (r.profile_type === 'employee' ? 'Employee Identity Card' : 'Teacher Identity Card');
+  const typeBadge = r.profile_type === 'student' ? 'STUDENT' : (r.profile_type === 'employee' ? 'EMPLOYEE' : 'TEACHER');
+  const backgroundStyle = appSettings.background_url
+    ? `--card-bg:url('${appSettings.background_url}?t=${Date.now()}')`
+    : '--card-bg:none';
+
+  let extraFields = '';
+  if (r.profile_type === 'student' && r.blood_group) {
+    extraFields = `<div class="cf-row"><span class="cf-label">Blood</span><span>${r.blood_group}</span></div>`;
+  }
+  if ((r.profile_type === 'lecturer' || r.profile_type === 'employee') && r.department) {
+    extraFields = `<div class="cf-row"><span class="cf-label">Dept</span><span>${r.department}</span></div>`;
+  }
+  if (r.profile_type === 'employee' && r.employee_id) {
+    extraFields += `<div class="cf-row"><span class="cf-label">Emp ID</span><span>${r.employee_id}</span></div>`;
+  }
+
+  document.getElementById('modalBody').innerHTML = `
+    <div class="id-card" style="${backgroundStyle}">
+      <div class="card-header">
+        <div style="width:28px;height:28px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">MC</div>
+        <div class="ch-text" style="flex:1;margin-left:8px">
+          <div class="institute-name">${r.institute_name || 'Medical College'}</div>
+          <div class="sub">${typeLabel}</div>
+        </div>
+      </div>
+      <div class="card-body">
+        ${photoHtml}
+        <div class="card-info">
+          <div class="card-name">${r.name || '-'}</div>
+          <div class="card-role">${courseOrDesig}</div>
+          <div>
+            ${extraFields}
+            <div class="cf-row"><span class="cf-label">DOB</span><span>${formatDate(r.dob)}</span></div>
+            <div class="cf-row"><span class="cf-label">Contact</span><span>${r.contact || '-'}</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card-serial-bar">
+        <span class="serial-disp">${r.serial_no || '-'}</span>
+        <span class="type-badge">${typeBadge}</span>
+      </div>
+      <div class="valid-bar">
+        <span>Valid Upto: ${formatDate(r.valid_upto)}</span>
+        <span>Issued: ${formatDate(r.inserted_date) || ((r.saved_at || '').split(' ')[0] || '-')}</span>
+      </div>
+      ${appSettings.signature_url && r.profile_type !== 'employee' ? `
+      <div class="signature-strip">
+        <div class="signature-box">
+          <img src="${appSettings.signature_url}?t=${Date.now()}" alt="HOD Signature">
+          <div class="sig-line"></div>
+          <div class="sig-label">Head of Department</div>
+        </div>
+      </div>` : ''}
+      <div class="disclaimer">This card is for information only. Actual card will be issued by the institute.</div>
+    </div>
+    <div class="modal-actions">
+      ${r.photo_url ? `<a class="btn btn-red" href="${r.photo_url}" download="${r.serial_no}.jpg">Download Photo</a>` : ''}
+      <button class="btn btn-outline" onclick="closeModal()">Close</button>
+    </div>
+    <div style="margin-top:10px;padding:10px;background:var(--cream);border-radius:5px;font-size:11px">
+      <strong>Address:</strong> ${r.address || '-'}<br>
+      <strong>Saved At:</strong> ${r.saved_at || '-'}
+    </div>
+  `;
+  document.getElementById('viewModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('viewModal').classList.remove('show');
+}
+
+function showLightbox(url) {
+  document.getElementById('lightboxImg').src = url + '?t=' + Date.now();
+  document.getElementById('lightbox').classList.add('show');
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('show');
+}
+
+function confirmDelete(serial, name) {
+  deleteTarget = serial;
+  document.getElementById('confirmMsg').textContent = `Delete record for "${name}" (${serial})? This cannot be undone.`;
+  document.getElementById('confirmDialog').classList.add('show');
+}
+
+function closeConfirm() {
+  document.getElementById('confirmDialog').classList.remove('show');
+  deleteTarget = null;
+}
+
+async function doDelete() {
+  if (!deleteTarget) return;
+  closeConfirm();
+  await fetch(`/api/delete/${deleteTarget}`, { method: 'DELETE' });
+  loadRecords();
+}
+
+function exportExcel() {
+  const institute = encodeURIComponent(getSelectedInstitute());
+  window.open(`/api/export-excel?institute=${institute}`, '_blank');
+}
+
+function exportZip() {
+  const institute = encodeURIComponent(getSelectedInstitute());
+  window.open(`/api/export-zip?institute=${institute}`, '_blank');
+}
+
+loadSettings();
+loadRecords();
+</script>
+</body>
+</html>
