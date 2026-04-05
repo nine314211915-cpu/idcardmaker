@@ -239,6 +239,28 @@
   }
   .photo-upload-area:hover { border-color: var(--red); background: var(--red-soft); }
   .photo-upload-area.has-photo { border-style: solid; border-color: var(--red); }
+  .photo-action-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    max-width: 280px;
+  }
+  .photo-action-btn {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: white;
+    color: var(--red);
+    padding: 7px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+  }
+  .photo-action-btn:hover {
+    background: var(--red-soft);
+    border-color: var(--red);
+  }
   .photo-placeholder {
     display: flex;
     flex-direction: column;
@@ -272,7 +294,7 @@
     cursor: pointer;
     text-decoration: underline;
   }
-  #photoInput { display: none; }
+  #photoInput, #cameraInput { display: none; }
 
   /* DIVIDER */
   .divider {
@@ -711,10 +733,10 @@
         <div class="form-grid" style="margin-bottom:10px">
           <div class="form-group compact-field">
             <label>Photo Upload <span class="req">*</span> — AI Auto-Crop (Passport Style)</label>
-            <div class="photo-upload-area" id="photoArea" onclick="document.getElementById('photoInput').click()">
+            <div class="photo-upload-area" id="photoArea" onclick="openGalleryPicker()">
               <div class="photo-placeholder" id="photoPlaceholder">
                 <span class="icon">📷</span>
-                <span>Click to upload photo</span>
+                <span>Choose from camera or gallery</span>
                 <span style="font-size:10px">Will be auto-cropped to passport style</span>
               </div>
               <div class="photo-preview-wrap" id="photoPreviewWrap">
@@ -722,11 +744,16 @@
                 <div class="photo-info">
                   <strong id="previewSerial">—</strong>
                   Passport-style crop applied
-                  <br><span class="change-photo" onclick="event.stopPropagation(); document.getElementById('photoInput').click()">Change Photo</span>
+                  <br><span class="change-photo" onclick="event.stopPropagation(); openGalleryPicker()">Change Photo</span>
                 </div>
               </div>
             </div>
+            <div class="photo-action-row">
+              <button class="photo-action-btn" type="button" onclick="event.stopPropagation(); openCameraPicker()">Camera</button>
+              <button class="photo-action-btn" type="button" onclick="event.stopPropagation(); openGalleryPicker()">Gallery</button>
+            </div>
             <input type="file" id="photoInput" accept="image/*" onchange="handlePhotoUpload(this)">
+            <input type="file" id="cameraInput" accept="image/*" capture="environment" onchange="handlePhotoUpload(this)">
           </div>
           <div class="form-group compact-field">
             <label>Serial Number (Auto-Generated)</label>
@@ -1016,6 +1043,14 @@ function showLoading(text) {
   document.getElementById('loadingOverlay').classList.add('show');
 }
 function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
+
+function openGalleryPicker() {
+  document.getElementById('photoInput').click();
+}
+
+function openCameraPicker() {
+  document.getElementById('cameraInput').click();
+}
 
 async function loadBatchSummary() {
   try {
