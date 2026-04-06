@@ -1366,7 +1366,6 @@ function hasEntryData() {
 }
 
 function refreshInstituteLock() {
-  batchInstituteLocked = batchInstituteLocked || hasEntryData();
   setInstituteLocked(batchInstituteLocked || hasEntryData());
   saveUiState();
 }
@@ -1548,7 +1547,6 @@ function openGalleryPicker() {
 
 async function loadBatchSummary() {
   const draftRecords = getDraftRecords(getInstituteValue());
-  batchInstituteLocked = draftRecords.length > 0;
   setInstituteLocked(batchInstituteLocked || hasEntryData());
   document.getElementById('savedCardsCount').textContent = draftRecords.length;
   document.getElementById('submittedCardsCount').textContent = '0';

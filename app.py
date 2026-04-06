@@ -1393,7 +1393,7 @@ def attach_photo_to_serial(file_storage, serial, institute=None):
             with open(final_path, "rb") as photo_file:
                 photo_url = upload_bytes_to_supabase_storage(photo_file.read(), storage_path, "image/jpeg")
         except Exception as exc:
-            raise RuntimeError(f"Cloud photo upload failed for {serial}. Please retry.") from exc
+            raise RuntimeError(f"Cloud photo upload failed for {serial}: {exc}") from exc
     elif is_drive_enabled():
         with open(final_path, "rb") as photo_file:
             photo_drive_id, drive_url = upload_bytes_to_drive(photo_file.read(), filename, "image/jpeg", "photos")
