@@ -113,11 +113,11 @@ def list_drive_storage_filenames(kind):
         if folder_id:
             query.append(f"'{_drive_query_string(folder_id)}' in parents")
         try:
-            response = service.files().list(
+            response = execute_drive_request(service.files().list(
                 q=" and ".join(query),
                 fields="files(id, name, parents)",
                 pageSize=200,
-            ).execute()
+            ))
         except Exception:
             continue
         for file in response.get("files", []):
@@ -381,12 +381,24 @@ def record_drive_sync_status(filename, synced=None, local_present=None, error=No
     if local_present is not None:
         status["local_present"] = bool(local_present)
     if error is not None:
-        status["error"] = str(error).strip()
+        status["error"] = format_drive_error(error)
     if file_id is not None:
         status["file_id"] = file_id or ""
     if folder_id is not None:
         status["folder_id"] = folder_id or ""
     _drive_sync_status[filename] = status
+
+
+def format_drive_error(error):
+    if not error:
+        return ""
+    if isinstance(error, str):
+        return error.strip()
+    return f"{error.__class__.__name__}: {str(error).strip()}"
+
+
+def execute_drive_request(request, retries=3):
+    return request.execute(num_retries=retries)
 
 
 def append_drive_sync_event(filename, institute="", kind="", status="", error="", file_id="", folder_id=""):
@@ -396,7 +408,7 @@ def append_drive_sync_event(filename, institute="", kind="", status="", error=""
         "institute": canonicalize_institute_name(institute) or "",
         "kind": kind or "",
         "status": status or "",
-        "error": str(error or "").strip(),
+        "error": format_drive_error(error),
         "file_id": file_id or "",
         "folder_id": folder_id or "",
     }
@@ -433,11 +445,11 @@ def get_recent_drive_sync_events(institute=None):
 
 
 def make_drive_public(service, file_id):
-    service.permissions().create(
+    execute_drive_request(service.permissions().create(
         fileId=file_id,
         body={"type": "anyone", "role": "reader"},
         fields="id",
-    ).execute()
+    ))
 
 
 def build_drive_view_url(file_id):
@@ -457,7 +469,7 @@ def upload_bytes_to_drive(file_bytes, filename, mime_type, kind):
         metadata["parents"] = [folder_id]
 
     media = MediaIoBaseUpload(io.BytesIO(file_bytes), mimetype=mime_type, resumable=False)
-    created = service.files().create(body=metadata, media_body=media, fields="id").execute()
+    created = execute_drive_request(service.files().create(body=metadata, media_body=media, fields="id"))
     file_id = created["id"]
     make_drive_public(service, file_id)
     return file_id, build_drive_view_url(file_id)
@@ -477,11 +489,11 @@ def find_drive_file_id(filename, kind):
         if folder_id:
             query.append(f"'{_drive_query_string(folder_id)}' in parents")
         try:
-            response = service.files().list(
+            response = execute_drive_request(service.files().list(
                 q=" and ".join(query),
                 fields="files(id, name, parents)",
                 pageSize=1,
-            ).execute()
+            ))
         except Exception:
             continue
         files = response.get("files", [])
@@ -505,7 +517,7 @@ def download_drive_file_bytes(file_id):
     downloader = MediaIoBaseDownload(buffer, request)
     done = False
     while not done:
-        _, done = downloader.next_chunk()
+        _, done = downloader.next_chunk(num_retries=3)
     return buffer.getvalue()
 
 
@@ -519,7 +531,7 @@ def upsert_private_drive_file(file_bytes, filename, mime_type, kind):
     file_id = _drive_json_file_ids.get(filename) or find_drive_file_id(filename, kind)
     media = MediaIoBaseUpload(io.BytesIO(file_bytes), mimetype=mime_type, resumable=False)
     if file_id:
-        service.files().update(fileId=file_id, media_body=media).execute()
+        execute_drive_request(service.files().update(fileId=file_id, media_body=media))
         _drive_json_file_ids[filename] = file_id
         record_drive_sync_status(filename, synced=True, error="", file_id=file_id)
         append_drive_sync_event(
@@ -538,7 +550,7 @@ def upsert_private_drive_file(file_bytes, filename, mime_type, kind):
             metadata["parents"] = [folder_id]
         media = MediaIoBaseUpload(io.BytesIO(file_bytes), mimetype=mime_type, resumable=False)
         try:
-            created = service.files().create(body=metadata, media_body=media, fields="id, parents").execute()
+            created = execute_drive_request(service.files().create(body=metadata, media_body=media, fields="id, parents"))
             file_id = created["id"]
             _drive_json_file_ids[filename] = file_id
             resolved_folder_id = (created.get("parents") or [folder_id or ""])[0] if created.get("parents") or folder_id else ""
@@ -735,7 +747,7 @@ def delete_drive_file(file_id):
     if service is None:
         return
     try:
-        service.files().delete(fileId=file_id).execute()
+        execute_drive_request(service.files().delete(fileId=file_id))
     except Exception:
         pass
 
@@ -770,7 +782,7 @@ def download_drive_file(file_id):
     downloader = MediaIoBaseDownload(buffer, request)
     done = False
     while not done:
-        _, done = downloader.next_chunk()
+        _, done = downloader.next_chunk(num_retries=3)
     return buffer.getvalue()
 
 
