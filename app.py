@@ -593,10 +593,23 @@ def summarize_batch(records):
         "total_count": len(records),
     }
 
-def gen_serial():
+def make_institute_code(value):
+    institute = canonicalize_institute_name(value)
+    if not institute:
+        return "GEN"
+    words = [word for word in secure_filename(institute).replace("_", " ").split() if word]
+    initials = "".join(word[0] for word in words[:6]).upper()
+    if len(initials) >= 3:
+        return initials[:6]
+    compact = "".join(ch for ch in secure_filename(institute).upper() if ch.isalnum())
+    return (compact[:6] or "GEN")
+
+
+def gen_serial(institute=None):
     date_part = datetime.now().strftime("%Y%m%d")
     rand_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
-    return f"ID-{date_part}-{rand_part}"
+    institute_code = make_institute_code(institute)
+    return f"ID-{institute_code}-{date_part}-{rand_part}"
 
 
 def gen_certificate_no():
@@ -825,7 +838,7 @@ def upload_photo():
     if "photo" not in request.files:
         return jsonify({"error": "No file"}), 400
     f = request.files["photo"]
-    serial = (request.form.get("serial_no") or "").strip() or gen_serial()
+    serial = (request.form.get("serial_no") or "").strip() or gen_serial(request.form.get("institute"))
     filename = f"{serial}.jpg"
     raw_path = os.path.join(UPLOAD_DIR, f"raw_{filename}")
     final_path = os.path.join(UPLOAD_DIR, filename)
@@ -1212,7 +1225,7 @@ def import_csv():
 
         normalized["institute_name"] = canonicalize_institute_name(normalized.get("institute_name"))
         normalize_record_dates(normalized)
-        serial_no = (normalized.get("serial_no") or "").strip() or gen_serial()
+        serial_no = (normalized.get("serial_no") or "").strip() or gen_serial(normalized.get("institute_name"))
         normalized["serial_no"] = serial_no
         if not normalized.get("name"):
             continue

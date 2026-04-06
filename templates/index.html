@@ -1090,7 +1090,10 @@ let currentType = 'student';
 let appSettings = { background_url: '', signature_url: '' };
 let pendingSignaturePassword = '';
 let lastLoadedSubmittedSerial = '';
+let editingSerialNo = '';
 let currentPhotoMeta = { url: '', drive_id: '' };
+let instituteLocked = false;
+let batchInstituteLocked = false;
 
 function currentDateText() {
   const now = new Date();
@@ -1136,15 +1139,50 @@ function installFieldFormatters() {
   }
 }
 
+function setInstituteLocked(locked) {
+  instituteLocked = !!locked;
+  document.getElementById('instituteName').disabled = instituteLocked;
+  document.getElementById('otherInstituteName').readOnly = instituteLocked;
+}
+
+function hasEntryData() {
+  const valueIds = [
+    'name', 'dob', 'contact', 'address', 'fatherName', 'aadhaarNo',
+    'batchSession', 'trainingYear', 'course', 'validUpto',
+    'designation', 'department', 'employeeId', 'bloodGroup'
+  ];
+  if (currentPhotoMeta.url) return true;
+  return valueIds.some((id) => {
+    const el = document.getElementById(id);
+    return el && String(el.value || '').trim();
+  });
+}
+
+function refreshInstituteLock() {
+  batchInstituteLocked = batchInstituteLocked || hasEntryData();
+  setInstituteLocked(batchInstituteLocked || hasEntryData());
+}
+
 function generateSerialLocal() {
+  const institute = getInstituteValue();
   const now = new Date();
   const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const cleaned = String(institute || '').replace(/[^A-Za-z0-9 ]+/g, ' ').trim();
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  let instituteCode = words.slice(0, 6).map(word => word[0]).join('').toUpperCase();
+  if (instituteCode.length < 3) {
+    instituteCode = cleaned.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 6) || 'GEN';
+  }
   let rand = '';
   for (let i = 0; i < 4; i += 1) {
     rand += chars[Math.floor(Math.random() * chars.length)];
   }
-  return `ID-${datePart}-${rand}`;
+  return `ID-${instituteCode}-${datePart}-${rand}`;
+}
+
+function isAutoSerial(value) {
+  return /^ID-(?:[A-Z0-9]{3,6}-)?\d{8}-[A-Z0-9]{4}$/.test(String(value || '').trim());
 }
 
 function ensureSerialGenerated() {
@@ -1180,10 +1218,19 @@ function populateSelect(selectId, items, placeholder) {
 }
 
 function handleInstituteChange() {
+  if (instituteLocked) return;
   const institute = document.getElementById('instituteName').value;
+  const serialInput = document.getElementById('serialNo');
   const collegeMode = isCollegeMode();
   const anmMode = isAnmMode();
   document.getElementById('otherInstituteWrap').style.display = institute === 'Other' ? '' : 'none';
+
+  if (!editingSerialNo && isAutoSerial(serialInput.value)) {
+    const serial = generateSerialLocal();
+    serialInput.value = serial;
+    document.getElementById('previewSerial').textContent = serial;
+    document.getElementById('prevSerial').textContent = serial;
+  }
 
   if (anmMode) {
     currentType = 'student';
@@ -1258,6 +1305,7 @@ function handleInstituteChange() {
   setType(anmMode ? 'student' : (collegeMode ? (currentType === 'employee' ? 'student' : currentType) : 'employee'));
   loadSettings();
   loadBatchSummary();
+  refreshInstituteLock();
 }
 
 function setType(type) {
@@ -1276,6 +1324,7 @@ function setType(type) {
     document.getElementById('bloodGroupGroup').style.display = '';
   }
   updatePreview();
+  refreshInstituteLock();
 }
 
 function showLoading(text) {
@@ -1411,11 +1460,13 @@ async function handleSignatureUpload(input) {
 
 async function handlePhotoUpload(input) {
   if (!input.files.length) return;
+  refreshInstituteLock();
   showLoading('Uploading & cropping photo…');
   ensureSerialGenerated();
   const formData = new FormData();
   formData.append('photo', input.files[0]);
   formData.append('serial_no', document.getElementById('serialNo').value.trim());
+  formData.append('institute', getInstituteValue());
   try {
     const res = await fetch('/api/upload-photo', { method: 'POST', body: formData });
     const data = await res.json();
@@ -1434,6 +1485,7 @@ async function handlePhotoUpload(input) {
     document.getElementById('photoArea').classList.add('has-photo');
     // Card photo
     document.getElementById('cardPhotoWrap').innerHTML = `<img src="${data.photo_url}?t=${Date.now()}" alt="Photo">`;
+    refreshInstituteLock();
   } catch(e) {
     alert('Photo upload failed. Please try again.');
   }
@@ -1510,6 +1562,7 @@ function updatePreview() {
     document.getElementById('prevBadge').textContent = 'Employee Identity Card';
     document.getElementById('prevTypeBadge').textContent = 'EMPLOYEE';
   }
+  refreshInstituteLock();
 }
 
 function formatDate(d) {
@@ -1679,6 +1732,7 @@ async function editSubmittedCard(serial) {
 
 function populateFormFromRecord(record) {
   const sourceInstitute = record.institute_name || '';
+  setInstituteLocked(false);
   const knownInstitutes = [
     ...COLLEGE_INSTITUTES,
     ANM_INSTITUTE,
@@ -1738,6 +1792,7 @@ function populateFormFromRecord(record) {
   }
 
   updatePreview();
+  setInstituteLocked(true);
 }
 
 async function saveCurrentCard() {
@@ -1811,6 +1866,9 @@ async function submitWholeBatch() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Batch submit failed');
     showToast('Submitted ' + data.total_cards + ' card(s) for ' + institute);
+    batchInstituteLocked = false;
+    setInstituteLocked(false);
+    resetForm();
     await loadBatchSummary();
   } catch (e) {
     alert(e.message || 'Batch submit failed.');
@@ -1856,15 +1914,19 @@ function resetForm() {
 
   document.getElementById('instituteName').value = institute;
   document.getElementById('otherInstituteName').value = otherInstitute;
+  setInstituteLocked(false);
   handleInstituteChange();
   ensureSerialGenerated();
   updatePreview();
+  setInstituteLocked(batchInstituteLocked);
   loadBatchSummary();
 }
 
 // Init
 installFieldFormatters();
 handleInstituteChange();
+batchInstituteLocked = false;
+setInstituteLocked(false);
 ensureSerialGenerated();
 updatePreview();
 loadSettings();
