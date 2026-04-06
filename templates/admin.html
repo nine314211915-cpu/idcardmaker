@@ -1000,8 +1000,15 @@ async function handleManualPhotoAttach(input) {
 
 async function loadRecords() {
   saveAdminUiState();
-  document.getElementById('tableContainer').innerHTML = '<div class="loading-text">Loading...</div>';
   loadSettings();
+  if (!getSelectedInstitute()) {
+    allRecords = [];
+    document.getElementById('recordCount').textContent = 'Select an institute';
+    document.getElementById('tableContainer').innerHTML = '<div class="no-records">Select an institute to load records</div>';
+    updateStats([]);
+    return;
+  }
+  document.getElementById('tableContainer').innerHTML = '<div class="loading-text">Loading...</div>';
   try {
     const institute = encodeURIComponent(getSelectedInstitute());
     const res = await fetch(`/api/records?institute=${institute}`);
