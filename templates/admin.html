@@ -1028,6 +1028,7 @@ function renderTable(records) {
           <th>Blood</th>
           <th>Valid Upto</th>
           <th>Institute</th>
+          <th>Status</th>
           <th>Saved At</th>
           <th>Actions</th>
         </tr>
@@ -1060,6 +1061,7 @@ function renderTable(records) {
         <td>${r.blood_group || '-'}</td>
         <td>${formatDate(r.valid_upto)}</td>
         <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.institute_name || ''}">${r.institute_name || '-'}</td>
+        <td><span class="badge ${r.submitted_at ? 'badge-student' : 'badge-lecturer'}">${r.submitted_at ? 'Submitted' : 'Pending Submission'}</span></td>
         <td style="color:var(--muted);white-space:nowrap">${formatDateTime(r.saved_at)}</td>
         <td>
           <div class="action-btns">

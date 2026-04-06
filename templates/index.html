@@ -1011,7 +1011,7 @@
             <div class="batch-pill">Current Institute<strong id="batchInstituteName">-</strong></div>
           </div>
           <button class="btn-submit" type="button" onclick="submitWholeBatch()">Submit Whole Data</button>
-          <div class="batch-note" id="batchHelperNote">Saved cards stay attached to this institute even after refresh. Submit the whole batch when you are done.</div>
+          <div class="batch-note" id="batchHelperNote">Saved cards stay attached to this institute even after refresh. Status stays Pending Submission until you click Submit Whole Data.</div>
           <div class="batch-toolbar">
             <select id="savedCardPicker" onchange="jumpToSelectedCard()">
               <option value="">Select an entered card</option>
@@ -1149,7 +1149,6 @@ function saveUiState() {
   const payload = {
     instituteName: document.getElementById('instituteName').value,
     otherInstituteName: document.getElementById('otherInstituteName').value,
-    batchInstituteLocked,
   };
   try {
     localStorage.setItem(UI_STATE_KEY, JSON.stringify(payload));
@@ -1251,9 +1250,9 @@ function isAutoSerial(value) {
   return /^ID-(?:[A-Z0-9]{3,6}-)?\d{8}-[A-Z0-9]{4}$/.test(String(value || '').trim());
 }
 
-function ensureSerialGenerated() {
+function ensureSerialGenerated(force = false) {
   const serialInput = document.getElementById('serialNo');
-  if (!serialInput.value.trim()) {
+  if (!serialInput.value.trim() && (force || hasEntryData())) {
     const serial = generateSerialLocal();
     serialInput.value = serial;
     document.getElementById('previewSerial').textContent = serial;
@@ -1409,13 +1408,21 @@ async function loadBatchSummary() {
     const institute = encodeURIComponent(getInstituteValue());
     const res = await fetch(`/api/batch-summary?institute=${institute}`);
     const data = await res.json();
+    batchInstituteLocked = (data.saved_count ?? 0) > 0;
+    setInstituteLocked(batchInstituteLocked || hasEntryData());
     document.getElementById('savedCardsCount').textContent = data.saved_count ?? 0;
     document.getElementById('submittedCardsCount').textContent = data.submitted_count ?? 0;
     document.getElementById('batchInstituteName').textContent = getInstituteValue() || '-';
+    document.getElementById('batchHelperNote').textContent = (data.saved_count ?? 0) > 0
+      ? 'Saved cards are safe. They are still Pending Submission until you click Submit Whole Data.'
+      : 'Saved cards stay attached to this institute even after refresh. Status stays Pending Submission until you click Submit Whole Data.';
   } catch (e) {
+    batchInstituteLocked = false;
+    setInstituteLocked(hasEntryData());
     document.getElementById('savedCardsCount').textContent = '0';
     document.getElementById('submittedCardsCount').textContent = '0';
     document.getElementById('batchInstituteName').textContent = getInstituteValue() || '-';
+    document.getElementById('batchHelperNote').textContent = 'Saved cards stay attached to this institute even after refresh. Status stays Pending Submission until you click Submit Whole Data.';
   }
   await loadSubmittedCards();
 }
@@ -1444,8 +1451,9 @@ async function loadSubmittedCards() {
       <div class="submitted-card">
         <strong>${escapeHtml(record.name || 'Unnamed')}</strong>
         <span>${escapeHtml(record.serial_no || '-')} | ${escapeHtml(record.training_year || record.course || record.designation || record.profile_type || '')}</span>
-        <span class="status-chip ${record.submitted_at ? 'submitted' : 'saved'}">${record.submitted_at ? 'Submitted' : 'Saved'}</span>
-        <span>${record.submitted_at ? 'Submitted' : 'Saved'}: ${escapeHtml(formatDateTime(record.submitted_at || record.saved_at || '-'))}</span>
+        <span class="status-chip ${record.submitted_at ? 'submitted' : 'saved'}">${record.submitted_at ? 'Submitted' : 'Pending Submission'}</span>
+        <span>Saved safely: ${escapeHtml(formatDateTime(record.saved_at || '-'))}</span>
+        <span>${record.submitted_at ? `Submitted: ${escapeHtml(formatDateTime(record.submitted_at))}` : 'Waiting for Submit Whole Data'}</span>
         <div class="submitted-card-actions">
           <button type="button" onclick="editSubmittedCard('${record.serial_no}')">Edit</button>
         </div>
@@ -1546,7 +1554,7 @@ async function handlePhotoUpload(input) {
   if (!input.files.length) return;
   refreshInstituteLock();
   showLoading('Uploading & cropping photo…');
-  ensureSerialGenerated();
+  ensureSerialGenerated(true);
   const formData = new FormData();
   formData.append('photo', input.files[0]);
   formData.append('serial_no', document.getElementById('serialNo').value.trim());
@@ -1675,7 +1683,7 @@ async function saveCurrentCard() {
   const anmMode = isAnmMode();
   const effectiveType = anmMode ? 'student' : (isCollegeMode() ? currentType : 'employee');
   const name = document.getElementById('name').value.trim();
-  ensureSerialGenerated();
+  ensureSerialGenerated(true);
   const serial = document.getElementById('serialNo').value.trim();
   if (!name) { alert('Please enter full name.'); return; }
   if (!serial) { alert('Unable to generate serial number.'); return; }
@@ -1785,7 +1793,6 @@ function resetForm() {
   }
   document.getElementById('instituteName').value = institute;
   handleInstituteChange();
-  ensureSerialGenerated();
   updatePreview();
   loadBatchSummary();
 }
@@ -1883,7 +1890,7 @@ async function saveCurrentCard() {
   const anmMode = isAnmMode();
   const effectiveType = anmMode ? 'student' : (isCollegeMode() ? currentType : 'employee');
   const name = document.getElementById('name').value.trim();
-  ensureSerialGenerated();
+  ensureSerialGenerated(true);
   const serial = document.getElementById('serialNo').value.trim();
   if (!name) { alert('Please enter full name.'); return; }
   if (!serial) { alert('Unable to generate serial number.'); return; }
@@ -2000,7 +2007,6 @@ function resetForm() {
   document.getElementById('otherInstituteName').value = otherInstitute;
   setInstituteLocked(false);
   handleInstituteChange();
-  ensureSerialGenerated();
   updatePreview();
   setInstituteLocked(batchInstituteLocked);
   saveUiState();
@@ -2017,9 +2023,8 @@ if (typeof persistedUiState.otherInstituteName === 'string') {
   document.getElementById('otherInstituteName').value = persistedUiState.otherInstituteName;
 }
 handleInstituteChange();
-batchInstituteLocked = !!persistedUiState.batchInstituteLocked;
-setInstituteLocked(batchInstituteLocked);
-ensureSerialGenerated();
+batchInstituteLocked = false;
+setInstituteLocked(false);
 updatePreview();
 loadSettings();
 loadBatchSummary();
