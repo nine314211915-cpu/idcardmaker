@@ -18,6 +18,7 @@ STORE_DIR = os.path.join(RUNTIME_DIR, "data_store")
 RECORDS_DIR = os.path.join(STORE_DIR, "records")
 CERTIFICATES_DIR = os.path.join(STORE_DIR, "certificates")
 SETTINGS_DIR = os.path.join(STORE_DIR, "settings")
+DRIVE_SYNC_LOG_FILE = os.path.join(STORE_DIR, "drive_sync_events.json")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(ASSET_DIR, exist_ok=True)
 os.makedirs(RECORDS_DIR, exist_ok=True)
@@ -389,6 +390,27 @@ def record_drive_sync_status(filename, synced=None, local_present=None, error=No
     _drive_sync_status[filename] = status
 
 
+def load_persisted_drive_sync_events():
+    if not os.path.exists(DRIVE_SYNC_LOG_FILE):
+        return []
+    try:
+        with open(DRIVE_SYNC_LOG_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
+    except Exception:
+        app.logger.warning("Unable to load persisted Drive sync events", exc_info=True)
+    return []
+
+
+def persist_drive_sync_events():
+    try:
+        with open(DRIVE_SYNC_LOG_FILE, "w", encoding="utf-8") as f:
+            json.dump(list(_drive_sync_events), f, indent=2)
+    except Exception:
+        app.logger.warning("Unable to persist Drive sync events", exc_info=True)
+
+
 def format_drive_error(error):
     if not error:
         return ""
@@ -413,6 +435,7 @@ def append_drive_sync_event(filename, institute="", kind="", status="", error=""
         "folder_id": folder_id or "",
     }
     _drive_sync_events.appendleft(event)
+    persist_drive_sync_events()
     message = f"Drive sync event status={event['status']} file={event['filename'] or '-'} institute={event['institute'] or '-'}"
     if event["error"]:
         app.logger.warning("%s error=%s", message, event["error"])
@@ -442,6 +465,9 @@ def get_recent_drive_sync_events(institute=None):
         f"settings__{slug}",
     )
     return [event for event in _drive_sync_events if (event.get("filename") or "").startswith(prefixes)]
+
+
+_drive_sync_events.extend(load_persisted_drive_sync_events())
 
 
 def make_drive_public(service, file_id):
