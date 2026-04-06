@@ -28,6 +28,7 @@ app.config["SIGNATURE_UPLOAD_PASSWORD"] = os.environ.get("SIGNATURE_UPLOAD_PASSW
 app.config["ADMIN_PANEL_PASSWORD"] = os.environ.get("ADMIN_PANEL_PASSWORD", "admin123")
 app.config["SUPABASE_URL"] = os.environ.get("SUPABASE_URL", "").strip()
 app.config["SUPABASE_SERVICE_ROLE_KEY"] = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+app.config["SUPABASE_PHOTOS_BUCKET"] = os.environ.get("SUPABASE_PHOTOS_BUCKET", "id-card-photos").strip() or "id-card-photos"
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "medical-id-card-secret")
 
 for bundled_dir, runtime_dir in [
@@ -253,6 +254,17 @@ def supabase_headers():
     }
 
 
+def supabase_storage_headers(content_type=None):
+    headers = {
+        "apikey": app.config["SUPABASE_SERVICE_ROLE_KEY"],
+        "Authorization": f"Bearer {app.config['SUPABASE_SERVICE_ROLE_KEY']}",
+        "x-upsert": "true",
+    }
+    if content_type:
+        headers["Content-Type"] = content_type
+    return headers
+
+
 def supabase_request(method, path, payload=None, query=None, prefer_representation=False):
     if not is_supabase_enabled():
         raise RuntimeError("Supabase is not configured")
@@ -282,6 +294,78 @@ def supabase_request(method, path, payload=None, query=None, prefer_representati
     except urllib_error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="replace")
         raise RuntimeError(raw or f"Supabase request failed with status {exc.code}") from exc
+
+
+def ensure_supabase_bucket(bucket_name):
+    if not is_supabase_enabled():
+        raise RuntimeError("Supabase is not configured")
+    base = app.config["SUPABASE_URL"].rstrip("/")
+    url = f"{base}/storage/v1/bucket/{urllib_parse.quote(bucket_name, safe='')}"
+    req = urllib_request.Request(url, method="GET")
+    for key, value in supabase_headers().items():
+        req.add_header(key, value)
+    try:
+        with urllib_request.urlopen(req, timeout=30):
+            return
+    except urllib_error.HTTPError as exc:
+        if exc.code != 404:
+            raw = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(raw or f"Bucket lookup failed with status {exc.code}") from exc
+
+    create_req = urllib_request.Request(
+        f"{base}/storage/v1/bucket",
+        data=json.dumps({"id": bucket_name, "name": bucket_name, "public": True}).encode("utf-8"),
+        method="POST",
+    )
+    for key, value in supabase_headers().items():
+        create_req.add_header(key, value)
+    try:
+        with urllib_request.urlopen(create_req, timeout=30):
+            return
+    except urllib_error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="replace")
+        if exc.code == 409:
+            return
+        raise RuntimeError(raw or f"Bucket create failed with status {exc.code}") from exc
+
+
+def upload_bytes_to_supabase_storage(file_bytes, object_path, mime_type):
+    bucket = app.config["SUPABASE_PHOTOS_BUCKET"]
+    ensure_supabase_bucket(bucket)
+    base = app.config["SUPABASE_URL"].rstrip("/")
+    object_path = object_path.strip("/")
+    url = f"{base}/storage/v1/object/{urllib_parse.quote(bucket, safe='')}/{urllib_parse.quote(object_path, safe='/')}"
+    req = urllib_request.Request(url, data=file_bytes, method="POST")
+    for key, value in supabase_storage_headers(mime_type).items():
+        req.add_header(key, value)
+    try:
+        with urllib_request.urlopen(req, timeout=60):
+            return f"{base}/storage/v1/object/public/{urllib_parse.quote(bucket, safe='')}/{urllib_parse.quote(object_path, safe='/')}"
+    except urllib_error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(raw or f"Supabase storage upload failed with status {exc.code}") from exc
+
+
+def delete_supabase_storage_url(file_url):
+    if not file_url or not is_supabase_enabled():
+        return
+    base = app.config["SUPABASE_URL"].rstrip("/")
+    public_prefix = f"{base}/storage/v1/object/public/"
+    if not file_url.startswith(public_prefix):
+        return
+    remainder = file_url[len(public_prefix):]
+    bucket, _, object_path = remainder.partition("/")
+    if not bucket or not object_path:
+        return
+    url = f"{base}/storage/v1/object/{urllib_parse.quote(bucket, safe='')}/{urllib_parse.quote(object_path, safe='/')}"
+    req = urllib_request.Request(url, method="DELETE")
+    for key, value in supabase_headers().items():
+        req.add_header(key, value)
+    try:
+        with urllib_request.urlopen(req, timeout=30):
+            return
+    except urllib_error.HTTPError:
+        return
 
 
 def default_batch_name(institute):
@@ -957,6 +1041,7 @@ def delete_local_file_if_exists(path):
 def delete_uploaded_file_from_url(file_url):
     if not file_url:
         return
+    delete_supabase_storage_url(file_url)
     marker = "/uploads/"
     if marker not in file_url:
         return
@@ -1273,7 +1358,12 @@ def upload_photo():
         os.rename(raw_path, final_path)
     photo_url = f"/uploads/{filename}"
     photo_drive_id = None
-    if is_drive_enabled():
+    if is_supabase_enabled():
+        institute = canonicalize_institute_name(request.form.get("institute"))
+        storage_path = f"{make_storage_slug(institute or 'default')}/{filename}"
+        with open(final_path, "rb") as photo_file:
+            photo_url = upload_bytes_to_supabase_storage(photo_file.read(), storage_path, "image/jpeg")
+    elif is_drive_enabled():
         try:
             with open(final_path, "rb") as photo_file:
                 photo_drive_id, drive_url = upload_bytes_to_drive(photo_file.read(), filename, "image/jpeg", "photos")
@@ -1296,7 +1386,12 @@ def attach_photo_to_serial(file_storage, serial):
         os.rename(raw_path, final_path)
     photo_url = f"/uploads/{filename}"
     photo_drive_id = None
-    if is_drive_enabled():
+    if is_supabase_enabled():
+        institute = canonicalize_institute_name(request.form.get("institute"))
+        storage_path = f"{make_storage_slug(institute or 'default')}/{filename}"
+        with open(final_path, "rb") as photo_file:
+            photo_url = upload_bytes_to_supabase_storage(photo_file.read(), storage_path, "image/jpeg")
+    elif is_drive_enabled():
         with open(final_path, "rb") as photo_file:
             photo_drive_id, drive_url = upload_bytes_to_drive(photo_file.read(), filename, "image/jpeg", "photos")
             if drive_url:
