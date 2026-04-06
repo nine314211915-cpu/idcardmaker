@@ -416,6 +416,27 @@ def format_drive_error(error):
         return ""
     if isinstance(error, str):
         return error.strip()
+    if error.__class__.__name__ == "HttpError":
+        status = ""
+        details = ""
+        try:
+            status = str(getattr(getattr(error, "resp", None), "status", "") or "")
+        except Exception:
+            status = ""
+        try:
+            raw_content = getattr(error, "content", b"")
+            if isinstance(raw_content, bytes):
+                details = raw_content.decode("utf-8", errors="replace").strip()
+            else:
+                details = str(raw_content or "").strip()
+        except Exception:
+            details = ""
+        parts = ["HttpError"]
+        if status:
+            parts.append(f"status={status}")
+        if details:
+            parts.append(details)
+        return " | ".join(parts)
     return f"{error.__class__.__name__}: {str(error).strip()}"
 
 
