@@ -602,9 +602,6 @@ def get_recent_drive_sync_events(institute=None):
     return [event for event in _drive_sync_events if (event.get("filename") or "").startswith(prefixes)]
 
 
-_drive_sync_events.extend(load_persisted_drive_sync_events())
-
-
 def make_drive_public(service, file_id):
     execute_drive_request(service.permissions().create(
         fileId=file_id,
