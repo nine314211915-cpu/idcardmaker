@@ -1365,7 +1365,7 @@ function applyCardAssets() {
   if (appSettings.signature_url && isCollegeMode()) {
     signaturePreview.src = appSettings.signature_url + '?t=' + Date.now();
     signatureStrip.style.display = 'flex';
-    signatureStatus.textContent = 'Signature uploaded and active on all cards.';
+    signatureStatus.textContent = 'Signature uploaded and active for this institute.';
   } else {
     signaturePreview.src = '';
     signatureStrip.style.display = 'none';
@@ -1382,17 +1382,25 @@ function startSignatureUpload() {
 
 async function handleSignatureUpload(input) {
   if (!input.files.length || !pendingSignaturePassword) return;
+  const institute = getInstituteValue();
+  if (!institute) {
+    alert('Please select an institute first.');
+    input.value = '';
+    pendingSignaturePassword = '';
+    return;
+  }
   showLoading('Uploading HOD signature…');
   const formData = new FormData();
   formData.append('signature', input.files[0]);
   formData.append('password', pendingSignaturePassword);
+  formData.append('institute', institute);
   try {
     const res = await fetch('/api/upload-signature', { method: 'POST', body: formData });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Upload failed');
     appSettings.signature_url = data.signature_url;
     applyCardAssets();
-    showToast('✅ HOD signature updated for all cards');
+    showToast('✅ HOD signature updated for this institute');
   } catch (e) {
     alert(e.message || 'Signature upload failed.');
   }

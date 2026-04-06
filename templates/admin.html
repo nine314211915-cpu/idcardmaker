@@ -594,8 +594,8 @@
       <div class="asset-preview" id="certificateBackgroundPreview">No preview</div>
     </div>
     <div class="asset-box">
-      <h3>Global Signature</h3>
-      <p>Remove the current HOD signature from all previews and saved layouts.</p>
+      <h3>Institute Signature</h3>
+      <p>Preview or remove the HOD signature saved for the currently selected institute.</p>
       <div class="asset-actions">
         <button class="btn btn-outline" type="button" onclick="deleteSignature()">Remove Signature</button>
         <span class="asset-status" id="signatureStatus">No signature uploaded yet.</span>
@@ -692,7 +692,7 @@ async function loadSettings() {
     const [cardRes, certificateRes, driveRes] = await Promise.all([
       fetch(`/api/settings?institute=${institute}`),
       fetch(`/api/certificate-settings?institute=${institute}`),
-      fetch('/api/drive-storage-status')
+      fetch(`/api/drive-storage-status?institute=${institute}`)
     ]);
     const cardSettings = await cardRes.json();
     const certificateSettings = await certificateRes.json();
@@ -718,6 +718,11 @@ function renderDriveStorageStatus(errorMessage = '') {
     preview.textContent = errorMessage;
     return;
   }
+  if (!driveStorageStatus.institute) {
+    summary.textContent = 'Select an institute to inspect isolated Drive files.';
+    preview.textContent = 'Each institute now keeps separate records, certificates, settings, and signature/background data.';
+    return;
+  }
   if (!driveStorageStatus.drive_enabled) {
     summary.textContent = 'Google Drive is not configured.';
     preview.textContent = 'Permanent JSON sync is inactive because the Drive service account is not available.';
@@ -735,7 +740,8 @@ function renderDriveStorageStatus(errorMessage = '') {
 
 async function loadDriveStorageStatus() {
   try {
-    const res = await fetch('/api/drive-storage-status');
+    const institute = encodeURIComponent(getSelectedInstitute());
+    const res = await fetch(`/api/drive-storage-status?institute=${institute}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Unable to load Drive status');
     driveStorageStatus = data;
@@ -885,9 +891,14 @@ async function deleteCertificateBackground() {
 }
 
 async function deleteSignature() {
-  if (!confirm('Remove the global HOD signature?')) return;
+  const institute = getSelectedInstitute();
+  if (!institute) {
+    alert('Please select an institute first.');
+    return;
+  }
+  if (!confirm(`Remove the HOD signature for "${institute}"?`)) return;
   try {
-    const res = await fetch('/api/delete-signature', { method: 'DELETE' });
+    const res = await fetch(`/api/delete-signature?institute=${encodeURIComponent(institute)}`, { method: 'DELETE' });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Delete failed');
     appSettings.signature_url = '';

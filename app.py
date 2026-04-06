@@ -13,8 +13,15 @@ ASSET_DIR = os.path.join(RUNTIME_DIR, "static", "assets")
 DATA_FILE = os.path.join(RUNTIME_DIR, "records.json")
 CERTIFICATE_DATA_FILE = os.path.join(RUNTIME_DIR, "certificates.json")
 SETTINGS_FILE = os.path.join(RUNTIME_DIR, "settings.json")
+STORE_DIR = os.path.join(RUNTIME_DIR, "data_store")
+RECORDS_DIR = os.path.join(STORE_DIR, "records")
+CERTIFICATES_DIR = os.path.join(STORE_DIR, "certificates")
+SETTINGS_DIR = os.path.join(STORE_DIR, "settings")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(ASSET_DIR, exist_ok=True)
+os.makedirs(RECORDS_DIR, exist_ok=True)
+os.makedirs(CERTIFICATES_DIR, exist_ok=True)
+os.makedirs(SETTINGS_DIR, exist_ok=True)
 app.config["SIGNATURE_UPLOAD_PASSWORD"] = os.environ.get("SIGNATURE_UPLOAD_PASSWORD", "admin123")
 app.config["ADMIN_PANEL_PASSWORD"] = os.environ.get("ADMIN_PANEL_PASSWORD", "admin123")
 app.config["GOOGLE_DRIVE_ROOT_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_ROOT_FOLDER_ID", "").strip()
@@ -50,47 +57,210 @@ for bundled_file, runtime_file in [
     with open(bundled_file, "rb") as src_file, open(runtime_file, "wb") as dst_file:
         dst_file.write(src_file.read())
 
-def load_records():
+def default_institute_settings(institute=None):
+    return {
+        "institute_name": institute or "",
+        "background_url": "",
+        "background_drive_id": "",
+        "certificate_background_url": "",
+        "certificate_background_drive_id": "",
+        "signature_url": "",
+        "signature_drive_id": "",
+    }
+
+
+def make_storage_slug(value):
+    safe = secure_filename((value or "").strip()).lower()
+    return safe or "default"
+
+
+def make_storage_filename(kind, institute):
+    return f"{kind}__{make_storage_slug(institute)}.json"
+
+
+def make_storage_path(kind, institute):
+    directory_map = {
+        "records": RECORDS_DIR,
+        "certificates": CERTIFICATES_DIR,
+        "settings": SETTINGS_DIR,
+    }
+    return os.path.join(directory_map[kind], make_storage_filename(kind, institute))
+
+
+def list_local_storage_filenames(kind):
+    directory_map = {
+        "records": RECORDS_DIR,
+        "certificates": CERTIFICATES_DIR,
+        "settings": SETTINGS_DIR,
+    }
+    directory = directory_map[kind]
+    if not os.path.isdir(directory):
+        return []
+    return sorted(name for name in os.listdir(directory) if name.startswith(f"{kind}__") and name.endswith(".json"))
+
+
+def list_drive_storage_filenames(kind):
+    service = get_drive_service()
+    if service is None:
+        return []
+
+    folder_id = get_drive_folder_id("data")
+    query = [f"name contains '{_drive_query_string(kind + '__')}'", "trashed=false"]
+    if folder_id:
+        query.append(f"'{_drive_query_string(folder_id)}' in parents")
+    response = service.files().list(
+        q=" and ".join(query),
+        fields="files(id, name)",
+        pageSize=200,
+    ).execute()
+    names = []
+    for file in response.get("files", []):
+        filename = file.get("name", "")
+        if filename.startswith(f"{kind}__") and filename.endswith(".json"):
+            _drive_json_file_ids[filename] = file.get("id", "")
+            names.append(filename)
+    return sorted(set(names))
+
+
+def load_legacy_records():
     return load_json_store(DATA_FILE, "records.json", [])
 
-def save_records(records):
-    save_json_store(DATA_FILE, "records.json", records)
 
-
-def load_certificates():
+def load_legacy_certificates():
     return load_json_store(CERTIFICATE_DATA_FILE, "certificates.json", [])
 
 
-def save_certificates(certificates):
-    save_json_store(CERTIFICATE_DATA_FILE, "certificates.json", certificates)
-
-
-def load_settings():
-    defaults = {
-        "background_url": "",
-        "signature_url": "",
-        "signature_drive_id": "",
+def load_legacy_settings():
+    defaults = default_institute_settings()
+    defaults.update({
         "backgrounds": {},
         "background_drive_ids": {},
         "certificate_backgrounds": {},
         "certificate_background_drive_ids": {},
-    }
+    })
     loaded = load_json_store(SETTINGS_FILE, "settings.json", defaults)
     if isinstance(loaded, dict):
         defaults.update(loaded)
-    if not isinstance(defaults.get("backgrounds"), dict):
-        defaults["backgrounds"] = {}
-    if not isinstance(defaults.get("background_drive_ids"), dict):
-        defaults["background_drive_ids"] = {}
-    if not isinstance(defaults.get("certificate_backgrounds"), dict):
-        defaults["certificate_backgrounds"] = {}
-    if not isinstance(defaults.get("certificate_background_drive_ids"), dict):
-        defaults["certificate_background_drive_ids"] = {}
     return defaults
 
 
-def save_settings(settings):
-    save_json_store(SETTINGS_FILE, "settings.json", settings)
+def migrate_legacy_records_if_needed():
+    legacy_records = load_legacy_records()
+    if not legacy_records:
+        return
+    existing = set(list_local_storage_filenames("records") + list_drive_storage_filenames("records"))
+    grouped = {}
+    for record in legacy_records:
+        institute = canonicalize_institute_name(record.get("institute_name"))
+        if not institute:
+            continue
+        grouped.setdefault(institute, []).append(record)
+    for institute, records in grouped.items():
+        filename = make_storage_filename("records", institute)
+        if filename not in existing:
+            save_json_store(make_storage_path("records", institute), filename, records)
+            existing.add(filename)
+
+
+def migrate_legacy_certificates_if_needed():
+    legacy_certificates = load_legacy_certificates()
+    if not legacy_certificates:
+        return
+    existing = set(list_local_storage_filenames("certificates") + list_drive_storage_filenames("certificates"))
+    grouped = {}
+    for certificate in legacy_certificates:
+        institute = canonicalize_institute_name(certificate.get("institute_name"))
+        if not institute:
+            continue
+        grouped.setdefault(institute, []).append(certificate)
+    for institute, certificates in grouped.items():
+        filename = make_storage_filename("certificates", institute)
+        if filename not in existing:
+            save_json_store(make_storage_path("certificates", institute), filename, certificates)
+            existing.add(filename)
+
+
+def migrate_legacy_settings_if_needed(institute):
+    if not institute:
+        return
+    path = make_storage_path("settings", institute)
+    filename = make_storage_filename("settings", institute)
+    if os.path.exists(path) or filename in list_drive_storage_filenames("settings"):
+        return
+    legacy = load_legacy_settings()
+    settings = default_institute_settings(institute)
+    settings["background_url"] = legacy.get("backgrounds", {}).get(institute, "") or legacy.get("background_url", "")
+    settings["background_drive_id"] = legacy.get("background_drive_ids", {}).get(institute, "")
+    settings["certificate_background_url"] = legacy.get("certificate_backgrounds", {}).get(institute, "")
+    settings["certificate_background_drive_id"] = legacy.get("certificate_background_drive_ids", {}).get(institute, "")
+    settings["signature_url"] = legacy.get("signature_url", "")
+    settings["signature_drive_id"] = legacy.get("signature_drive_id", "")
+    if any(settings.get(key) for key in settings if key != "institute_name"):
+        save_json_store(path, filename, settings)
+
+
+def load_records(institute=None):
+    migrate_legacy_records_if_needed()
+    institute = canonicalize_institute_name(institute)
+    if institute:
+        return load_json_store(make_storage_path("records", institute), make_storage_filename("records", institute), [])
+
+    records = []
+    filenames = sorted(set(list_local_storage_filenames("records") + list_drive_storage_filenames("records")))
+    for filename in filenames:
+        records.extend(load_json_store(os.path.join(RECORDS_DIR, filename), filename, []))
+    return records
+
+
+def save_records(records, institute):
+    institute = canonicalize_institute_name(institute)
+    if not institute:
+        raise ValueError("Institute is required to save records")
+    save_json_store(make_storage_path("records", institute), make_storage_filename("records", institute), records)
+
+
+def load_certificates(institute=None):
+    migrate_legacy_certificates_if_needed()
+    institute = canonicalize_institute_name(institute)
+    if institute:
+        return load_json_store(make_storage_path("certificates", institute), make_storage_filename("certificates", institute), [])
+
+    certificates = []
+    filenames = sorted(set(list_local_storage_filenames("certificates") + list_drive_storage_filenames("certificates")))
+    for filename in filenames:
+        certificates.extend(load_json_store(os.path.join(CERTIFICATES_DIR, filename), filename, []))
+    return certificates
+
+
+def save_certificates(certificates, institute):
+    institute = canonicalize_institute_name(institute)
+    if not institute:
+        raise ValueError("Institute is required to save certificates")
+    save_json_store(make_storage_path("certificates", institute), make_storage_filename("certificates", institute), certificates)
+
+
+def load_settings(institute=None):
+    institute = canonicalize_institute_name(institute)
+    defaults = default_institute_settings(institute)
+    if not institute:
+        return defaults
+    migrate_legacy_settings_if_needed(institute)
+    loaded = load_json_store(make_storage_path("settings", institute), make_storage_filename("settings", institute), defaults)
+    if isinstance(loaded, dict):
+        defaults.update(loaded)
+    defaults["institute_name"] = institute
+    return defaults
+
+
+def save_settings(settings, institute):
+    institute = canonicalize_institute_name(institute or settings.get("institute_name"))
+    if not institute:
+        raise ValueError("Institute is required to save settings")
+    payload = default_institute_settings(institute)
+    if isinstance(settings, dict):
+        payload.update(settings)
+    payload["institute_name"] = institute
+    save_json_store(make_storage_path("settings", institute), make_storage_filename("settings", institute), payload)
 
 
 def normalize_date(value):
@@ -316,19 +486,26 @@ def save_json_store(local_path, drive_filename, payload):
             app.logger.warning("Drive sync failed while saving %s", drive_filename, exc_info=True)
 
 
-def build_drive_storage_status():
+def build_drive_storage_status(institute=None):
+    institute = canonicalize_institute_name(institute)
     data_folder_id = get_drive_folder_id("data")
     files = []
-    for filename in ("records.json", "certificates.json", "settings.json"):
+    targets = (
+        ("records", make_storage_filename("records", institute)) if institute else ("records", ""),
+        ("certificates", make_storage_filename("certificates", institute)) if institute else ("certificates", ""),
+        ("settings", make_storage_filename("settings", institute)) if institute else ("settings", ""),
+    )
+    for kind, filename in targets:
         file_id = None
         try:
-            file_id = _drive_json_file_ids.get(filename) or find_drive_file_id(filename, "data")
+            file_id = _drive_json_file_ids.get(filename) or (find_drive_file_id(filename, "data") if filename else None)
             if file_id:
                 _drive_json_file_ids[filename] = file_id
         except Exception:
             app.logger.warning("Unable to resolve Drive file status for %s", filename, exc_info=True)
         files.append({
-            "name": filename,
+            "kind": kind,
+            "name": filename or f"{kind} file requires institute selection",
             "present": bool(file_id),
             "file_id": file_id or "",
         })
@@ -336,6 +513,7 @@ def build_drive_storage_status():
     return {
         "drive_enabled": is_drive_enabled(),
         "data_folder_id": data_folder_id or "",
+        "institute": institute or "",
         "files": files,
     }
 
@@ -401,10 +579,8 @@ def make_asset_slug(value):
 
 
 def get_filtered_records():
-    records = load_records()
     institute = canonicalize_institute_name(request.args.get("institute"))
-    if institute:
-        records = [r for r in records if canonicalize_institute_name(r.get("institute_name")) == institute]
+    records = load_records(institute)
     return records, institute
 
 
@@ -540,7 +716,7 @@ def save_certificate_background_image(file_storage, institute_name):
     return save_image_asset(file_storage, filename, "backgrounds")
 
 
-def save_signature_image(file_storage):
+def save_signature_image(file_storage, institute_name):
     img = Image.open(file_storage.stream)
     img = ImageOps.exif_transpose(img)
     if img.mode not in ("RGBA", "LA"):
@@ -563,14 +739,15 @@ def save_signature_image(file_storage):
     bbox = img.getbbox()
     if bbox:
         img = img.crop(bbox)
-    local_path = os.path.join(ASSET_DIR, "hod_signature.png")
+    filename = f"hod_signature_{make_asset_slug(institute_name)}.png"
+    local_path = os.path.join(ASSET_DIR, filename)
     img.save(local_path, "PNG")
     drive_id = None
     drive_url = None
     if is_drive_enabled():
         with open(local_path, "rb") as f:
-            drive_id, drive_url = upload_bytes_to_drive(f.read(), "hod_signature.png", "image/png", "signatures")
-    return drive_url or "/generated-assets/hod_signature.png", drive_id
+            drive_id, drive_url = upload_bytes_to_drive(f.read(), filename, "image/png", "signatures")
+    return drive_url or f"/generated-assets/{filename}", drive_id
 
 @app.route("/")
 def home():
@@ -610,11 +787,10 @@ def admin_logout():
 
 @app.route("/api/settings")
 def get_settings():
-    settings = load_settings()
     institute = canonicalize_institute_name(request.args.get("institute"))
-    background_url = settings.get("backgrounds", {}).get(institute, "") if institute else ""
+    settings = load_settings(institute)
     return jsonify({
-        "background_url": background_url,
+        "background_url": settings.get("background_url", ""),
         "signature_url": settings.get("signature_url", ""),
         "institute": institute
     })
@@ -622,11 +798,10 @@ def get_settings():
 
 @app.route("/api/certificate-settings")
 def get_certificate_settings():
-    settings = load_settings()
     institute = canonicalize_institute_name(request.args.get("institute"))
-    background_url = settings.get("certificate_backgrounds", {}).get(institute, "") if institute else ""
+    settings = load_settings(institute)
     return jsonify({
-        "background_url": background_url,
+        "background_url": settings.get("certificate_background_url", ""),
         "institute": institute
     })
 
@@ -634,7 +809,8 @@ def get_certificate_settings():
 @app.route("/api/drive-storage-status")
 @admin_required
 def drive_storage_status():
-    return jsonify(build_drive_storage_status())
+    institute = canonicalize_institute_name(request.args.get("institute"))
+    return jsonify(build_drive_storage_status(institute))
 
 @app.route("/uploads/<filename>")
 def uploaded_file(filename):
@@ -707,16 +883,13 @@ def upload_background():
         background_url, background_drive_id = save_background_image(file_storage, institute)
     except Exception:
         return jsonify({"error": "Unable to process background image"}), 400
-    settings = load_settings()
-    old_drive_id = settings.setdefault("background_drive_ids", {}).get(institute)
+    settings = load_settings(institute)
+    old_drive_id = settings.get("background_drive_id")
     if old_drive_id and old_drive_id != background_drive_id:
         delete_drive_file(old_drive_id)
-    settings.setdefault("backgrounds", {})[institute] = background_url
-    if background_drive_id:
-        settings.setdefault("background_drive_ids", {})[institute] = background_drive_id
-    if settings.get("background_url") and not settings["backgrounds"].get("default"):
-        settings["backgrounds"]["default"] = settings["background_url"]
-    save_settings(settings)
+    settings["background_url"] = background_url
+    settings["background_drive_id"] = background_drive_id or ""
+    save_settings(settings, institute)
     return jsonify({"status": "saved", "background_url": background_url, "institute": institute})
 
 
@@ -736,19 +909,21 @@ def upload_certificate_background():
     except Exception:
         return jsonify({"error": "Unable to process certificate background image"}), 400
 
-    settings = load_settings()
-    old_drive_id = settings.setdefault("certificate_background_drive_ids", {}).get(institute)
+    settings = load_settings(institute)
+    old_drive_id = settings.get("certificate_background_drive_id")
     if old_drive_id and old_drive_id != background_drive_id:
         delete_drive_file(old_drive_id)
-    settings.setdefault("certificate_backgrounds", {})[institute] = background_url
-    if background_drive_id:
-        settings.setdefault("certificate_background_drive_ids", {})[institute] = background_drive_id
-    save_settings(settings)
+    settings["certificate_background_url"] = background_url
+    settings["certificate_background_drive_id"] = background_drive_id or ""
+    save_settings(settings, institute)
     return jsonify({"status": "saved", "background_url": background_url, "institute": institute})
 
 
 @app.route("/api/upload-signature", methods=["POST"])
 def upload_signature():
+    institute = canonicalize_institute_name(request.form.get("institute"))
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
     if request.form.get("password", "") != app.config["SIGNATURE_UPLOAD_PASSWORD"]:
         return jsonify({"error": "Incorrect password"}), 403
     if "signature" not in request.files:
@@ -757,17 +932,17 @@ def upload_signature():
     if not secure_filename(file_storage.filename):
         return jsonify({"error": "Invalid filename"}), 400
     try:
-        signature_url, signature_drive_id = save_signature_image(file_storage)
+        signature_url, signature_drive_id = save_signature_image(file_storage, institute)
     except Exception:
         return jsonify({"error": "Unable to process signature image"}), 400
-    settings = load_settings()
+    settings = load_settings(institute)
     old_signature_drive_id = settings.get("signature_drive_id")
     if old_signature_drive_id and old_signature_drive_id != signature_drive_id:
         delete_drive_file(old_signature_drive_id)
     settings["signature_url"] = signature_url
     settings["signature_drive_id"] = signature_drive_id or ""
-    save_settings(settings)
-    return jsonify({"status": "saved", "signature_url": signature_url})
+    save_settings(settings, institute)
+    return jsonify({"status": "saved", "signature_url": signature_url, "institute": institute})
 
 
 @app.route("/api/delete-background", methods=["DELETE"])
@@ -777,13 +952,15 @@ def delete_background():
     if not institute:
         return jsonify({"error": "Institute is required"}), 400
 
-    settings = load_settings()
-    old_drive_id = settings.setdefault("background_drive_ids", {}).pop(institute, None)
-    old_url = settings.setdefault("backgrounds", {}).pop(institute, "")
+    settings = load_settings(institute)
+    old_drive_id = settings.get("background_drive_id")
+    old_url = settings.get("background_url", "")
     if old_drive_id:
         delete_drive_file(old_drive_id)
+    settings["background_url"] = ""
+    settings["background_drive_id"] = ""
     delete_local_file_if_exists(os.path.join(ASSET_DIR, f"card_background_{make_asset_slug(institute)}.jpg"))
-    save_settings(settings)
+    save_settings(settings, institute)
     return jsonify({"status": "deleted", "background_url": old_url, "institute": institute})
 
 
@@ -794,36 +971,44 @@ def delete_certificate_background():
     if not institute:
         return jsonify({"error": "Institute is required"}), 400
 
-    settings = load_settings()
-    old_drive_id = settings.setdefault("certificate_background_drive_ids", {}).pop(institute, None)
-    old_url = settings.setdefault("certificate_backgrounds", {}).pop(institute, "")
+    settings = load_settings(institute)
+    old_drive_id = settings.get("certificate_background_drive_id")
+    old_url = settings.get("certificate_background_url", "")
     if old_drive_id:
         delete_drive_file(old_drive_id)
+    settings["certificate_background_url"] = ""
+    settings["certificate_background_drive_id"] = ""
     delete_local_file_if_exists(os.path.join(ASSET_DIR, f"certificate_background_{make_asset_slug(institute)}.jpg"))
-    save_settings(settings)
+    save_settings(settings, institute)
     return jsonify({"status": "deleted", "background_url": old_url, "institute": institute})
 
 
 @app.route("/api/delete-signature", methods=["DELETE"])
 @admin_required
 def delete_signature():
-    settings = load_settings()
+    institute = canonicalize_institute_name(request.args.get("institute"))
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    settings = load_settings(institute)
     old_drive_id = settings.get("signature_drive_id")
     if old_drive_id:
         delete_drive_file(old_drive_id)
     settings["signature_url"] = ""
     settings["signature_drive_id"] = ""
-    delete_local_file_if_exists(os.path.join(ASSET_DIR, "hod_signature.png"))
-    save_settings(settings)
-    return jsonify({"status": "deleted"})
+    delete_local_file_if_exists(os.path.join(ASSET_DIR, f"hod_signature_{make_asset_slug(institute)}.png"))
+    save_settings(settings, institute)
+    return jsonify({"status": "deleted", "institute": institute})
 
 @app.route("/api/submit", methods=["POST"])
 def submit():
     data = request.json
     data["institute_name"] = canonicalize_institute_name(data.get("institute_name"))
+    institute = data.get("institute_name")
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
     normalize_record_dates(data)
     data["saved_at"] = current_timestamp_display()
-    records = load_records()
+    records = load_records(institute)
     # Check for duplicate serial
     for r in records:
         if r.get("serial_no") == data.get("serial_no"):
@@ -834,11 +1019,11 @@ def submit():
                 r["submitted_at"] = submitted_at
             if batch_total_cards:
                 r["batch_total_cards"] = batch_total_cards
-            save_records(records)
+            save_records(records, institute)
             return jsonify({"status": "updated"})
     data["submitted_at"] = None
     records.append(data)
-    save_records(records)
+    save_records(records, institute)
     return jsonify({"status": "saved"})
 
 
@@ -853,7 +1038,7 @@ def certificates_api():
             return jsonify({"error": "Institute is required"}), 400
         data["institute_name"] = canonicalize_institute_name(institute_name)
 
-        certificates = load_certificates()
+        certificates = load_certificates(data["institute_name"])
         certificate_no = (data.get("certificate_no") or "").strip() or gen_certificate_no()
         data["certificate_no"] = certificate_no
         normalize_record_dates(data)
@@ -862,32 +1047,32 @@ def certificates_api():
         for certificate in certificates:
             if certificate.get("certificate_no") == certificate_no:
                 certificate.update(data)
-                save_certificates(certificates)
+                save_certificates(certificates, data["institute_name"])
                 return jsonify({"status": "updated", "certificate_no": certificate_no})
 
         certificates.append(data)
-        save_certificates(certificates)
+        save_certificates(certificates, data["institute_name"])
         return jsonify({"status": "saved", "certificate_no": certificate_no})
 
-    certificates = load_certificates()
     institute = canonicalize_institute_name(request.args.get("institute"))
-    if institute:
-        certificates = [c for c in certificates if canonicalize_institute_name(c.get("institute_name")) == institute]
+    certificates = load_certificates(institute)
     return jsonify({"certificates": certificates, "institute": institute})
 
 
 @app.route("/api/certificates/<certificate_no>", methods=["DELETE"])
 @admin_required
 def delete_certificate(certificate_no):
-    certificates = load_certificates()
-    certificate_to_delete = next((c for c in certificates if c.get("certificate_no") == certificate_no), None)
+    certificate_to_delete = next((c for c in load_certificates() if c.get("certificate_no") == certificate_no), None)
+    if not certificate_to_delete:
+        return jsonify({"error": "Certificate not found"}), 404
+    institute = canonicalize_institute_name(certificate_to_delete.get("institute_name"))
+    certificates = load_certificates(institute)
     certificates = [c for c in certificates if c.get("certificate_no") != certificate_no]
-    save_certificates(certificates)
+    save_certificates(certificates, institute)
 
-    if certificate_to_delete:
-        if certificate_to_delete.get("photo_drive_id"):
-            delete_drive_file(certificate_to_delete.get("photo_drive_id"))
-        delete_uploaded_file_from_url(certificate_to_delete.get("photo_url"))
+    if certificate_to_delete.get("photo_drive_id"):
+        delete_drive_file(certificate_to_delete.get("photo_drive_id"))
+    delete_uploaded_file_from_url(certificate_to_delete.get("photo_url"))
 
     return jsonify({"status": "deleted", "certificate_no": certificate_no})
 
@@ -913,17 +1098,17 @@ def submit_batch():
     if not institute:
         return jsonify({"error": "Institute is required"}), 400
 
-    records = load_records()
-    saved_records = [r for r in records if (r.get("institute_name") or "").strip() == institute and not r.get("submitted_at")]
+    records = load_records(institute)
+    saved_records = [r for r in records if not r.get("submitted_at")]
     if not saved_records:
         return jsonify({"error": "No saved ID cards are pending submission for this institute"}), 400
 
     submitted_at = current_timestamp_display()
     for rec in records:
-        if (rec.get("institute_name") or "").strip() == institute and not rec.get("submitted_at"):
+        if not rec.get("submitted_at"):
             rec["submitted_at"] = submitted_at
             rec["batch_total_cards"] = len(saved_records)
-    save_records(records)
+    save_records(records, institute)
     return jsonify({
         "status": "submitted",
         "submitted_at": submitted_at,
@@ -951,6 +1136,9 @@ def admin_attach_photo():
     target_record = next((rec for rec in records if rec.get("serial_no") == serial), None)
     if not target_record:
         return jsonify({"error": "Record not found"}), 404
+    institute = canonicalize_institute_name(target_record.get("institute_name"))
+    records = load_records(institute)
+    target_record = next((rec for rec in records if rec.get("serial_no") == serial), None)
 
     old_drive_id = target_record.get("photo_drive_id")
     try:
@@ -963,7 +1151,7 @@ def admin_attach_photo():
 
     target_record["photo_url"] = photo_url
     target_record["photo_drive_id"] = photo_drive_id or ""
-    save_records(records)
+    save_records(records, institute)
     return jsonify({"status": "saved", "serial_no": serial, "photo_url": photo_url})
 
 
@@ -986,8 +1174,7 @@ def import_csv():
     if not rows:
         return jsonify({"error": "CSV has no data rows"}), 400
 
-    records = load_records()
-    record_map = {rec.get("serial_no"): rec for rec in records if rec.get("serial_no")}
+    records_by_institute = {}
     imported = 0
     updated = 0
 
@@ -1035,6 +1222,18 @@ def import_csv():
             profile_type = "student" if normalized.get("course") or normalized.get("training_year") or normalized.get("batch_session") else "employee"
         normalized["profile_type"] = profile_type
 
+        institute = normalized.get("institute_name")
+        if not institute:
+            continue
+        if institute not in records_by_institute:
+            institute_records = load_records(institute)
+            records_by_institute[institute] = {
+                "records": institute_records,
+                "record_map": {rec.get("serial_no"): rec for rec in institute_records if rec.get("serial_no")},
+            }
+        bucket = records_by_institute[institute]
+        record_map = bucket["record_map"]
+
         existing = record_map.get(serial_no)
         if existing:
             preserved = {
@@ -1052,20 +1251,24 @@ def import_csv():
             normalized.setdefault("photo_drive_id", "")
             normalized["saved_at"] = current_timestamp_display()
             normalized["submitted_at"] = None
-            records.append(normalized)
+            bucket["records"].append(normalized)
             record_map[serial_no] = normalized
             imported += 1
 
-    save_records(records)
+    for institute, bucket in records_by_institute.items():
+        save_records(bucket["records"], institute)
     return jsonify({"status": "ok", "imported": imported, "updated": updated, "total": imported + updated})
 
 @app.route("/api/delete/<serial_no>", methods=["DELETE"])
 @admin_required
 def delete_record(serial_no):
-    records = load_records()
-    record_to_delete = next((r for r in records if r.get("serial_no") == serial_no), None)
+    record_to_delete = next((r for r in load_records() if r.get("serial_no") == serial_no), None)
+    if not record_to_delete:
+        return jsonify({"error": "Record not found"}), 404
+    institute = canonicalize_institute_name(record_to_delete.get("institute_name"))
+    records = load_records(institute)
     records = [r for r in records if r.get("serial_no") != serial_no]
-    save_records(records)
+    save_records(records, institute)
     if record_to_delete and record_to_delete.get("photo_drive_id"):
         delete_drive_file(record_to_delete.get("photo_drive_id"))
     delete_uploaded_file_from_url((record_to_delete or {}).get("photo_url"))
