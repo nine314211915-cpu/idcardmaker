@@ -111,22 +111,25 @@ def normalize_date(value):
         parts = value.split("/")
         if len(parts) == 3:
             day, month, year = parts
-            return f"{day.zfill(2)}/{month.zfill(2)}/{year}"
+            return f"{day.zfill(2)}-{month.zfill(2)}-{year}"
         return value
     if "-" in value:
         parts = value.split("-")
         if len(parts) == 3:
-            year, month, day = parts
-            return f"{day.zfill(2)}/{month.zfill(2)}/{year}"
+            if len(parts[0]) == 4:
+                year, month, day = parts
+                return f"{day.zfill(2)}-{month.zfill(2)}-{year}"
+            day, month, year = parts
+            return f"{day.zfill(2)}-{month.zfill(2)}-{year}"
     return value
 
 
 def current_date_display():
-    return datetime.now().strftime("%d/%m/%Y")
+    return datetime.now().strftime("%d-%m-%Y")
 
 
 def current_timestamp_display():
-    return datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    return datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
 
 def normalize_record_dates(data):

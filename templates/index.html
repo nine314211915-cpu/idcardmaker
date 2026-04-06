@@ -833,7 +833,7 @@
           </div>
           <div class="form-group student-field" id="validUptoGroup">
             <label>Valid Upto</label>
-            <input type="text" id="validUpto" placeholder="dd/mm/yyyy" oninput="updatePreview()">
+            <input type="text" id="validUpto" placeholder="dd-mm-yyyy" oninput="updatePreview()">
           </div>
           <div class="form-group anm-field" id="batchSessionGroup" style="display:none">
             <label>Batch <span class="req">*</span></label>
@@ -876,7 +876,7 @@
 
           <div class="form-group">
             <label id="dobLabel">Date of Birth <span class="req">*</span></label>
-            <input type="text" id="dob" placeholder="dd/mm/yyyy" oninput="updatePreview()">
+            <input type="text" id="dob" placeholder="dd-mm-yyyy" oninput="updatePreview()">
           </div>
           <div class="form-group">
             <label>Contact No <span class="req">*</span></label>
@@ -896,11 +896,11 @@
 
           <div class="form-group" id="insertedDateGroup">
             <label>Issued Date</label>
-            <input type="text" id="insertedDate" placeholder="dd/mm/yyyy" oninput="updatePreview()">
+            <input type="text" id="insertedDate" placeholder="dd-mm-yyyy" oninput="updatePreview()">
           </div>
           <div class="form-group anm-field" style="display:none">
             <label>Aadhaar No.</label>
-            <input type="text" id="aadhaarNo" placeholder="12-digit Aadhaar number" maxlength="12" oninput="updatePreview()">
+            <input type="text" id="aadhaarNo" placeholder="xxxx-xxxx-xxxx" maxlength="14" oninput="updatePreview()">
           </div>
 
           <div class="form-group full">
@@ -1094,7 +1094,46 @@ let currentPhotoMeta = { url: '', drive_id: '' };
 
 function currentDateText() {
   const now = new Date();
-  return `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+  return `${String(now.getDate()).padStart(2,'0')}-${String(now.getMonth()+1).padStart(2,'0')}-${now.getFullYear()}`;
+}
+
+function toTitleCaseValue(value) {
+  return String(value || '').toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase());
+}
+
+function formatAadhaarValue(value) {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 12);
+  return digits.replace(/(\d{4})(?=\d)/g, '$1-');
+}
+
+function formatTypedDateValue(value) {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`;
+}
+
+function installFieldFormatters() {
+  ['otherInstituteName', 'name', 'fatherName', 'address'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      el.value = toTitleCaseValue(el.value);
+    });
+  });
+  ['dob', 'validUpto', 'insertedDate'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      el.value = formatTypedDateValue(el.value);
+    });
+  });
+  const aadhaar = document.getElementById('aadhaarNo');
+  if (aadhaar) {
+    aadhaar.addEventListener('input', () => {
+      aadhaar.value = formatAadhaarValue(aadhaar.value);
+    });
+  }
 }
 
 function generateSerialLocal() {
@@ -1467,9 +1506,20 @@ function updatePreview() {
 
 function formatDate(d) {
   if (!d) return '—';
-  if (d.includes('/')) return d;
-  const [y, m, day] = d.split('-');
-  return `${day}/${m}/${y}`;
+  if (d.includes('/')) {
+    const [day, month, year] = d.split('/');
+    return `${day}-${month}-${year}`;
+  }
+  const parts = d.split('-');
+  if (parts.length === 3) {
+    if (parts[0].length === 4) {
+      const [y, m, day] = parts;
+      return `${day}-${m}-${y}`;
+    }
+    const [day, month, year] = parts;
+    return `${day}-${month}-${year}`;
+  }
+  return d;
 }
 
 function formatDateTime(value) {
@@ -1804,6 +1854,7 @@ function resetForm() {
 }
 
 // Init
+installFieldFormatters();
 handleInstituteChange();
 ensureSerialGenerated();
 updatePreview();
