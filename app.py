@@ -3,6 +3,7 @@ import json, os, random, string, zipfile, io, tempfile, csv
 from datetime import datetime
 from collections import deque
 from functools import wraps
+from urllib import request as urllib_request, parse as urllib_parse, error as urllib_error
 from PIL import Image, ImageOps, ImageEnhance, ImageFilter, UnidentifiedImageError
 from werkzeug.utils import secure_filename
 
@@ -25,6 +26,8 @@ os.makedirs(CERTIFICATES_DIR, exist_ok=True)
 os.makedirs(SETTINGS_DIR, exist_ok=True)
 app.config["SIGNATURE_UPLOAD_PASSWORD"] = os.environ.get("SIGNATURE_UPLOAD_PASSWORD", "admin123")
 app.config["ADMIN_PANEL_PASSWORD"] = os.environ.get("ADMIN_PANEL_PASSWORD", "admin123")
+app.config["SUPABASE_URL"] = os.environ.get("SUPABASE_URL", "").strip()
+app.config["SUPABASE_SERVICE_ROLE_KEY"] = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "medical-id-card-secret")
 
 for bundled_dir, runtime_dir in [
@@ -235,6 +238,152 @@ def save_settings(settings, institute):
         payload.update(settings)
     payload["institute_name"] = institute
     save_json_store(make_storage_path("settings", institute), make_storage_filename("settings", institute), payload)
+
+
+def is_supabase_enabled():
+    return bool(app.config["SUPABASE_URL"] and app.config["SUPABASE_SERVICE_ROLE_KEY"])
+
+
+def supabase_headers():
+    key = app.config["SUPABASE_SERVICE_ROLE_KEY"]
+    return {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+
+
+def supabase_request(method, path, payload=None, query=None, prefer_representation=False):
+    if not is_supabase_enabled():
+        raise RuntimeError("Supabase is not configured")
+    base = app.config["SUPABASE_URL"].rstrip("/")
+    url = f"{base}/rest/v1/{path.lstrip('/')}"
+    if query:
+        query_items = []
+        for key, value in query.items():
+            if value is None:
+                continue
+            query_items.append((key, value))
+        if query_items:
+            url += "?" + urllib_parse.urlencode(query_items)
+    headers = supabase_headers()
+    if prefer_representation:
+        headers["Prefer"] = "return=representation"
+    data = None
+    if payload is not None:
+        data = json.dumps(payload).encode("utf-8")
+    req = urllib_request.Request(url, data=data, method=method.upper())
+    for key, value in headers.items():
+        req.add_header(key, value)
+    try:
+        with urllib_request.urlopen(req, timeout=30) as resp:
+            raw = resp.read().decode("utf-8")
+            return json.loads(raw) if raw else []
+    except urllib_error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(raw or f"Supabase request failed with status {exc.code}") from exc
+
+
+def default_batch_name(institute):
+    institute_slug = make_storage_slug(institute).replace("_", "-")
+    return f"{institute_slug}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+
+
+def pack_supabase_record(record, batch_id, institute, submitted_at, batch_name):
+    payload = dict(record)
+    payload["institute_name"] = institute
+    payload["batch_id"] = batch_id
+    payload["batch_name"] = batch_name
+    payload["submitted_at"] = submitted_at
+    payload["saved_at"] = payload.get("saved_at") or current_timestamp_display()
+    return {
+        "batch_id": batch_id,
+        "institute_name": institute,
+        "serial_no": payload.get("serial_no", ""),
+        "name": payload.get("name", ""),
+        "profile_type": payload.get("profile_type", ""),
+        "saved_at": payload.get("saved_at", ""),
+        "submitted_at": submitted_at,
+        "payload": payload,
+    }
+
+
+def unpack_supabase_record(row):
+    payload = dict(row.get("payload") or {})
+    payload.setdefault("serial_no", row.get("serial_no", ""))
+    payload.setdefault("name", row.get("name", ""))
+    payload.setdefault("profile_type", row.get("profile_type", ""))
+    payload.setdefault("saved_at", row.get("saved_at", ""))
+    payload["submitted_at"] = row.get("submitted_at", payload.get("submitted_at"))
+    payload["batch_id"] = row.get("batch_id", payload.get("batch_id"))
+    return payload
+
+
+def list_supabase_batches(institute):
+    institute = canonicalize_institute_name(institute)
+    if not institute:
+        return []
+    rows = supabase_request(
+        "GET",
+        "batches",
+        query={
+            "select": "id,batch_name,institute_name,status,total_cards,created_at,submitted_at",
+            "institute_name": f"eq.{institute}",
+            "order": "submitted_at.desc",
+        },
+    )
+    return rows if isinstance(rows, list) else []
+
+
+def list_supabase_records(institute=None, batch_id=None):
+    query = {
+        "select": "id,batch_id,institute_name,serial_no,name,profile_type,saved_at,submitted_at,payload",
+        "order": "saved_at.desc",
+    }
+    institute = canonicalize_institute_name(institute)
+    if institute:
+        query["institute_name"] = f"eq.{institute}"
+    if batch_id:
+        query["batch_id"] = f"eq.{batch_id}"
+    rows = supabase_request("GET", "records", query=query)
+    return [unpack_supabase_record(row) for row in (rows if isinstance(rows, list) else [])]
+
+
+def create_supabase_batch(institute, records, batch_name=None):
+    institute = canonicalize_institute_name(institute)
+    if not institute:
+        raise ValueError("Institute is required")
+    if not records:
+        raise ValueError("Batch records are required")
+    submitted_at = current_timestamp_display()
+    batch_name = (batch_name or "").strip() or default_batch_name(institute)
+    batch_rows = supabase_request(
+        "POST",
+        "batches",
+        payload=[{
+            "institute_name": institute,
+            "batch_name": batch_name,
+            "status": "submitted",
+            "total_cards": len(records),
+            "submitted_at": submitted_at,
+            "created_at": submitted_at,
+        }],
+        prefer_representation=True,
+    )
+    if not batch_rows or not isinstance(batch_rows, list):
+        raise RuntimeError("Unable to create batch")
+    batch_id = batch_rows[0].get("id")
+    if not batch_id:
+        raise RuntimeError("Batch ID missing from Supabase response")
+    record_rows = [pack_supabase_record(record, batch_id, institute, submitted_at, batch_name) for record in records]
+    supabase_request("POST", "records", payload=record_rows)
+    return {
+        "batch_id": batch_id,
+        "batch_name": batch_name,
+        "submitted_at": submitted_at,
+        "total_cards": len(records),
+        "institute_name": institute,
+    }
 
 
 def normalize_date(value):
@@ -853,7 +1002,11 @@ def make_asset_slug(value):
 
 def get_filtered_records():
     institute = canonicalize_institute_name(request.args.get("institute"))
-    records = load_records(institute)
+    batch_id = (request.args.get("batch_id") or "").strip()
+    if is_supabase_enabled():
+        records = list_supabase_records(institute, batch_id or None)
+    else:
+        records = load_records(institute)
     return records, institute
 
 
@@ -1377,30 +1530,37 @@ def batch_records():
     return jsonify({"records": records, "institute": institute})
 
 
+@app.route("/api/batches")
+@admin_required
+def get_batches():
+    institute = canonicalize_institute_name(request.args.get("institute"))
+    if not institute:
+        return jsonify({"batches": [], "institute": ""})
+    if not is_supabase_enabled():
+        return jsonify({"batches": [], "institute": institute, "warning": "Supabase is not configured"})
+    try:
+        batches = list_supabase_batches(institute)
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Unable to load batches"}), 500
+    return jsonify({"batches": batches, "institute": institute})
+
+
 @app.route("/api/submit-batch", methods=["POST"])
 def submit_batch():
     payload = request.json or {}
     institute = canonicalize_institute_name(payload.get("institute_name"))
     if not institute:
         return jsonify({"error": "Institute is required"}), 400
-
-    records = load_records(institute)
-    saved_records = [r for r in records if not r.get("submitted_at")]
-    if not saved_records:
-        return jsonify({"error": "No saved ID cards are pending submission for this institute"}), 400
-
-    submitted_at = current_timestamp_display()
-    for rec in records:
-        if not rec.get("submitted_at"):
-            rec["submitted_at"] = submitted_at
-            rec["batch_total_cards"] = len(saved_records)
-    save_records(records, institute)
-    return jsonify({
-        "status": "submitted",
-        "submitted_at": submitted_at,
-        "total_cards": len(saved_records),
-        "institute_name": institute
-    })
+    records = payload.get("records") or []
+    if not isinstance(records, list) or not records:
+        return jsonify({"error": "Batch records are required"}), 400
+    if not is_supabase_enabled():
+        return jsonify({"error": "Supabase is not configured"}), 500
+    try:
+        result = create_supabase_batch(institute, records, payload.get("batch_name"))
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Batch submit failed"}), 500
+    return jsonify({"status": "submitted", **result})
 
 @app.route("/api/records")
 @admin_required
@@ -1419,25 +1579,19 @@ def admin_attach_photo():
     if "photo" not in request.files:
         return jsonify({"error": "No photo file"}), 400
 
-    records = load_records(institute) if institute else load_records()
+    if is_supabase_enabled():
+        records = list_supabase_records(institute or None)
+    else:
+        records = load_records(institute) if institute else load_records()
     target_record = next((rec for rec in records if rec.get("serial_no") == serial), None)
-    if not target_record and institute:
-        records = load_records()
+    if not target_record and institute and is_supabase_enabled():
         target_record = next(
-            (
-                rec for rec in records
-                if rec.get("serial_no") == serial
-                and canonicalize_institute_name(rec.get("institute_name")) == institute
-            ),
+            (rec for rec in list_supabase_records() if rec.get("serial_no") == serial and canonicalize_institute_name(rec.get("institute_name")) == institute),
             None,
         )
     if not target_record:
         return jsonify({"error": "Record not found"}), 404
     institute = canonicalize_institute_name(target_record.get("institute_name"))
-    records = load_records(institute)
-    target_record = next((rec for rec in records if rec.get("serial_no") == serial), None)
-    if not target_record:
-        return jsonify({"error": "Record not found"}), 404
 
     old_drive_id = target_record.get("photo_drive_id")
     try:
@@ -1450,7 +1604,22 @@ def admin_attach_photo():
 
     target_record["photo_url"] = photo_url
     target_record["photo_drive_id"] = photo_drive_id or ""
-    save_records(records, institute)
+    if is_supabase_enabled():
+        payload = dict(target_record)
+        supabase_request(
+            "PATCH",
+            "records",
+            payload={"payload": payload, "saved_at": payload.get("saved_at", ""), "name": payload.get("name", ""), "profile_type": payload.get("profile_type", "")},
+            query={"serial_no": f"eq.{serial}", "institute_name": f"eq.{institute}"},
+        )
+    else:
+        records = load_records(institute)
+        stored_record = next((rec for rec in records if rec.get("serial_no") == serial), None)
+        if not stored_record:
+            return jsonify({"error": "Record not found"}), 404
+        stored_record["photo_url"] = photo_url
+        stored_record["photo_drive_id"] = photo_drive_id or ""
+        save_records(records, institute)
     return jsonify({"status": "saved", "serial_no": serial, "photo_url": photo_url})
 
 
@@ -1561,13 +1730,21 @@ def import_csv():
 @app.route("/api/delete/<serial_no>", methods=["DELETE"])
 @admin_required
 def delete_record(serial_no):
-    record_to_delete = next((r for r in load_records() if r.get("serial_no") == serial_no), None)
+    records_source = list_supabase_records() if is_supabase_enabled() else load_records()
+    record_to_delete = next((r for r in records_source if r.get("serial_no") == serial_no), None)
     if not record_to_delete:
         return jsonify({"error": "Record not found"}), 404
     institute = canonicalize_institute_name(record_to_delete.get("institute_name"))
-    records = load_records(institute)
-    records = [r for r in records if r.get("serial_no") != serial_no]
-    save_records(records, institute)
+    if is_supabase_enabled():
+        supabase_request(
+            "DELETE",
+            "records",
+            query={"serial_no": f"eq.{serial_no}", "institute_name": f"eq.{institute}"},
+        )
+    else:
+        records = load_records(institute)
+        records = [r for r in records if r.get("serial_no") != serial_no]
+        save_records(records, institute)
     if record_to_delete and record_to_delete.get("photo_drive_id"):
         delete_drive_file(record_to_delete.get("photo_drive_id"))
     delete_uploaded_file_from_url((record_to_delete or {}).get("photo_url"))

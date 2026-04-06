@@ -1155,10 +1155,16 @@ let batchInstituteLocked = false;
 let currentBatchRecords = [];
 let selectedBatchSerial = '';
 const UI_STATE_KEY = 'idcard_ui_state_v1';
+const DRAFT_BATCHES_KEY = 'idcard_draft_batches_v1';
 
 function currentDateText() {
   const now = new Date();
   return `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+}
+
+function currentTimestampText() {
+  const now = new Date();
+  return `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
 }
 
 function saveUiState() {
@@ -1177,6 +1183,46 @@ function loadUiState() {
   } catch (e) {
     return {};
   }
+}
+
+function loadDraftBatches() {
+  try {
+    return JSON.parse(localStorage.getItem(DRAFT_BATCHES_KEY) || '{}');
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveDraftBatches(drafts) {
+  try {
+    localStorage.setItem(DRAFT_BATCHES_KEY, JSON.stringify(drafts));
+  } catch (e) {}
+}
+
+function getDraftRecords(institute) {
+  const key = makeStorageKey(institute);
+  const drafts = loadDraftBatches();
+  const batch = drafts[key];
+  return Array.isArray(batch && batch.records) ? batch.records : [];
+}
+
+function saveDraftRecords(institute, records) {
+  const key = makeStorageKey(institute);
+  const drafts = loadDraftBatches();
+  if (!records.length) {
+    delete drafts[key];
+  } else {
+    drafts[key] = {
+      institute_name: institute,
+      updated_at: new Date().toISOString(),
+      records,
+    };
+  }
+  saveDraftBatches(drafts);
+}
+
+function makeStorageKey(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'default';
 }
 
 function toTitleCaseValue(value) {
@@ -1420,60 +1466,38 @@ function openGalleryPicker() {
 }
 
 async function loadBatchSummary() {
-  try {
-    const institute = encodeURIComponent(getInstituteValue());
-    const res = await fetch(`/api/batch-summary?institute=${institute}`);
-    const data = await res.json();
-    batchInstituteLocked = (data.saved_count ?? 0) > 0;
-    setInstituteLocked(batchInstituteLocked || hasEntryData());
-    document.getElementById('savedCardsCount').textContent = data.saved_count ?? 0;
-    document.getElementById('submittedCardsCount').textContent = data.submitted_count ?? 0;
-    document.getElementById('batchInstituteName').textContent = getInstituteValue() || '-';
-    document.getElementById('batchStateLabel').textContent = (data.saved_count ?? 0) > 0 ? 'Active' : 'Ready';
-    document.getElementById('batchHelperNote').textContent = (data.saved_count ?? 0) > 0
-      ? 'Saved cards are safe. They are still Pending Submission until you click Submit Whole Data.'
-      : 'Saved cards stay attached to this institute even after refresh. Status stays Pending Submission until you click Submit Whole Data.';
-  } catch (e) {
-    batchInstituteLocked = false;
-    setInstituteLocked(hasEntryData());
-    document.getElementById('savedCardsCount').textContent = '0';
-    document.getElementById('submittedCardsCount').textContent = '0';
-    document.getElementById('batchInstituteName').textContent = getInstituteValue() || '-';
-    document.getElementById('batchStateLabel').textContent = 'Ready';
-    document.getElementById('batchHelperNote').textContent = 'Saved cards stay attached to this institute even after refresh. Status stays Pending Submission until you click Submit Whole Data.';
-  }
+  const draftRecords = getDraftRecords(getInstituteValue());
+  batchInstituteLocked = draftRecords.length > 0;
+  setInstituteLocked(batchInstituteLocked || hasEntryData());
+  document.getElementById('savedCardsCount').textContent = draftRecords.length;
+  document.getElementById('submittedCardsCount').textContent = '0';
+  document.getElementById('batchInstituteName').textContent = getInstituteValue() || '-';
+  document.getElementById('batchStateLabel').textContent = draftRecords.length > 0 ? 'Draft Active' : 'Ready';
+  document.getElementById('batchHelperNote').textContent = draftRecords.length > 0
+    ? 'Draft cards are saved on this device. They become permanent only after you click Submit Whole Data.'
+    : 'Draft cards stay on this device after refresh. They become permanent only after you click Submit Whole Data.';
   await loadSubmittedCards();
 }
 
 async function loadSubmittedCards() {
   const picker = document.getElementById('savedCardPicker');
   const selectedCard = document.getElementById('selectedBatchCard');
-  try {
-    const institute = encodeURIComponent(getInstituteValue());
-    const res = await fetch(`/api/batch-records?institute=${institute}`);
-    const data = await res.json();
-    const instituteRecords = data.records || [];
-    currentBatchRecords = instituteRecords.slice().reverse();
-    if (!instituteRecords.length) {
-      currentBatchRecords = [];
-      selectedBatchSerial = '';
-      picker.innerHTML = '<option value="">Select an entered card</option>';
-      selectedCard.innerHTML = '<div class="batch-note">No cards for this institute yet.</div>';
-      return;
-    }
-    picker.innerHTML = '<option value="">Select an entered card</option>' + currentBatchRecords.map(record => `<option value="${escapeHtml(record.serial_no || '')}">${escapeHtml(record.name || 'Unnamed')} | ${escapeHtml(record.serial_no || '-')}</option>`).join('');
-    const hasSelectedRecord = currentBatchRecords.some(record => record.serial_no === selectedBatchSerial);
-    if (!hasSelectedRecord) {
-      selectedBatchSerial = currentBatchRecords[0].serial_no || '';
-    }
-    picker.value = selectedBatchSerial;
-    renderSelectedBatchCard();
-  } catch (e) {
+  const instituteRecords = getDraftRecords(getInstituteValue());
+  currentBatchRecords = instituteRecords.slice().reverse();
+  if (!instituteRecords.length) {
     currentBatchRecords = [];
     selectedBatchSerial = '';
     picker.innerHTML = '<option value="">Select an entered card</option>';
-    selectedCard.innerHTML = '<div class="batch-note">Unable to load cards right now.</div>';
+    selectedCard.innerHTML = '<div class="batch-note">No cards for this institute yet.</div>';
+    return;
   }
+  picker.innerHTML = '<option value="">Select an entered card</option>' + currentBatchRecords.map(record => `<option value="${escapeHtml(record.serial_no || '')}">${escapeHtml(record.name || 'Unnamed')} | ${escapeHtml(record.serial_no || '-')}</option>`).join('');
+  const hasSelectedRecord = currentBatchRecords.some(record => record.serial_no === selectedBatchSerial);
+  if (!hasSelectedRecord) {
+    selectedBatchSerial = currentBatchRecords[0].serial_no || '';
+  }
+  picker.value = selectedBatchSerial;
+  renderSelectedBatchCard();
 }
 
 function jumpToSelectedCard() {
@@ -1493,9 +1517,9 @@ function renderSelectedBatchCard() {
   selectedCard.innerHTML = `
     <strong>${escapeHtml(record.name || 'Unnamed')}</strong>
     <span class="meta">${escapeHtml(record.serial_no || '-')} | ${escapeHtml(record.training_year || record.course || record.designation || record.profile_type || '')}</span>
-    <span class="status-chip ${record.submitted_at ? 'submitted' : 'saved'}">${record.submitted_at ? 'Submitted' : 'Pending Submission'}</span>
-    <span class="meta">Saved safely: ${escapeHtml(formatDateTime(record.saved_at || '-'))}</span>
-    <span class="meta">${record.submitted_at ? `Submitted: ${escapeHtml(formatDateTime(record.submitted_at))}` : 'Waiting for Submit Whole Data'}</span>
+    <span class="status-chip saved">Draft Saved</span>
+    <span class="meta">Saved on this device: ${escapeHtml(formatDateTime(record.saved_at || '-'))}</span>
+    <span class="meta">Waiting for Submit Whole Data</span>
     <div class="submitted-card-actions">
       <button type="button" onclick="editSubmittedCard('${record.serial_no}')">Edit Selected Card</button>
     </div>
@@ -1955,15 +1979,19 @@ async function saveCurrentCard() {
   }
 
   try {
-    const res = await fetch('/api/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Save failed');
+    const institute = getInstituteValue();
+    const existingRecords = getDraftRecords(institute);
+    const existingIndex = existingRecords.findIndex(record => record.serial_no === serial);
+    payload.saved_at = currentTimestampText();
+    payload.submitted_at = null;
+    if (existingIndex >= 0) {
+      existingRecords[existingIndex] = payload;
+    } else {
+      existingRecords.push(payload);
+    }
+    saveDraftRecords(institute, existingRecords);
     selectedBatchSerial = serial;
-    showToast((data.status === 'updated' ? 'Updated' : 'Saved') + ' ID card. Serial: ' + serial);
+    showToast((existingIndex >= 0 ? 'Updated' : 'Draft saved') + ' ID card. Serial: ' + serial);
     await loadBatchSummary();
     resetForm();
   } catch (e) {
@@ -1978,17 +2006,28 @@ async function submitWholeBatch() {
     alert('Please select or enter the institute first.');
     return;
   }
+  const draftRecords = getDraftRecords(institute);
+  if (!draftRecords.length) {
+    alert('No draft cards are pending submission for this institute.');
+    return;
+  }
 
   showLoading('Submitting whole batch...');
   try {
     const res = await fetch('/api/submit-batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ institute_name: institute })
+      body: JSON.stringify({
+        institute_name: institute,
+        records: draftRecords,
+      })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Batch submit failed');
     showToast('Submitted ' + data.total_cards + ' card(s) for ' + institute);
+    saveDraftRecords(institute, []);
+    currentBatchRecords = [];
+    selectedBatchSerial = '';
     batchInstituteLocked = false;
     setInstituteLocked(false);
     resetForm();

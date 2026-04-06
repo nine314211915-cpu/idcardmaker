@@ -544,6 +544,9 @@
     <option value="Govt. ANM Training Center, Jhunjhunu">Govt. ANM Training Center, Jhunjhunu</option>
     <option value="Other">Other</option>
   </select>
+  <select class="filter-select" id="batchFilter" onchange="loadRecords()">
+    <option value="">Select Batch</option>
+  </select>
   <input type="text" class="search-bar" id="searchInput" placeholder="Search name / serial" oninput="filterTable()">
   <select class="filter-select" id="typeFilter" onchange="filterTable()">
     <option value="">All Types</option>
@@ -661,6 +664,7 @@ const ADMIN_UI_STATE_KEY = 'admin_ui_state_v1';
 function saveAdminUiState() {
   const payload = {
     instituteFilter: document.getElementById('instituteFilter').value,
+    batchFilter: document.getElementById('batchFilter').value,
     typeFilter: document.getElementById('typeFilter').value,
     searchInput: document.getElementById('searchInput').value,
   };
@@ -679,6 +683,10 @@ function loadAdminUiState() {
 
 function getSelectedInstitute() {
   return document.getElementById('instituteFilter').value;
+}
+
+function getSelectedBatch() {
+  return document.getElementById('batchFilter').value;
 }
 
 function isDepartmentInstitute() {
@@ -735,6 +743,31 @@ async function loadSettings() {
   } catch (e) {
     appSettings = { background_url: '', signature_url: '', certificate_background_url: '' };
     renderBackgroundPreview();
+  }
+}
+
+async function loadBatches() {
+  const batchFilter = document.getElementById('batchFilter');
+  const institute = getSelectedInstitute();
+  if (!institute) {
+    batchFilter.innerHTML = '<option value="">Select Batch</option>';
+    return;
+  }
+  try {
+    const res = await fetch(`/api/batches?institute=${encodeURIComponent(institute)}`);
+    const data = await readJsonResponse(res, 'Unable to load batches');
+    const batches = Array.isArray(data.batches) ? data.batches : [];
+    const previousValue = batchFilter.dataset.pendingValue || batchFilter.value;
+    batchFilter.innerHTML = '<option value="">Select Batch</option>' + batches.map(batch => {
+      const label = `${batch.batch_name || batch.id} | ${batch.submitted_at || batch.created_at || '-'}`;
+      return `<option value="${batch.id}">${label}</option>`;
+    }).join('');
+    if (batches.some(batch => batch.id === previousValue)) {
+      batchFilter.value = previousValue;
+    }
+    delete batchFilter.dataset.pendingValue;
+  } catch (e) {
+    batchFilter.innerHTML = '<option value="">Select Batch</option>';
   }
 }
 
@@ -920,6 +953,13 @@ async function handleManualPhotoAttach(input) {
 
 async function loadRecords() {
   saveAdminUiState();
+  const batchFilter = document.getElementById('batchFilter');
+  if (!getSelectedInstitute()) {
+    batchFilter.innerHTML = '<option value="">Select Batch</option>';
+  }
+  if (getSelectedInstitute()) {
+    await loadBatches();
+  }
   loadSettings();
   if (!getSelectedInstitute()) {
     allRecords = [];
@@ -928,10 +968,18 @@ async function loadRecords() {
     updateStats([]);
     return;
   }
+  if (!getSelectedBatch()) {
+    allRecords = [];
+    document.getElementById('recordCount').textContent = 'Select a batch';
+    document.getElementById('tableContainer').innerHTML = '<div class="no-records">Select a batch to load records</div>';
+    updateStats([]);
+    return;
+  }
   document.getElementById('tableContainer').innerHTML = '<div class="loading-text">Loading...</div>';
   try {
     const institute = encodeURIComponent(getSelectedInstitute());
-    const res = await fetch(`/api/records?institute=${institute}`);
+    const batch = encodeURIComponent(getSelectedBatch());
+    const res = await fetch(`/api/records?institute=${institute}&batch_id=${batch}`);
     const data = await readJsonResponse(res, 'Unable to load records');
     allRecords = data.records || [];
     const filtered = getFilteredRecords();
@@ -1194,15 +1242,21 @@ async function doDelete() {
 
 function exportExcel() {
   const institute = encodeURIComponent(getSelectedInstitute());
-  window.open(`/api/export-excel?institute=${institute}`, '_blank');
+  const batch = encodeURIComponent(getSelectedBatch());
+  window.open(`/api/export-excel?institute=${institute}&batch_id=${batch}`, '_blank');
 }
 
 function exportZip() {
   const institute = encodeURIComponent(getSelectedInstitute());
-  window.open(`/api/export-zip?institute=${institute}`, '_blank');
+  const batch = encodeURIComponent(getSelectedBatch());
+  window.open(`/api/export-zip?institute=${institute}&batch_id=${batch}`, '_blank');
 }
 
 const persistedAdminUiState = loadAdminUiState();
+document.getElementById('batchFilter').innerHTML = '<option value="">Select Batch</option>';
+if (typeof persistedAdminUiState.batchFilter === 'string') {
+  document.getElementById('batchFilter').dataset.pendingValue = persistedAdminUiState.batchFilter;
+}
 if (typeof persistedAdminUiState.typeFilter === 'string') {
   document.getElementById('typeFilter').value = persistedAdminUiState.typeFilter;
 }
