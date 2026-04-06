@@ -749,13 +749,25 @@ function renderDriveStorageStatus(errorMessage = '') {
     return;
   }
   const files = Array.isArray(driveStorageStatus.files) ? driveStorageStatus.files : [];
-  const presentCount = files.filter(file => file.present).length;
-  summary.textContent = `${presentCount}/${files.length || 3} Drive data file(s) found.`;
+  const presentCount = files.filter(file => file.status === 'drive_synced').length;
+  const localOnlyCount = files.filter(file => file.status === 'local_only').length;
+  const missingCount = files.filter(file => file.status === 'missing').length;
+  summary.textContent = `${presentCount}/${files.length || 3} Drive synced. ${localOnlyCount} local only. ${missingCount} not created.`;
   const folderText = driveStorageStatus.data_folder_id
-    ? `Target folder ID: ${driveStorageStatus.data_folder_id}`
+    ? `Configured data folder ID: ${driveStorageStatus.data_folder_id}`
     : 'Using Drive root folder for JSON storage.';
-  const items = files.map(file => `<div><strong>${file.name}</strong>: ${file.present ? 'Found' : 'Missing'}${file.file_id ? ` (${file.file_id})` : ''}</div>`).join('');
-  preview.innerHTML = `${folderText}<div style="margin-top:8px">${items || 'No file information available.'}</div>`;
+  const items = files.map(file => {
+    let label = 'Not Created Yet';
+    if (file.status === 'drive_synced') label = 'Drive Synced';
+    if (file.status === 'local_only') label = 'Local Only';
+    if (file.status === 'select_institute') label = 'Select Institute';
+    const fileIdLine = file.file_id ? ` <span style="color:var(--muted)">(${file.file_id})</span>` : '';
+    const localLine = file.local_present ? '<div style="color:var(--muted)">Local copy is present in app storage.</div>' : '';
+    const folderLine = file.folder_id ? `<div style="color:var(--muted)">Drive folder used: ${file.folder_id}</div>` : '';
+    const errorLine = file.last_error ? `<div style="color:#8b0000">Last Drive error: ${file.last_error}</div>` : '';
+    return `<div><strong>${file.name}</strong>: ${label}${fileIdLine}${localLine}${folderLine}${errorLine}</div>`;
+  }).join('');
+  preview.innerHTML = `${folderText}<div style="margin-top:8px;display:grid;gap:8px">${items || 'No file information available.'}</div>`;
 }
 
 async function loadDriveStorageStatus() {

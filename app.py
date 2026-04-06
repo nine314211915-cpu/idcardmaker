@@ -32,6 +32,7 @@ app.config["GOOGLE_DRIVE_DATA_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_DATA_FO
 
 _drive_service = None
 _drive_json_file_ids = {}
+_drive_sync_status = {}
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "medical-id-card-secret")
 
 for bundled_dir, runtime_dir in [
@@ -104,21 +105,26 @@ def list_drive_storage_filenames(kind):
     if service is None:
         return []
 
-    folder_id = get_drive_folder_id("data")
-    query = [f"name contains '{_drive_query_string(kind + '__')}'", "trashed=false"]
-    if folder_id:
-        query.append(f"'{_drive_query_string(folder_id)}' in parents")
-    response = service.files().list(
-        q=" and ".join(query),
-        fields="files(id, name)",
-        pageSize=200,
-    ).execute()
     names = []
-    for file in response.get("files", []):
-        filename = file.get("name", "")
-        if filename.startswith(f"{kind}__") and filename.endswith(".json"):
-            _drive_json_file_ids[filename] = file.get("id", "")
-            names.append(filename)
+    for folder_id in get_drive_folder_candidates("data"):
+        query = [f"name contains '{_drive_query_string(kind + '__')}'", "trashed=false"]
+        if folder_id:
+            query.append(f"'{_drive_query_string(folder_id)}' in parents")
+        try:
+            response = service.files().list(
+                q=" and ".join(query),
+                fields="files(id, name, parents)",
+                pageSize=200,
+            ).execute()
+        except Exception:
+            continue
+        for file in response.get("files", []):
+            filename = file.get("name", "")
+            if filename.startswith(f"{kind}__") and filename.endswith(".json"):
+                _drive_json_file_ids[filename] = file.get("id", "")
+                resolved_folder_id = (file.get("parents") or [folder_id or ""])[0] if file.get("parents") or folder_id else ""
+                record_drive_sync_status(filename, synced=True, error="", file_id=file.get("id", ""), folder_id=resolved_folder_id)
+                names.append(filename)
     return sorted(set(names))
 
 
@@ -350,6 +356,37 @@ def get_drive_folder_id(kind):
     )
 
 
+def get_drive_folder_candidates(kind):
+    specific = app.config.get(f"GOOGLE_DRIVE_{kind.upper()}_FOLDER_ID") or None
+    root = app.config["GOOGLE_DRIVE_ROOT_FOLDER_ID"] or None
+    candidates = []
+    if specific:
+        candidates.append(specific)
+    if root and root not in candidates:
+        candidates.append(root)
+    if not candidates:
+        candidates.append(None)
+    return candidates
+
+
+def record_drive_sync_status(filename, synced=None, local_present=None, error=None, file_id=None, folder_id=None):
+    if not filename:
+        return
+    status = _drive_sync_status.get(filename, {})
+    status["checked_at"] = current_timestamp_display()
+    if synced is not None:
+        status["synced"] = bool(synced)
+    if local_present is not None:
+        status["local_present"] = bool(local_present)
+    if error is not None:
+        status["error"] = str(error).strip()
+    if file_id is not None:
+        status["file_id"] = file_id or ""
+    if folder_id is not None:
+        status["folder_id"] = folder_id or ""
+    _drive_sync_status[filename] = status
+
+
 def make_drive_public(service, file_id):
     service.permissions().create(
         fileId=file_id,
@@ -390,17 +427,25 @@ def find_drive_file_id(filename, kind):
     if service is None:
         return None
 
-    folder_id = get_drive_folder_id(kind)
-    query = [f"name='{_drive_query_string(filename)}'", "trashed=false"]
-    if folder_id:
-        query.append(f"'{_drive_query_string(folder_id)}' in parents")
-    response = service.files().list(
-        q=" and ".join(query),
-        fields="files(id, name)",
-        pageSize=1,
-    ).execute()
-    files = response.get("files", [])
-    return files[0]["id"] if files else None
+    for folder_id in get_drive_folder_candidates(kind):
+        query = [f"name='{_drive_query_string(filename)}'", "trashed=false"]
+        if folder_id:
+            query.append(f"'{_drive_query_string(folder_id)}' in parents")
+        try:
+            response = service.files().list(
+                q=" and ".join(query),
+                fields="files(id, name, parents)",
+                pageSize=1,
+            ).execute()
+        except Exception:
+            continue
+        files = response.get("files", [])
+        if files:
+            found = files[0]
+            resolved_folder_id = (found.get("parents") or [folder_id or ""])[0] if found.get("parents") or folder_id else ""
+            record_drive_sync_status(filename, synced=True, error="", file_id=found.get("id", ""), folder_id=resolved_folder_id)
+            return found["id"]
+    return None
 
 
 def download_drive_file_bytes(file_id):
@@ -427,21 +472,33 @@ def upsert_private_drive_file(file_bytes, filename, mime_type, kind):
     from googleapiclient.http import MediaIoBaseUpload
 
     file_id = _drive_json_file_ids.get(filename) or find_drive_file_id(filename, kind)
-    metadata = {"name": filename}
-    folder_id = get_drive_folder_id(kind)
-    if folder_id:
-        metadata["parents"] = [folder_id]
-
     media = MediaIoBaseUpload(io.BytesIO(file_bytes), mimetype=mime_type, resumable=False)
     if file_id:
         service.files().update(fileId=file_id, media_body=media).execute()
         _drive_json_file_ids[filename] = file_id
+        record_drive_sync_status(filename, synced=True, error="", file_id=file_id)
         return file_id
 
-    created = service.files().create(body=metadata, media_body=media, fields="id").execute()
-    file_id = created["id"]
-    _drive_json_file_ids[filename] = file_id
-    return file_id
+    last_error = None
+    for folder_id in get_drive_folder_candidates(kind):
+        metadata = {"name": filename}
+        if folder_id:
+            metadata["parents"] = [folder_id]
+        media = MediaIoBaseUpload(io.BytesIO(file_bytes), mimetype=mime_type, resumable=False)
+        try:
+            created = service.files().create(body=metadata, media_body=media, fields="id, parents").execute()
+            file_id = created["id"]
+            _drive_json_file_ids[filename] = file_id
+            resolved_folder_id = (created.get("parents") or [folder_id or ""])[0] if created.get("parents") or folder_id else ""
+            record_drive_sync_status(filename, synced=True, error="", file_id=file_id, folder_id=resolved_folder_id)
+            return file_id
+        except Exception as exc:
+            last_error = exc
+            continue
+    if last_error:
+        record_drive_sync_status(filename, synced=False, error=last_error)
+        raise last_error
+    return None
 
 
 def load_json_store(local_path, drive_filename, default_value):
@@ -454,19 +511,45 @@ def load_json_store(local_path, drive_filename, default_value):
                 if file_bytes is not None:
                     with open(local_path, "wb") as f:
                         f.write(file_bytes)
+                    record_drive_sync_status(
+                        drive_filename,
+                        synced=True,
+                        local_present=True,
+                        error="",
+                        file_id=file_id,
+                    )
                     return json.loads(file_bytes.decode("utf-8"))
             elif os.path.exists(local_path):
                 with open(local_path, "rb") as f:
                     existing_bytes = f.read()
                 if existing_bytes:
-                    upsert_private_drive_file(existing_bytes, drive_filename, "application/json", "data")
+                    synced_file_id = upsert_private_drive_file(existing_bytes, drive_filename, "application/json", "data")
+                    record_drive_sync_status(
+                        drive_filename,
+                        synced=True,
+                        local_present=True,
+                        error="",
+                        file_id=synced_file_id,
+                    )
                     return json.loads(existing_bytes.decode("utf-8"))
         except Exception:
+            record_drive_sync_status(
+                drive_filename,
+                synced=False,
+                local_present=os.path.exists(local_path),
+                error="Drive sync failed while loading this file.",
+            )
             app.logger.warning("Drive sync failed while loading %s", drive_filename, exc_info=True)
 
     if os.path.exists(local_path):
         with open(local_path, "r", encoding="utf-8") as f:
             try:
+                record_drive_sync_status(
+                    drive_filename,
+                    synced=not is_drive_enabled(),
+                    local_present=True,
+                    error="" if not is_drive_enabled() else _drive_sync_status.get(drive_filename, {}).get("error", ""),
+                )
                 return json.load(f)
             except json.JSONDecodeError:
                 pass
@@ -481,9 +564,13 @@ def save_json_store(local_path, drive_filename, payload):
 
     if is_drive_enabled():
         try:
-            upsert_private_drive_file(json_text.encode("utf-8"), drive_filename, "application/json", "data")
-        except Exception:
+            file_id = upsert_private_drive_file(json_text.encode("utf-8"), drive_filename, "application/json", "data")
+            record_drive_sync_status(drive_filename, synced=True, local_present=True, error="", file_id=file_id)
+        except Exception as exc:
+            record_drive_sync_status(drive_filename, synced=False, local_present=True, error=exc)
             app.logger.warning("Drive sync failed while saving %s", drive_filename, exc_info=True)
+    else:
+        record_drive_sync_status(drive_filename, synced=False, local_present=True, error="")
 
 
 def build_drive_storage_status(institute=None):
@@ -497,17 +584,29 @@ def build_drive_storage_status(institute=None):
     )
     for kind, filename in targets:
         file_id = None
+        local_path = make_storage_path(kind, institute) if institute and filename else ""
+        local_present = bool(local_path and os.path.exists(local_path))
+        last_error = _drive_sync_status.get(filename, {}).get("error", "")
+        resolved_folder_id = _drive_sync_status.get(filename, {}).get("folder_id", "")
         try:
             file_id = _drive_json_file_ids.get(filename) or (find_drive_file_id(filename, "data") if filename else None)
             if file_id:
                 _drive_json_file_ids[filename] = file_id
-        except Exception:
+                resolved_folder_id = _drive_sync_status.get(filename, {}).get("folder_id", resolved_folder_id)
+                last_error = _drive_sync_status.get(filename, {}).get("error", "")
+        except Exception as exc:
+            last_error = str(exc)
             app.logger.warning("Unable to resolve Drive file status for %s", filename, exc_info=True)
+        status = "drive_synced" if file_id else ("local_only" if local_present else ("select_institute" if not institute else "missing"))
         files.append({
             "kind": kind,
             "name": filename or f"{kind} file requires institute selection",
             "present": bool(file_id),
             "file_id": file_id or "",
+            "local_present": local_present,
+            "status": status,
+            "last_error": last_error,
+            "folder_id": resolved_folder_id,
         })
 
     return {
