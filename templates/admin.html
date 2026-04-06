@@ -568,6 +568,11 @@
       <div class="asset-preview" id="driveStatusPreview">Checking Drive status...</div>
     </div>
     <div class="asset-box">
+      <h3>Drive Sync Log</h3>
+      <p>Shows the latest JSON sync results for the selected institute so you can confirm whether data reached Drive or stayed local.</p>
+      <div class="asset-preview" id="driveSyncLogPreview">Waiting for Drive status...</div>
+    </div>
+    <div class="asset-box">
       <h3>ID Card Background</h3>
       <p>Upload one background image for the selected institute only. Each institute keeps its own separate background.</p>
       <div class="asset-actions">
@@ -733,22 +738,27 @@ async function loadSettings() {
 function renderDriveStorageStatus(errorMessage = '') {
   const summary = document.getElementById('driveStatusSummary');
   const preview = document.getElementById('driveStatusPreview');
+  const logPreview = document.getElementById('driveSyncLogPreview');
   if (errorMessage) {
     summary.textContent = errorMessage;
     preview.textContent = errorMessage;
+    logPreview.textContent = errorMessage;
     return;
   }
   if (!driveStorageStatus.institute) {
     summary.textContent = 'Select an institute to inspect isolated Drive files.';
     preview.textContent = 'Each institute now keeps separate records, certificates, settings, and signature/background data.';
+    logPreview.textContent = 'Select an institute to view recent Drive sync events.';
     return;
   }
   if (!driveStorageStatus.drive_enabled) {
     summary.textContent = 'Google Drive is not configured.';
     preview.textContent = 'Permanent JSON sync is inactive because the Drive service account is not available.';
+    logPreview.textContent = 'No Drive sync events because Google Drive is not configured.';
     return;
   }
   const files = Array.isArray(driveStorageStatus.files) ? driveStorageStatus.files : [];
+  const events = Array.isArray(driveStorageStatus.events) ? driveStorageStatus.events : [];
   const presentCount = files.filter(file => file.status === 'drive_synced').length;
   const localOnlyCount = files.filter(file => file.status === 'local_only').length;
   const missingCount = files.filter(file => file.status === 'missing').length;
@@ -768,6 +778,24 @@ function renderDriveStorageStatus(errorMessage = '') {
     return `<div><strong>${file.name}</strong>: ${label}${fileIdLine}${localLine}${folderLine}${errorLine}</div>`;
   }).join('');
   preview.innerHTML = `${folderText}<div style="margin-top:8px;display:grid;gap:8px">${items || 'No file information available.'}</div>`;
+  if (!events.length) {
+    logPreview.innerHTML = 'No sync events yet for this institute. Save or update data once, then refresh status.';
+    return;
+  }
+  logPreview.innerHTML = events.slice(0, 10).map(event => {
+    let label = 'Pending';
+    if (event.status === 'drive_synced') label = 'Drive Synced';
+    if (event.status === 'local_only') label = 'Local Only';
+    if (event.status === 'drive_failed') label = 'Drive Failed';
+    const instituteLine = event.institute ? `<div style="color:var(--muted)">Institute: ${event.institute}</div>` : '';
+    const errorLine = event.error ? `<div style="color:#8b0000">Error: ${event.error}</div>` : '';
+    return `<div style="padding:8px;border:1px solid var(--border);border-radius:10px;background:#fff">
+      <strong>${event.filename || '-'}</strong>
+      <div style="color:var(--muted)">${event.time || '-'} | ${label}</div>
+      ${instituteLine}
+      ${errorLine}
+    </div>`;
+  }).join('');
 }
 
 async function loadDriveStorageStatus() {

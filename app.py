@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, render_template, send_file, send_from_directory, session, redirect, url_for
 import json, os, random, string, zipfile, io, tempfile, csv
 from datetime import datetime
+from collections import deque
 from functools import wraps
 from PIL import Image, ImageOps, ImageEnhance, ImageFilter, UnidentifiedImageError
 from werkzeug.utils import secure_filename
@@ -33,6 +34,7 @@ app.config["GOOGLE_DRIVE_DATA_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_DATA_FO
 _drive_service = None
 _drive_json_file_ids = {}
 _drive_sync_status = {}
+_drive_sync_events = deque(maxlen=20)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "medical-id-card-secret")
 
 for bundled_dir, runtime_dir in [
@@ -387,6 +389,49 @@ def record_drive_sync_status(filename, synced=None, local_present=None, error=No
     _drive_sync_status[filename] = status
 
 
+def append_drive_sync_event(filename, institute="", kind="", status="", error="", file_id="", folder_id=""):
+    event = {
+        "time": current_timestamp_display(),
+        "filename": filename or "",
+        "institute": canonicalize_institute_name(institute) or "",
+        "kind": kind or "",
+        "status": status or "",
+        "error": str(error or "").strip(),
+        "file_id": file_id or "",
+        "folder_id": folder_id or "",
+    }
+    _drive_sync_events.appendleft(event)
+    message = f"Drive sync event status={event['status']} file={event['filename'] or '-'} institute={event['institute'] or '-'}"
+    if event["error"]:
+        app.logger.warning("%s error=%s", message, event["error"])
+    else:
+        app.logger.info("%s", message)
+
+
+def extract_institute_from_filename(filename):
+    name = (filename or "").strip()
+    if "__" not in name:
+        return ""
+    try:
+        slug = name.split("__", 1)[1].rsplit(".json", 1)[0]
+    except Exception:
+        return ""
+    return slug.replace("_", " ").strip()
+
+
+def get_recent_drive_sync_events(institute=None):
+    institute = canonicalize_institute_name(institute)
+    if not institute:
+        return list(_drive_sync_events)
+    slug = make_storage_slug(institute)
+    prefixes = (
+        f"records__{slug}",
+        f"certificates__{slug}",
+        f"settings__{slug}",
+    )
+    return [event for event in _drive_sync_events if (event.get("filename") or "").startswith(prefixes)]
+
+
 def make_drive_public(service, file_id):
     service.permissions().create(
         fileId=file_id,
@@ -477,6 +522,13 @@ def upsert_private_drive_file(file_bytes, filename, mime_type, kind):
         service.files().update(fileId=file_id, media_body=media).execute()
         _drive_json_file_ids[filename] = file_id
         record_drive_sync_status(filename, synced=True, error="", file_id=file_id)
+        append_drive_sync_event(
+            filename,
+            institute=extract_institute_from_filename(filename),
+            kind=kind,
+            status="drive_synced",
+            file_id=file_id,
+        )
         return file_id
 
     last_error = None
@@ -491,12 +543,27 @@ def upsert_private_drive_file(file_bytes, filename, mime_type, kind):
             _drive_json_file_ids[filename] = file_id
             resolved_folder_id = (created.get("parents") or [folder_id or ""])[0] if created.get("parents") or folder_id else ""
             record_drive_sync_status(filename, synced=True, error="", file_id=file_id, folder_id=resolved_folder_id)
+            append_drive_sync_event(
+                filename,
+                institute=extract_institute_from_filename(filename),
+                kind=kind,
+                status="drive_synced",
+                file_id=file_id,
+                folder_id=resolved_folder_id,
+            )
             return file_id
         except Exception as exc:
             last_error = exc
             continue
     if last_error:
         record_drive_sync_status(filename, synced=False, error=last_error)
+        append_drive_sync_event(
+            filename,
+            institute=extract_institute_from_filename(filename),
+            kind=kind,
+            status="drive_failed",
+            error=last_error,
+        )
         raise last_error
     return None
 
@@ -518,6 +585,13 @@ def load_json_store(local_path, drive_filename, default_value):
                         error="",
                         file_id=file_id,
                     )
+                    append_drive_sync_event(
+                        drive_filename,
+                        institute=extract_institute_from_filename(drive_filename),
+                        kind="data",
+                        status="drive_synced",
+                        file_id=file_id,
+                    )
                     return json.loads(file_bytes.decode("utf-8"))
             elif os.path.exists(local_path):
                 with open(local_path, "rb") as f:
@@ -531,12 +605,26 @@ def load_json_store(local_path, drive_filename, default_value):
                         error="",
                         file_id=synced_file_id,
                     )
+                    append_drive_sync_event(
+                        drive_filename,
+                        institute=extract_institute_from_filename(drive_filename),
+                        kind="data",
+                        status="drive_synced",
+                        file_id=synced_file_id,
+                    )
                     return json.loads(existing_bytes.decode("utf-8"))
         except Exception:
             record_drive_sync_status(
                 drive_filename,
                 synced=False,
                 local_present=os.path.exists(local_path),
+                error="Drive sync failed while loading this file.",
+            )
+            append_drive_sync_event(
+                drive_filename,
+                institute=extract_institute_from_filename(drive_filename),
+                kind="data",
+                status="local_only",
                 error="Drive sync failed while loading this file.",
             )
             app.logger.warning("Drive sync failed while loading %s", drive_filename, exc_info=True)
@@ -550,6 +638,14 @@ def load_json_store(local_path, drive_filename, default_value):
                     local_present=True,
                     error="" if not is_drive_enabled() else _drive_sync_status.get(drive_filename, {}).get("error", ""),
                 )
+                if is_drive_enabled() and _drive_sync_status.get(drive_filename, {}).get("error", ""):
+                    append_drive_sync_event(
+                        drive_filename,
+                        institute=extract_institute_from_filename(drive_filename),
+                        kind="data",
+                        status="local_only",
+                        error=_drive_sync_status.get(drive_filename, {}).get("error", ""),
+                    )
                 return json.load(f)
             except json.JSONDecodeError:
                 pass
@@ -568,9 +664,23 @@ def save_json_store(local_path, drive_filename, payload):
             record_drive_sync_status(drive_filename, synced=True, local_present=True, error="", file_id=file_id)
         except Exception as exc:
             record_drive_sync_status(drive_filename, synced=False, local_present=True, error=exc)
+            append_drive_sync_event(
+                drive_filename,
+                institute=extract_institute_from_filename(drive_filename),
+                kind="data",
+                status="local_only",
+                error=exc,
+            )
             app.logger.warning("Drive sync failed while saving %s", drive_filename, exc_info=True)
     else:
         record_drive_sync_status(drive_filename, synced=False, local_present=True, error="")
+        append_drive_sync_event(
+            drive_filename,
+            institute=extract_institute_from_filename(drive_filename),
+            kind="data",
+            status="local_only",
+            error="Google Drive is not configured.",
+        )
 
 
 def build_drive_storage_status(institute=None):
@@ -614,6 +724,7 @@ def build_drive_storage_status(institute=None):
         "data_folder_id": data_folder_id or "",
         "institute": institute or "",
         "files": files,
+        "events": get_recent_drive_sync_events(institute),
     }
 
 
