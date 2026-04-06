@@ -541,6 +541,7 @@
     <option value="Govt. Community Health Centre (CHC), Jhunjhunu">Govt. Community Health Centre (CHC), Jhunjhunu</option>
     <option value="Govt. Primary Health Centre (PHC), Jhunjhunu">Govt. Primary Health Centre (PHC), Jhunjhunu</option>
     <option value="Govt. Health Sub Centre, Jhunjhunu">Govt. Health Sub Centre, Jhunjhunu</option>
+    <option value="Govt. ANM Training Center, Jhunjhunu">Govt. ANM Training Center, Jhunjhunu</option>
     <option value="Other">Other</option>
   </select>
   <input type="text" class="search-bar" id="searchInput" placeholder="Search name / serial" oninput="filterTable()">
@@ -580,6 +581,18 @@
     </div>
     <div class="asset-box">
       <div class="asset-preview" id="certificateBackgroundPreview">No preview</div>
+    </div>
+    <div class="asset-box">
+      <h3>CSV Data Import</h3>
+      <p>Upload a CSV file to add or update records in bulk. Dates should be in dd/mm/yyyy format.</p>
+      <div class="asset-actions">
+        <button class="btn btn-outline" type="button" onclick="document.getElementById('csvImportInput').click()">Upload CSV</button>
+        <span class="asset-status" id="csvImportStatus">No CSV imported yet.</span>
+      </div>
+      <input type="file" id="csvImportInput" accept=".csv,text/csv" style="display:none" onchange="handleCsvImport(this)">
+    </div>
+    <div class="asset-box">
+      <div class="asset-preview" id="csvImportPreview">CSV import lets you create records first and attach photos later from the table.</div>
     </div>
   </div>
 </div>
@@ -622,11 +635,14 @@
   </div>
 </div>
 
+<input type="file" id="manualPhotoInput" accept="image/*" style="display:none" onchange="handleManualPhotoAttach(this)">
+
 <script>
 let allRecords = [];
 let deleteTarget = null;
 let appSettings = { background_url: '', signature_url: '', certificate_background_url: '' };
-const COLLEGE_INSTITUTES = ['Govt. Medical College, Jhunjhunu', 'Govt. Nursing College, Jhunjhunu'];
+const COLLEGE_INSTITUTES = ['Govt. Medical College, Jhunjhunu', 'Govt. Nursing College, Jhunjhunu', 'Govt. ANM Training Center, Jhunjhunu'];
+let attachPhotoSerial = null;
 
 function getSelectedInstitute() {
   return document.getElementById('instituteFilter').value;
@@ -742,6 +758,45 @@ async function handleCertificateBackgroundUpload(input) {
   input.value = '';
 }
 
+async function handleCsvImport(input) {
+  if (!input.files.length) return;
+  const formData = new FormData();
+  formData.append('csv_file', input.files[0]);
+  try {
+    const res = await fetch('/api/import-csv', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'CSV import failed');
+    document.getElementById('csvImportStatus').textContent = `Imported ${data.imported} and updated ${data.updated} record(s).`;
+    document.getElementById('csvImportPreview').textContent = 'CSV import completed successfully.';
+    loadRecords();
+  } catch (e) {
+    alert(e.message || 'CSV import failed.');
+  }
+  input.value = '';
+}
+
+function startManualPhotoAttach(serial) {
+  attachPhotoSerial = serial;
+  document.getElementById('manualPhotoInput').click();
+}
+
+async function handleManualPhotoAttach(input) {
+  if (!input.files.length || !attachPhotoSerial) return;
+  const formData = new FormData();
+  formData.append('serial_no', attachPhotoSerial);
+  formData.append('photo', input.files[0]);
+  try {
+    const res = await fetch('/api/admin-attach-photo', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Photo attach failed');
+    loadRecords();
+  } catch (e) {
+    alert(e.message || 'Photo attach failed.');
+  }
+  input.value = '';
+  attachPhotoSerial = null;
+}
+
 async function loadRecords() {
   document.getElementById('tableContainer').innerHTML = '<div class="loading-text">Loading...</div>';
   loadSettings();
@@ -831,7 +886,7 @@ function renderTable(records) {
       : `<div class="photo-placeholder-thumb">P</div>`;
     const typeClass = r.profile_type === 'student' ? 'badge-student' : (r.profile_type === 'employee' ? 'badge-employee' : 'badge-lecturer');
     const typeLabel = r.profile_type === 'student' ? 'Student' : (r.profile_type === 'employee' ? 'Employee' : 'Teacher');
-    const courseOrDesig = r.course || r.designation || '-';
+    const courseOrDesig = r.training_year || r.course || r.designation || '-';
     const safeRecord = encodeURIComponent(JSON.stringify(r));
 
     html += `
@@ -849,11 +904,12 @@ function renderTable(records) {
         <td>${r.blood_group || '-'}</td>
         <td>${formatDate(r.valid_upto)}</td>
         <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.institute_name || ''}">${r.institute_name || '-'}</td>
-        <td style="color:var(--muted);white-space:nowrap">${r.saved_at || '-'}</td>
+        <td style="color:var(--muted);white-space:nowrap">${formatDateTime(r.saved_at)}</td>
         <td>
           <div class="action-btns">
             <button class="btn-sm btn-view" onclick="viewRecordFromEncoded('${safeRecord}')">View</button>
             ${photoUrl ? `<a class="btn-sm btn-dl" href="${photoUrl}" download="${r.serial_no}.jpg">Photo</a>` : ''}
+            <button class="btn-sm btn-dl" onclick="startManualPhotoAttach('${r.serial_no}')">${photoUrl ? 'Change Photo' : 'Attach Photo'}</button>
             <button class="btn-sm btn-del" onclick="confirmDelete('${r.serial_no}', ${JSON.stringify(r.name || '')})">Delete</button>
           </div>
         </td>
@@ -867,6 +923,7 @@ function renderTable(records) {
 
 function formatDate(d) {
   if (!d) return '-';
+  if (String(d).includes('/')) return d;
   try {
     const [y, m, day] = d.split('-');
     return `${day}/${m}/${y}`;
@@ -875,12 +932,19 @@ function formatDate(d) {
   }
 }
 
+function formatDateTime(value) {
+  if (!value) return '-';
+  const parts = String(value).split(' ');
+  const datePart = formatDate(parts[0]);
+  return parts.length > 1 ? `${datePart} ${parts.slice(1).join(' ')}` : datePart;
+}
+
 function viewRecordFromEncoded(encoded) {
   viewRecord(JSON.parse(decodeURIComponent(encoded)));
 }
 
 function viewRecord(r) {
-  const courseOrDesig = r.course || r.designation || '-';
+  const courseOrDesig = r.training_year || r.course || r.designation || '-';
   const photoHtml = r.photo_url
     ? `<img class="card-photo" src="${r.photo_url}?t=${Date.now()}" alt="">`
     : `<div class="card-photo-placeholder">P</div>`;
@@ -893,6 +957,9 @@ function viewRecord(r) {
   let extraFields = '';
   if (r.profile_type === 'student' && r.blood_group) {
     extraFields = `<div class="cf-row"><span class="cf-label">Blood</span><span>${r.blood_group}</span></div>`;
+  }
+  if (r.batch_session) {
+    extraFields += `<div class="cf-row"><span class="cf-label">Batch</span><span>${r.batch_session}</span></div>`;
   }
   if ((r.profile_type === 'lecturer' || r.profile_type === 'employee') && r.department) {
     extraFields = `<div class="cf-row"><span class="cf-label">Dept</span><span>${r.department}</span></div>`;
@@ -945,8 +1012,10 @@ function viewRecord(r) {
       <button class="btn btn-outline" onclick="closeModal()">Close</button>
     </div>
     <div style="margin-top:10px;padding:10px;background:var(--cream);border-radius:5px;font-size:11px">
+      <strong>Father's Name:</strong> ${r.father_name || '-'}<br>
+      <strong>Aadhaar No.:</strong> ${r.aadhaar_no || '-'}<br>
       <strong>Address:</strong> ${r.address || '-'}<br>
-      <strong>Saved At:</strong> ${r.saved_at || '-'}
+      <strong>Saved At:</strong> ${formatDateTime(r.saved_at)}
     </div>
   `;
   document.getElementById('viewModal').classList.add('show');

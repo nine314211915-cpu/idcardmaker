@@ -103,6 +103,46 @@ def save_settings(settings):
         json.dump(settings, f, indent=2)
 
 
+def normalize_date(value):
+    value = (value or "").strip()
+    if not value:
+        return ""
+    if "/" in value:
+        parts = value.split("/")
+        if len(parts) == 3:
+            day, month, year = parts
+            return f"{day.zfill(2)}/{month.zfill(2)}/{year}"
+        return value
+    if "-" in value:
+        parts = value.split("-")
+        if len(parts) == 3:
+            year, month, day = parts
+            return f"{day.zfill(2)}/{month.zfill(2)}/{year}"
+    return value
+
+
+def current_date_display():
+    return datetime.now().strftime("%d/%m/%Y")
+
+
+def current_timestamp_display():
+    return datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+
+def normalize_record_dates(data):
+    for field in ("dob", "valid_upto", "inserted_date", "issue_date"):
+        if field in data:
+            data[field] = normalize_date(data.get(field))
+    return data
+
+
+def canonicalize_institute_name(value):
+    value = (value or "").strip()
+    if value == "Govt. ANM Training, Jhunjhunu":
+        return "Govt. ANM Training Center, Jhunjhunu"
+    return value
+
+
 def load_drive_service_account_info():
     raw_json = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
     if raw_json:
@@ -224,9 +264,9 @@ def make_asset_slug(value):
 
 def get_filtered_records():
     records = load_records()
-    institute = (request.args.get("institute") or "").strip()
+    institute = canonicalize_institute_name(request.args.get("institute"))
     if institute:
-        records = [r for r in records if (r.get("institute_name") or "").strip() == institute]
+        records = [r for r in records if canonicalize_institute_name(r.get("institute_name")) == institute]
     return records, institute
 
 
@@ -413,7 +453,7 @@ def admin_logout():
 @app.route("/api/settings")
 def get_settings():
     settings = load_settings()
-    institute = (request.args.get("institute") or "").strip()
+    institute = canonicalize_institute_name(request.args.get("institute"))
     background_url = settings.get("backgrounds", {}).get(institute, "") if institute else ""
     return jsonify({
         "background_url": background_url,
@@ -425,7 +465,7 @@ def get_settings():
 @app.route("/api/certificate-settings")
 def get_certificate_settings():
     settings = load_settings()
-    institute = (request.args.get("institute") or "").strip()
+    institute = canonicalize_institute_name(request.args.get("institute"))
     background_url = settings.get("certificate_backgrounds", {}).get(institute, "") if institute else ""
     return jsonify({
         "background_url": background_url,
@@ -468,12 +508,32 @@ def upload_photo():
     return jsonify({"serial_no": serial, "photo_url": photo_url, "photo_drive_id": photo_drive_id})
 
 
+def attach_photo_to_serial(file_storage, serial):
+    filename = f"{serial}.jpg"
+    raw_path = os.path.join(UPLOAD_DIR, f"raw_{filename}")
+    final_path = os.path.join(UPLOAD_DIR, filename)
+    file_storage.save(raw_path)
+    try:
+        autocrop_passport(raw_path, final_path)
+        os.remove(raw_path)
+    except Exception:
+        os.rename(raw_path, final_path)
+    photo_url = f"/uploads/{filename}"
+    photo_drive_id = None
+    if is_drive_enabled():
+        with open(final_path, "rb") as photo_file:
+            photo_drive_id, drive_url = upload_bytes_to_drive(photo_file.read(), filename, "image/jpeg", "photos")
+            if drive_url:
+                photo_url = drive_url
+    return photo_url, photo_drive_id
+
+
 @app.route("/api/upload-background", methods=["POST"])
 @admin_required
 def upload_background():
     if "background" not in request.files:
         return jsonify({"error": "No file"}), 400
-    institute = (request.form.get("institute") or "").strip()
+    institute = canonicalize_institute_name(request.form.get("institute"))
     if not institute:
         return jsonify({"error": "Institute is required"}), 400
     file_storage = request.files["background"]
@@ -501,7 +561,7 @@ def upload_background():
 def upload_certificate_background():
     if "background" not in request.files:
         return jsonify({"error": "No file"}), 400
-    institute = (request.form.get("institute") or "").strip()
+    institute = canonicalize_institute_name(request.form.get("institute"))
     if not institute:
         return jsonify({"error": "Institute is required"}), 400
     file_storage = request.files["background"]
@@ -548,7 +608,9 @@ def upload_signature():
 @app.route("/api/submit", methods=["POST"])
 def submit():
     data = request.json
-    data["saved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data["institute_name"] = canonicalize_institute_name(data.get("institute_name"))
+    normalize_record_dates(data)
+    data["saved_at"] = current_timestamp_display()
     records = load_records()
     # Check for duplicate serial
     for r in records:
@@ -577,11 +639,13 @@ def certificates_api():
         institute_name = (data.get("institute_name") or "").strip()
         if not institute_name:
             return jsonify({"error": "Institute is required"}), 400
+        data["institute_name"] = canonicalize_institute_name(institute_name)
 
         certificates = load_certificates()
         certificate_no = (data.get("certificate_no") or "").strip() or gen_certificate_no()
         data["certificate_no"] = certificate_no
-        data["saved_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        normalize_record_dates(data)
+        data["saved_at"] = current_timestamp_display()
 
         for certificate in certificates:
             if certificate.get("certificate_no") == certificate_no:
@@ -594,9 +658,9 @@ def certificates_api():
         return jsonify({"status": "saved", "certificate_no": certificate_no})
 
     certificates = load_certificates()
-    institute = (request.args.get("institute") or "").strip()
+    institute = canonicalize_institute_name(request.args.get("institute"))
     if institute:
-        certificates = [c for c in certificates if (c.get("institute_name") or "").strip() == institute]
+        certificates = [c for c in certificates if canonicalize_institute_name(c.get("institute_name")) == institute]
     return jsonify({"certificates": certificates, "institute": institute})
 
 
@@ -617,7 +681,7 @@ def batch_records():
 @app.route("/api/submit-batch", methods=["POST"])
 def submit_batch():
     payload = request.json or {}
-    institute = (payload.get("institute_name") or "").strip()
+    institute = canonicalize_institute_name(payload.get("institute_name"))
     if not institute:
         return jsonify({"error": "Institute is required"}), 400
 
@@ -626,7 +690,7 @@ def submit_batch():
     if not saved_records:
         return jsonify({"error": "No saved ID cards are pending submission for this institute"}), 400
 
-    submitted_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    submitted_at = current_timestamp_display()
     for rec in records:
         if (rec.get("institute_name") or "").strip() == institute and not rec.get("submitted_at"):
             rec["submitted_at"] = submitted_at
@@ -644,6 +708,128 @@ def submit_batch():
 def get_records():
     records, institute = get_filtered_records()
     return jsonify({"records": records, "institute": institute})
+
+
+@app.route("/api/admin-attach-photo", methods=["POST"])
+@admin_required
+def admin_attach_photo():
+    serial = (request.form.get("serial_no") or "").strip()
+    if not serial:
+        return jsonify({"error": "Serial number is required"}), 400
+    if "photo" not in request.files:
+        return jsonify({"error": "No photo file"}), 400
+
+    records = load_records()
+    target_record = next((rec for rec in records if rec.get("serial_no") == serial), None)
+    if not target_record:
+        return jsonify({"error": "Record not found"}), 404
+
+    old_drive_id = target_record.get("photo_drive_id")
+    try:
+        photo_url, photo_drive_id = attach_photo_to_serial(request.files["photo"], serial)
+    except Exception:
+        return jsonify({"error": "Unable to process photo"}), 400
+
+    if old_drive_id and old_drive_id != photo_drive_id:
+        delete_drive_file(old_drive_id)
+
+    target_record["photo_url"] = photo_url
+    target_record["photo_drive_id"] = photo_drive_id or ""
+    save_records(records)
+    return jsonify({"status": "saved", "serial_no": serial, "photo_url": photo_url})
+
+
+@app.route("/api/import-csv", methods=["POST"])
+@admin_required
+def import_csv():
+    if "csv_file" not in request.files:
+        return jsonify({"error": "No CSV file"}), 400
+
+    uploaded = request.files["csv_file"]
+    if not secure_filename(uploaded.filename):
+        return jsonify({"error": "Invalid CSV filename"}), 400
+
+    try:
+        text = uploaded.read().decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return jsonify({"error": "CSV must be UTF-8 encoded"}), 400
+
+    rows = list(csv.DictReader(io.StringIO(text)))
+    if not rows:
+        return jsonify({"error": "CSV has no data rows"}), 400
+
+    records = load_records()
+    record_map = {rec.get("serial_no"): rec for rec in records if rec.get("serial_no")}
+    imported = 0
+    updated = 0
+
+    field_map = {
+        "serial_no": ["serial_no", "serial", "id"],
+        "institute_name": ["institute_name", "institute"],
+        "profile_type": ["profile_type", "type"],
+        "name": ["name", "full_name"],
+        "course": ["course"],
+        "training_year": ["training_year", "year"],
+        "batch_session": ["batch_session", "batch"],
+        "father_name": ["father_name", "fathers_name", "father"],
+        "aadhaar_no": ["aadhaar_no", "aadhaar", "aadhar_no", "aadhar"],
+        "employee_id": ["employee_id", "emp_id"],
+        "designation": ["designation"],
+        "department": ["department", "dept", "section"],
+        "dob": ["dob", "date_of_birth"],
+        "contact": ["contact", "contact_no", "mobile"],
+        "blood_group": ["blood_group", "blood"],
+        "address": ["address"],
+        "valid_upto": ["valid_upto", "validity"],
+        "inserted_date": ["inserted_date", "issue_date", "issued_date"],
+    }
+
+    for row in rows:
+        normalized = {}
+        for target, aliases in field_map.items():
+            value = ""
+            for alias in aliases:
+                if alias in row and str(row.get(alias) or "").strip():
+                    value = str(row.get(alias) or "").strip()
+                    break
+            if value:
+                normalized[target] = value
+
+        normalized["institute_name"] = canonicalize_institute_name(normalized.get("institute_name"))
+        normalize_record_dates(normalized)
+        serial_no = (normalized.get("serial_no") or "").strip() or gen_serial()
+        normalized["serial_no"] = serial_no
+        if not normalized.get("name"):
+            continue
+
+        profile_type = (normalized.get("profile_type") or "").strip().lower()
+        if profile_type not in {"student", "lecturer", "employee"}:
+            profile_type = "student" if normalized.get("course") or normalized.get("training_year") or normalized.get("batch_session") else "employee"
+        normalized["profile_type"] = profile_type
+
+        existing = record_map.get(serial_no)
+        if existing:
+            preserved = {
+                "submitted_at": existing.get("submitted_at"),
+                "batch_total_cards": existing.get("batch_total_cards"),
+                "photo_url": existing.get("photo_url", ""),
+                "photo_drive_id": existing.get("photo_drive_id", ""),
+            }
+            existing.update(normalized)
+            existing.update({k: v for k, v in preserved.items() if v is not None})
+            existing["saved_at"] = current_timestamp_display()
+            updated += 1
+        else:
+            normalized.setdefault("photo_url", "")
+            normalized.setdefault("photo_drive_id", "")
+            normalized["saved_at"] = current_timestamp_display()
+            normalized["submitted_at"] = None
+            records.append(normalized)
+            record_map[serial_no] = normalized
+            imported += 1
+
+    save_records(records)
+    return jsonify({"status": "ok", "imported": imported, "updated": updated, "total": imported + updated})
 
 @app.route("/api/delete/<serial_no>", methods=["DELETE"])
 @admin_required
@@ -669,8 +855,8 @@ def export_excel():
     wb = Workbook()
     ws = wb.active
     ws.title = "ID Card Records"
-    headers = ["Serial No", "Profile Type", "Name", "Course/Designation", "Employee ID", "Department",
-               "Date of Birth", "Contact No", "Blood Group", "Address", "Valid Upto",
+    headers = ["Serial No", "Profile Type", "Name", "Course/Designation", "Batch", "Father Name", "Aadhaar No.",
+               "Employee ID", "Department", "Date of Birth", "Contact No", "Blood Group", "Address", "Valid Upto",
                "Institute", "Photo File", "Saved At"]
     header_fill = PatternFill(start_color="8B0000", end_color="8B0000", fill_type="solid")
     for col, h in enumerate(headers, 1):
@@ -682,17 +868,20 @@ def export_excel():
         ws.cell(row=row, column=1, value=rec.get("serial_no", ""))
         ws.cell(row=row, column=2, value=rec.get("profile_type", ""))
         ws.cell(row=row, column=3, value=rec.get("name", ""))
-        ws.cell(row=row, column=4, value=rec.get("course") or rec.get("designation", ""))
-        ws.cell(row=row, column=5, value=rec.get("employee_id", ""))
-        ws.cell(row=row, column=6, value=rec.get("department", ""))
-        ws.cell(row=row, column=7, value=rec.get("dob", ""))
-        ws.cell(row=row, column=8, value=rec.get("contact", ""))
-        ws.cell(row=row, column=9, value=rec.get("blood_group", ""))
-        ws.cell(row=row, column=10, value=rec.get("address", ""))
-        ws.cell(row=row, column=11, value=rec.get("valid_upto", ""))
-        ws.cell(row=row, column=12, value=rec.get("institute_name", ""))
-        ws.cell(row=row, column=13, value=f"{rec.get('serial_no', '')}.jpg")
-        ws.cell(row=row, column=14, value=rec.get("saved_at", ""))
+        ws.cell(row=row, column=4, value=rec.get("training_year") or rec.get("course") or rec.get("designation", ""))
+        ws.cell(row=row, column=5, value=rec.get("batch_session", ""))
+        ws.cell(row=row, column=6, value=rec.get("father_name", ""))
+        ws.cell(row=row, column=7, value=rec.get("aadhaar_no", ""))
+        ws.cell(row=row, column=8, value=rec.get("employee_id", ""))
+        ws.cell(row=row, column=9, value=rec.get("department", ""))
+        ws.cell(row=row, column=10, value=rec.get("dob", ""))
+        ws.cell(row=row, column=11, value=rec.get("contact", ""))
+        ws.cell(row=row, column=12, value=rec.get("blood_group", ""))
+        ws.cell(row=row, column=13, value=rec.get("address", ""))
+        ws.cell(row=row, column=14, value=rec.get("valid_upto", ""))
+        ws.cell(row=row, column=15, value=rec.get("institute_name", ""))
+        ws.cell(row=row, column=16, value=f"{rec.get('serial_no', '')}.jpg")
+        ws.cell(row=row, column=17, value=rec.get("saved_at", ""))
     for col in ws.columns:
         max_len = max((len(str(c.value or "")) for c in col), default=10)
         ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 40)
@@ -714,8 +903,8 @@ def export_zip():
         csv_buf = io.StringIO()
         writer = csv.writer(csv_buf)
         writer.writerow([
-            "Serial No", "Profile Type", "Name", "Course/Designation", "Employee ID", "Department",
-            "Date of Birth", "Contact No", "Blood Group", "Address", "Valid Upto",
+            "Serial No", "Profile Type", "Name", "Course/Designation", "Batch", "Father Name", "Aadhaar No.",
+            "Employee ID", "Department", "Date of Birth", "Contact No", "Blood Group", "Address", "Valid Upto",
             "Institute", "Photo File", "Photo URL", "Saved At", "Submitted At"
         ])
         for rec in records:
@@ -724,7 +913,10 @@ def export_zip():
                 rec.get("serial_no", ""),
                 rec.get("profile_type", ""),
                 rec.get("name", ""),
-                rec.get("course") or rec.get("designation", ""),
+                rec.get("training_year") or rec.get("course") or rec.get("designation", ""),
+                rec.get("batch_session", ""),
+                rec.get("father_name", ""),
+                rec.get("aadhaar_no", ""),
                 rec.get("employee_id", ""),
                 rec.get("department", ""),
                 rec.get("dob", ""),

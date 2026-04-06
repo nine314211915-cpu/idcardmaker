@@ -721,6 +721,7 @@
               <option value="Govt. Community Health Centre (CHC), Jhunjhunu">Govt. Community Health Centre (CHC), Jhunjhunu</option>
               <option value="Govt. Primary Health Centre (PHC), Jhunjhunu">Govt. Primary Health Centre (PHC), Jhunjhunu</option>
               <option value="Govt. Health Sub Centre, Jhunjhunu">Govt. Health Sub Centre, Jhunjhunu</option>
+              <option value="Govt. ANM Training Center, Jhunjhunu">Govt. ANM Training Center, Jhunjhunu</option>
               <option value="Other">Other</option>
             </select>
           </div>
@@ -795,13 +796,36 @@
           </div>
 
           <!-- Student Fields -->
-          <div class="form-group student-field">
+          <div class="form-group student-field" id="courseGroup">
             <label id="courseLabel">Course <span class="req">*</span></label>
             <select id="course" onchange="updatePreview()"></select>
           </div>
-          <div class="form-group student-field">
+          <div class="form-group student-field" id="validUptoGroup">
             <label>Valid Upto</label>
-            <input type="date" id="validUpto" onchange="updatePreview()">
+            <input type="text" id="validUpto" placeholder="dd/mm/yyyy" oninput="updatePreview()">
+          </div>
+          <div class="form-group anm-field" id="batchSessionGroup" style="display:none">
+            <label>Batch <span class="req">*</span></label>
+            <select id="batchSession" onchange="updatePreview()">
+              <option value="">Select Batch</option>
+              <option>2024-2026</option>
+              <option>2025-2027</option>
+              <option>2026-2028</option>
+              <option>2027-2029</option>
+            </select>
+          </div>
+          <div class="form-group anm-field" id="trainingYearGroup" style="display:none">
+            <label>Year <span class="req">*</span></label>
+            <select id="trainingYear" onchange="updatePreview()">
+              <option value="">Select Year</option>
+              <option>1st Year</option>
+              <option>2nd Year</option>
+              <option>3rd Year</option>
+            </select>
+          </div>
+          <div class="form-group anm-field" style="display:none">
+            <label>Father's Name <span class="req">*</span></label>
+            <input type="text" id="fatherName" placeholder="Enter father's name" oninput="updatePreview()">
           </div>
 
           <!-- Lecturer Fields (hidden by default) -->
@@ -820,15 +844,15 @@
           </div>
 
           <div class="form-group">
-            <label>Date of Birth <span class="req">*</span></label>
-            <input type="date" id="dob" onchange="updatePreview()">
+            <label id="dobLabel">Date of Birth <span class="req">*</span></label>
+            <input type="text" id="dob" placeholder="dd/mm/yyyy" oninput="updatePreview()">
           </div>
           <div class="form-group">
             <label>Contact No <span class="req">*</span></label>
             <input type="tel" id="contact" placeholder="10-digit mobile" maxlength="10" oninput="updatePreview()">
           </div>
 
-          <div class="form-group student-field">
+          <div class="form-group student-field" id="bloodGroupGroup">
             <label>Blood Group</label>
             <select id="bloodGroup" onchange="updatePreview()">
               <option value="">Select</option>
@@ -840,8 +864,12 @@
           </div>
 
           <div class="form-group" id="insertedDateGroup">
-            <label>Inserted Date</label>
-            <input type="date" id="insertedDate" oninput="updatePreview()">
+            <label>Issued Date</label>
+            <input type="text" id="insertedDate" placeholder="dd/mm/yyyy" oninput="updatePreview()">
+          </div>
+          <div class="form-group anm-field" style="display:none">
+            <label>Aadhaar No.</label>
+            <input type="text" id="aadhaarNo" placeholder="12-digit Aadhaar number" maxlength="12" oninput="updatePreview()">
           </div>
 
           <div class="form-group full">
@@ -879,6 +907,9 @@
                 <div class="cf-row student-field"><span class="cf-label">Blood</span><span class="cf-val" id="prevBlood">—</span></div>
                 <div class="cf-row"><span class="cf-label">DOB</span><span class="cf-val" id="prevDob">—</span></div>
                 <div class="cf-row"><span class="cf-label">Contact</span><span class="cf-val" id="prevContact">—</span></div>
+                <div class="cf-row anm-preview-row" style="display:none"><span class="cf-label">Batch</span><span class="cf-val" id="prevBatch">—</span></div>
+                <div class="cf-row anm-preview-row" style="display:none"><span class="cf-label">Father</span><span class="cf-val" id="prevFather">—</span></div>
+                <div class="cf-row anm-preview-row" style="display:none"><span class="cf-label">Aadhaar</span><span class="cf-val" id="prevAadhaar">—</span></div>
                 <div class="cf-row lecturer-field" style="display:none"><span class="cf-label">Dept</span><span class="cf-val" id="prevDept">—</span></div>
                 <div class="cf-row lecturer-field" style="display:none" id="prevEmployeeIdRow"><span class="cf-label">Emp ID</span><span class="cf-val" id="prevEmployeeId">—</span></div>
               </div>
@@ -936,6 +967,7 @@
 
 <script>
 const COLLEGE_INSTITUTES = ['Govt. Medical College, Jhunjhunu', 'Govt. Nursing College, Jhunjhunu'];
+const ANM_INSTITUTE = 'Govt. ANM Training Center, Jhunjhunu';
 const COLLEGE_COURSES = {
   'Govt. Medical College, Jhunjhunu': ['MBBS 1st Year', 'MBBS 2nd Year', 'MBBS 3rd Year', 'MBBS Final Year', 'Intern (House Surgeon)', 'BDS 1st Year', 'BDS 2nd Year', 'BDS 3rd Year', 'BDS Final Year', 'MD/MS (PG)'],
   'Govt. Nursing College, Jhunjhunu': ['B.Sc Nursing 1st Year', 'B.Sc Nursing 2nd Year', 'B.Sc Nursing 3rd Year', 'B.Sc Nursing 4th Year', 'GNM 1st Year', 'GNM 2nd Year', 'GNM 3rd Year', 'Post Basic Nursing', 'Intern']
@@ -1029,7 +1061,12 @@ let pendingSignaturePassword = '';
 let lastLoadedSubmittedSerial = '';
 let currentPhotoMeta = { url: '', drive_id: '' };
 
-document.getElementById('insertedDate').value = new Date().toISOString().split('T')[0];
+function currentDateText() {
+  const now = new Date();
+  return `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+}
+
+document.getElementById('insertedDate').value = currentDateText();
 
 function getInstituteValue() {
   const institute = document.getElementById('instituteName').value;
@@ -1038,6 +1075,10 @@ function getInstituteValue() {
 
 function isCollegeMode() {
   return COLLEGE_INSTITUTES.includes(document.getElementById('instituteName').value);
+}
+
+function isAnmMode() {
+  return document.getElementById('instituteName').value === ANM_INSTITUTE;
 }
 
 function populateSelect(selectId, items, placeholder) {
@@ -1050,9 +1091,30 @@ function populateSelect(selectId, items, placeholder) {
 function handleInstituteChange() {
   const institute = document.getElementById('instituteName').value;
   const collegeMode = isCollegeMode();
+  const anmMode = isAnmMode();
   document.getElementById('otherInstituteWrap').style.display = institute === 'Other' ? '' : 'none';
 
-  if (collegeMode) {
+  if (anmMode) {
+    currentType = 'student';
+    document.getElementById('profileTitle').textContent = 'ANM Trainee Details';
+    document.getElementById('detailsTitle').textContent = 'ANM Student Information';
+    document.getElementById('btnStudent').innerHTML = 'ANM Student';
+    document.getElementById('btnLecturer').style.display = 'none';
+    document.getElementById('typeSelector').classList.add('single');
+    document.getElementById('modeHelper').textContent = 'ANM training uses trainee details only.';
+    document.getElementById('courseLabel').innerHTML = 'Course';
+    document.getElementById('dobLabel').innerHTML = 'Date of Birth <span class="req">*</span>';
+    document.getElementById('signatureLabel').textContent = 'Principal / In-Charge';
+    document.getElementById('signatureStrip').style.display = appSettings.signature_url ? 'flex' : 'none';
+    document.querySelectorAll('.signature-admin-box').forEach(el => el.classList.remove('hidden-block'));
+    document.getElementById('courseGroup').style.display = 'none';
+    document.getElementById('validUptoGroup').style.display = 'none';
+    document.getElementById('batchSessionGroup').style.display = '';
+    document.getElementById('trainingYearGroup').style.display = '';
+    document.getElementById('bloodGroupGroup').style.display = '';
+    document.getElementById('employeeIdGroup').style.display = 'none';
+    document.getElementById('prevEmployeeIdRow').style.display = 'none';
+  } else if (collegeMode) {
     document.getElementById('profileTitle').textContent = 'Select Profile Type';
     document.getElementById('detailsTitle').textContent = 'Personal Information';
     document.getElementById('btnStudent').innerHTML = 'Student';
@@ -1061,11 +1123,17 @@ function handleInstituteChange() {
     document.getElementById('typeSelector').classList.remove('single');
     document.getElementById('modeHelper').textContent = 'Choose student or teacher for college cards.';
     document.getElementById('courseLabel').innerHTML = 'Course <span class="req">*</span>';
+    document.getElementById('dobLabel').innerHTML = 'Date of Birth <span class="req">*</span>';
     document.getElementById('designationLabel').innerHTML = 'Designation <span class="req">*</span>';
     document.getElementById('departmentLabel').textContent = 'Department';
     document.getElementById('signatureLabel').textContent = 'Head of Department';
     document.getElementById('signatureStrip').style.display = appSettings.signature_url ? 'flex' : 'none';
     document.querySelectorAll('.signature-admin-box').forEach(el => el.classList.remove('hidden-block'));
+    document.getElementById('courseGroup').style.display = '';
+    document.getElementById('validUptoGroup').style.display = '';
+    document.getElementById('batchSessionGroup').style.display = 'none';
+    document.getElementById('trainingYearGroup').style.display = 'none';
+    document.getElementById('bloodGroupGroup').style.display = '';
     document.getElementById('employeeIdGroup').style.display = 'none';
     document.getElementById('prevEmployeeIdRow').style.display = 'none';
     populateSelect('course', COLLEGE_COURSES[institute] || COLLEGE_COURSES['Govt. Medical College, Jhunjhunu'], 'Select Course');
@@ -1078,28 +1146,44 @@ function handleInstituteChange() {
     document.getElementById('btnLecturer').style.display = 'none';
     document.getElementById('typeSelector').classList.add('single');
     document.getElementById('modeHelper').textContent = 'Department offices use employee details only.';
+    document.getElementById('dobLabel').innerHTML = 'Date of Birth <span class="req">*</span>';
     document.getElementById('designationLabel').innerHTML = 'Designation <span class="req">*</span>';
     document.getElementById('departmentLabel').textContent = 'Section / Branch';
     document.querySelectorAll('.signature-admin-box').forEach(el => el.classList.add('hidden-block'));
     document.getElementById('signatureStrip').style.display = 'none';
+    document.getElementById('courseGroup').style.display = 'none';
+    document.getElementById('validUptoGroup').style.display = 'none';
+    document.getElementById('batchSessionGroup').style.display = 'none';
+    document.getElementById('trainingYearGroup').style.display = 'none';
+    document.getElementById('bloodGroupGroup').style.display = 'none';
     document.getElementById('employeeIdGroup').style.display = '';
     document.getElementById('prevEmployeeIdRow').style.display = '';
     populateSelect('designation', EMPLOYEE_DESIGNATIONS[institute] || EMPLOYEE_DESIGNATIONS['Other'], 'Select Designation');
   }
 
-  populateSelect('department', DEPARTMENTS[institute] || DEPARTMENTS['Other'], collegeMode ? 'Select Department' : 'Select Section / Branch');
-  setType(collegeMode ? (currentType === 'employee' ? 'student' : currentType) : 'employee');
+  if (!anmMode) {
+    populateSelect('department', DEPARTMENTS[institute] || DEPARTMENTS['Other'], collegeMode ? 'Select Department' : 'Select Section / Branch');
+  }
+  setType(anmMode ? 'student' : (collegeMode ? (currentType === 'employee' ? 'student' : currentType) : 'employee'));
   loadSettings();
   loadBatchSummary();
 }
 
 function setType(type) {
   currentType = type;
-  const effectiveType = isCollegeMode() ? type : 'employee';
+  const anmMode = isAnmMode();
+  const effectiveType = anmMode ? 'student' : (isCollegeMode() ? type : 'employee');
   document.getElementById('btnStudent').classList.toggle('active', effectiveType === 'student' || effectiveType === 'employee');
   document.getElementById('btnLecturer').classList.toggle('active', effectiveType === 'lecturer');
   document.querySelectorAll('.student-field').forEach(el => el.style.display = effectiveType === 'student' ? '' : 'none');
   document.querySelectorAll('.lecturer-field').forEach(el => el.style.display = effectiveType === 'lecturer' || effectiveType === 'employee' ? '' : 'none');
+  document.querySelectorAll('.anm-field').forEach(el => el.style.display = anmMode ? '' : 'none');
+  document.querySelectorAll('.anm-preview-row').forEach(el => el.style.display = anmMode ? '' : 'none');
+  if (anmMode) {
+    document.getElementById('courseGroup').style.display = 'none';
+    document.getElementById('validUptoGroup').style.display = 'none';
+    document.getElementById('bloodGroupGroup').style.display = '';
+  }
   updatePreview();
 }
 
@@ -1143,9 +1227,9 @@ async function loadSubmittedCards() {
     list.innerHTML = instituteRecords.slice().reverse().map(record => `
       <div class="submitted-card">
         <strong>${escapeHtml(record.name || 'Unnamed')}</strong>
-        <span>${escapeHtml(record.serial_no || '-')} | ${escapeHtml(record.course || record.designation || record.profile_type || '')}</span>
+        <span>${escapeHtml(record.serial_no || '-')} | ${escapeHtml(record.training_year || record.course || record.designation || record.profile_type || '')}</span>
         <span class="status-chip ${record.submitted_at ? 'submitted' : 'saved'}">${record.submitted_at ? 'Submitted' : 'Saved'}</span>
-        <span>${record.submitted_at ? 'Submitted' : 'Saved'}: ${escapeHtml(record.submitted_at || record.saved_at || '-')}</span>
+        <span>${record.submitted_at ? 'Submitted' : 'Saved'}: ${escapeHtml(formatDateTime(record.submitted_at || record.saved_at || '-'))}</span>
         <div class="submitted-card-actions">
           <button type="button" onclick="editSubmittedCard('${record.serial_no}')">Edit</button>
         </div>
@@ -1260,7 +1344,8 @@ async function handlePhotoUpload(input) {
 }
 
 function updatePreview() {
-  const effectiveType = isCollegeMode() ? currentType : 'employee';
+  const anmMode = isAnmMode();
+  const effectiveType = anmMode ? 'student' : (isCollegeMode() ? currentType : 'employee');
   const name = document.getElementById('name').value || 'Full Name';
   const institute = getInstituteValue() || 'Institute Name';
   const dob = document.getElementById('dob').value;
@@ -1272,15 +1357,31 @@ function updatePreview() {
   document.getElementById('prevName').textContent = name;
   document.getElementById('prevDob').textContent = dob ? formatDate(dob) : '—';
   document.getElementById('prevContact').textContent = contact || '—';
-  document.getElementById('prevValid').textContent = effectiveType === 'student' && validUpto ? formatDate(validUpto) : '—';
+  document.getElementById('prevValid').textContent = effectiveType === 'student' && !anmMode && validUpto ? formatDate(validUpto) : '—';
   document.getElementById('prevIssued').textContent = insertedDate ? formatDate(insertedDate) : '—';
   document.getElementById('prevSerial').textContent = document.getElementById('serialNo').value || 'ID-XXXXXXXX-XXXX';
 
-  if (effectiveType === 'student') {
+  if (anmMode) {
+    const trainingYear = document.getElementById('trainingYear').value;
+    const batchSession = document.getElementById('batchSession').value;
+    const blood = document.getElementById('bloodGroup').value;
+    document.getElementById('prevRole').textContent = trainingYear ? `ANM ${trainingYear}` : 'ANM Student';
+    document.getElementById('prevBlood').textContent = blood || '—';
+    document.getElementById('prevBatch').textContent = batchSession || '—';
+    document.getElementById('prevFather').textContent = document.getElementById('fatherName').value || '—';
+    document.getElementById('prevAadhaar').textContent = document.getElementById('aadhaarNo').value || '—';
+    document.getElementById('prevDept').textContent = '—';
+    document.getElementById('prevEmployeeId').textContent = '—';
+    document.getElementById('prevBadge').textContent = 'ANM Student Identity Card';
+    document.getElementById('prevTypeBadge').textContent = 'ANM';
+  } else if (effectiveType === 'student') {
     const course = document.getElementById('course').value;
     const blood = document.getElementById('bloodGroup').value;
     document.getElementById('prevRole').textContent = course || 'Course';
     document.getElementById('prevBlood').textContent = blood || '—';
+    document.getElementById('prevBatch').textContent = '—';
+    document.getElementById('prevFather').textContent = '—';
+    document.getElementById('prevAadhaar').textContent = '—';
     document.getElementById('prevDept').textContent = '—';
     document.getElementById('prevEmployeeId').textContent = '—';
     document.getElementById('prevBadge').textContent = 'Student Identity Card';
@@ -1290,6 +1391,9 @@ function updatePreview() {
     const dept = document.getElementById('department').value;
     document.getElementById('prevRole').textContent = desig || 'Designation';
     document.getElementById('prevBlood').textContent = '—';
+    document.getElementById('prevBatch').textContent = '—';
+    document.getElementById('prevFather').textContent = '—';
+    document.getElementById('prevAadhaar').textContent = '—';
     document.getElementById('prevDept').textContent = dept || '—';
     document.getElementById('prevEmployeeId').textContent = '—';
     document.getElementById('prevBadge').textContent = 'Teacher Identity Card';
@@ -1299,6 +1403,9 @@ function updatePreview() {
     const dept = document.getElementById('department').value;
     document.getElementById('prevRole').textContent = desig || 'Employee Designation';
     document.getElementById('prevBlood').textContent = '—';
+    document.getElementById('prevBatch').textContent = '—';
+    document.getElementById('prevFather').textContent = '—';
+    document.getElementById('prevAadhaar').textContent = '—';
     document.getElementById('prevDept').textContent = dept || '—';
     document.getElementById('prevEmployeeId').textContent = document.getElementById('employeeId').value || '—';
     document.getElementById('prevBadge').textContent = 'Employee Identity Card';
@@ -1308,12 +1415,21 @@ function updatePreview() {
 
 function formatDate(d) {
   if (!d) return '—';
+  if (d.includes('/')) return d;
   const [y, m, day] = d.split('-');
   return `${day}/${m}/${y}`;
 }
 
+function formatDateTime(value) {
+  if (!value) return '—';
+  const parts = String(value).split(' ');
+  const datePart = formatDate(parts[0]);
+  return parts.length > 1 ? `${datePart} ${parts.slice(1).join(' ')}` : datePart;
+}
+
 async function saveCurrentCard() {
-  const effectiveType = isCollegeMode() ? currentType : 'employee';
+  const anmMode = isAnmMode();
+  const effectiveType = anmMode ? 'student' : (isCollegeMode() ? currentType : 'employee');
   const name = document.getElementById('name').value.trim();
   const serial = document.getElementById('serialNo').value.trim();
   if (!name) { alert('Please enter full name.'); return; }
@@ -1333,9 +1449,13 @@ async function saveCurrentCard() {
     photo_drive_id: currentPhotoMeta.drive_id || '',
   };
   if (effectiveType === 'student') {
-    payload.course = document.getElementById('course').value;
-    payload.valid_upto = document.getElementById('validUpto').value;
+    payload.course = anmMode ? 'ANM Training' : document.getElementById('course').value;
+    payload.valid_upto = anmMode ? '' : document.getElementById('validUpto').value;
     payload.blood_group = document.getElementById('bloodGroup').value;
+    payload.batch_session = document.getElementById('batchSession').value;
+    payload.training_year = document.getElementById('trainingYear').value;
+    payload.father_name = document.getElementById('fatherName').value;
+    payload.aadhaar_no = document.getElementById('aadhaarNo').value;
   } else {
     payload.designation = document.getElementById('designation').value;
     payload.department = document.getElementById('department').value;
@@ -1395,7 +1515,11 @@ function resetForm() {
   document.getElementById('dob').value = '';
   document.getElementById('contact').value = '';
   document.getElementById('address').value = '';
-  document.getElementById('insertedDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('fatherName').value = '';
+  document.getElementById('aadhaarNo').value = '';
+  document.getElementById('batchSession').value = '';
+  document.getElementById('trainingYear').value = '';
+  document.getElementById('insertedDate').value = currentDateText();
   document.getElementById('photoInput').value = '';
   document.getElementById('photoPlaceholder').style.display = '';
   document.getElementById('photoPreviewWrap').classList.remove('visible');
@@ -1446,6 +1570,7 @@ function populateFormFromRecord(record) {
   const sourceInstitute = record.institute_name || '';
   const knownInstitutes = [
     ...COLLEGE_INSTITUTES,
+    ANM_INSTITUTE,
     'Dist. Collector, Jhunjhunu',
     'PHED Water Works Jhunjhunu',
     'Govt. Community Health Centre (CHC), Jhunjhunu',
@@ -1467,13 +1592,17 @@ function populateFormFromRecord(record) {
   document.getElementById('serialNo').value = record.serial_no || '';
   document.getElementById('previewSerial').textContent = record.serial_no || '-';
   document.getElementById('name').value = record.name || '';
-  document.getElementById('dob').value = record.dob || '';
+  document.getElementById('dob').value = record.dob ? formatDate(record.dob) : '';
   document.getElementById('contact').value = record.contact || '';
   document.getElementById('address').value = record.address || '';
-  document.getElementById('insertedDate').value = record.inserted_date || new Date().toISOString().split('T')[0];
+  document.getElementById('insertedDate').value = record.inserted_date ? formatDate(record.inserted_date) : currentDateText();
   document.getElementById('course').value = record.course || '';
-  document.getElementById('validUpto').value = record.valid_upto || '';
+  document.getElementById('validUpto').value = record.valid_upto ? formatDate(record.valid_upto) : '';
   document.getElementById('bloodGroup').value = record.blood_group || '';
+  document.getElementById('batchSession').value = record.batch_session || '';
+  document.getElementById('trainingYear').value = record.training_year || '';
+  document.getElementById('fatherName').value = record.father_name || '';
+  document.getElementById('aadhaarNo').value = record.aadhaar_no || '';
   document.getElementById('designation').value = record.designation || '';
   document.getElementById('department').value = record.department || '';
   document.getElementById('employeeId').value = record.employee_id || '';
@@ -1497,7 +1626,8 @@ function populateFormFromRecord(record) {
 }
 
 async function saveCurrentCard() {
-  const effectiveType = isCollegeMode() ? currentType : 'employee';
+  const anmMode = isAnmMode();
+  const effectiveType = anmMode ? 'student' : (isCollegeMode() ? currentType : 'employee');
   const name = document.getElementById('name').value.trim();
   const serial = document.getElementById('serialNo').value.trim();
   if (!name) { alert('Please enter full name.'); return; }
@@ -1518,9 +1648,13 @@ async function saveCurrentCard() {
   };
 
   if (effectiveType === 'student') {
-    payload.course = document.getElementById('course').value;
-    payload.valid_upto = document.getElementById('validUpto').value;
+    payload.course = anmMode ? 'ANM Training' : document.getElementById('course').value;
+    payload.valid_upto = anmMode ? '' : document.getElementById('validUpto').value;
     payload.blood_group = document.getElementById('bloodGroup').value;
+    payload.batch_session = document.getElementById('batchSession').value;
+    payload.training_year = document.getElementById('trainingYear').value;
+    payload.father_name = document.getElementById('fatherName').value;
+    payload.aadhaar_no = document.getElementById('aadhaarNo').value;
   } else {
     payload.designation = document.getElementById('designation').value;
     payload.department = document.getElementById('department').value;
@@ -1578,7 +1712,11 @@ function resetForm() {
   document.getElementById('dob').value = '';
   document.getElementById('contact').value = '';
   document.getElementById('address').value = '';
-  document.getElementById('insertedDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('fatherName').value = '';
+  document.getElementById('aadhaarNo').value = '';
+  document.getElementById('batchSession').value = '';
+  document.getElementById('trainingYear').value = '';
+  document.getElementById('insertedDate').value = currentDateText();
   document.getElementById('photoInput').value = '';
   document.getElementById('photoPlaceholder').style.display = '';
   document.getElementById('photoPreviewWrap').classList.remove('visible');
