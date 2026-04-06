@@ -665,7 +665,27 @@ let deleteTarget = null;
 let appSettings = { background_url: '', signature_url: '', certificate_background_url: '' };
 let driveStorageStatus = { drive_enabled: false, data_folder_id: '', files: [] };
 const COLLEGE_INSTITUTES = ['Govt. Medical College, Jhunjhunu', 'Govt. Nursing College, Jhunjhunu', 'Govt. ANM Training Center, Jhunjhunu'];
-let attachPhotoSerial = null;
+let attachPhotoTarget = null;
+const ADMIN_UI_STATE_KEY = 'admin_ui_state_v1';
+
+function saveAdminUiState() {
+  const payload = {
+    instituteFilter: document.getElementById('instituteFilter').value,
+    typeFilter: document.getElementById('typeFilter').value,
+    searchInput: document.getElementById('searchInput').value,
+  };
+  try {
+    localStorage.setItem(ADMIN_UI_STATE_KEY, JSON.stringify(payload));
+  } catch (e) {}
+}
+
+function loadAdminUiState() {
+  try {
+    return JSON.parse(localStorage.getItem(ADMIN_UI_STATE_KEY) || '{}');
+  } catch (e) {
+    return {};
+  }
+}
 
 function getSelectedInstitute() {
   return document.getElementById('instituteFilter').value;
@@ -908,15 +928,16 @@ async function deleteSignature() {
   }
 }
 
-function startManualPhotoAttach(serial) {
-  attachPhotoSerial = serial;
+function startManualPhotoAttach(serial, institute) {
+  attachPhotoTarget = { serial, institute };
   document.getElementById('manualPhotoInput').click();
 }
 
 async function handleManualPhotoAttach(input) {
-  if (!input.files.length || !attachPhotoSerial) return;
+  if (!input.files.length || !attachPhotoTarget) return;
   const formData = new FormData();
-  formData.append('serial_no', attachPhotoSerial);
+  formData.append('serial_no', attachPhotoTarget.serial);
+  formData.append('institute_name', attachPhotoTarget.institute || '');
   formData.append('photo', input.files[0]);
   try {
     const res = await fetch('/api/admin-attach-photo', { method: 'POST', body: formData });
@@ -927,10 +948,11 @@ async function handleManualPhotoAttach(input) {
     alert(e.message || 'Photo attach failed.');
   }
   input.value = '';
-  attachPhotoSerial = null;
+  attachPhotoTarget = null;
 }
 
 async function loadRecords() {
+  saveAdminUiState();
   document.getElementById('tableContainer').innerHTML = '<div class="loading-text">Loading...</div>';
   loadSettings();
   try {
@@ -975,6 +997,7 @@ function updateStats(records) {
 }
 
 function filterTable() {
+  saveAdminUiState();
   const filtered = getFilteredRecords();
   updateStats(filtered);
   renderTable(filtered);
@@ -1042,7 +1065,7 @@ function renderTable(records) {
           <div class="action-btns">
             <button class="btn-sm btn-view" onclick="viewRecordFromEncoded('${safeRecord}')">View</button>
             ${photoUrl ? `<a class="btn-sm btn-dl" href="${photoUrl}" download="${r.serial_no}.jpg">Photo</a>` : ''}
-            <button class="btn-sm btn-dl" onclick="startManualPhotoAttach('${r.serial_no}')">${photoUrl ? 'Change Photo' : 'Attach Photo'}</button>
+            <button class="btn-sm btn-dl" onclick="startManualPhotoAttach(${JSON.stringify(r.serial_no || '')}, ${JSON.stringify(r.institute_name || '')})">${photoUrl ? 'Change Photo' : 'Attach Photo'}</button>
             <button class="btn-sm btn-del" onclick="confirmDelete('${r.serial_no}', ${JSON.stringify(r.name || '')})">Delete</button>
           </div>
         </td>
@@ -1201,6 +1224,17 @@ function exportExcel() {
 function exportZip() {
   const institute = encodeURIComponent(getSelectedInstitute());
   window.open(`/api/export-zip?institute=${institute}`, '_blank');
+}
+
+const persistedAdminUiState = loadAdminUiState();
+if (typeof persistedAdminUiState.instituteFilter === 'string') {
+  document.getElementById('instituteFilter').value = persistedAdminUiState.instituteFilter;
+}
+if (typeof persistedAdminUiState.typeFilter === 'string') {
+  document.getElementById('typeFilter').value = persistedAdminUiState.typeFilter;
+}
+if (typeof persistedAdminUiState.searchInput === 'string') {
+  document.getElementById('searchInput').value = persistedAdminUiState.searchInput;
 }
 
 loadSettings();

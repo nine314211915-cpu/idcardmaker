@@ -1140,18 +1140,31 @@ def get_records():
 @admin_required
 def admin_attach_photo():
     serial = (request.form.get("serial_no") or "").strip()
+    institute = canonicalize_institute_name(request.form.get("institute_name"))
     if not serial:
         return jsonify({"error": "Serial number is required"}), 400
     if "photo" not in request.files:
         return jsonify({"error": "No photo file"}), 400
 
-    records = load_records()
+    records = load_records(institute) if institute else load_records()
     target_record = next((rec for rec in records if rec.get("serial_no") == serial), None)
+    if not target_record and institute:
+        records = load_records()
+        target_record = next(
+            (
+                rec for rec in records
+                if rec.get("serial_no") == serial
+                and canonicalize_institute_name(rec.get("institute_name")) == institute
+            ),
+            None,
+        )
     if not target_record:
         return jsonify({"error": "Record not found"}), 404
     institute = canonicalize_institute_name(target_record.get("institute_name"))
     records = load_records(institute)
     target_record = next((rec for rec in records if rec.get("serial_no") == serial), None)
+    if not target_record:
+        return jsonify({"error": "Record not found"}), 404
 
     old_drive_id = target_record.get("photo_drive_id")
     try:

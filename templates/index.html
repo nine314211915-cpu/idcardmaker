@@ -441,6 +441,40 @@
     color: var(--muted);
     line-height: 1.4;
   }
+  .batch-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-top: 10px;
+  }
+  .batch-toolbar select {
+    min-width: 240px;
+    max-width: 100%;
+  }
+  .batch-collapsible {
+    margin-top: 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fffdfa;
+    overflow: hidden;
+  }
+  .batch-collapsible summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 10px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--red);
+  }
+  .batch-collapsible summary::-webkit-details-marker {
+    display: none;
+  }
+  .batch-list-wrap {
+    max-height: 280px;
+    overflow: auto;
+    padding: 0 10px 10px;
+  }
 
   /* SUCCESS TOAST */
   .toast {
@@ -977,10 +1011,20 @@
             <div class="batch-pill">Current Institute<strong id="batchInstituteName">-</strong></div>
           </div>
           <button class="btn-submit" type="button" onclick="submitWholeBatch()">Submit Whole Data</button>
-          <div class="batch-note">All cards for the current institute are shown below. Use Edit to load any card back into the form.</div>
-          <div class="submitted-list" id="submittedCardsList">
-            <div class="batch-note">No cards for this institute yet.</div>
+          <div class="batch-note" id="batchHelperNote">Saved cards stay attached to this institute even after refresh. Submit the whole batch when you are done.</div>
+          <div class="batch-toolbar">
+            <select id="savedCardPicker" onchange="jumpToSelectedCard()">
+              <option value="">Select an entered card</option>
+            </select>
           </div>
+          <details class="batch-collapsible" id="savedCardsPanel" open>
+            <summary id="savedCardsSummary">Entered cards for this institute</summary>
+            <div class="batch-list-wrap">
+              <div class="submitted-list" id="submittedCardsList">
+                <div class="batch-note">No cards for this institute yet.</div>
+              </div>
+            </div>
+          </details>
         </div>
       </div>
     </div>
@@ -1094,10 +1138,30 @@ let editingSerialNo = '';
 let currentPhotoMeta = { url: '', drive_id: '' };
 let instituteLocked = false;
 let batchInstituteLocked = false;
+const UI_STATE_KEY = 'idcard_ui_state_v1';
 
 function currentDateText() {
   const now = new Date();
   return `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
+}
+
+function saveUiState() {
+  const payload = {
+    instituteName: document.getElementById('instituteName').value,
+    otherInstituteName: document.getElementById('otherInstituteName').value,
+    batchInstituteLocked,
+  };
+  try {
+    localStorage.setItem(UI_STATE_KEY, JSON.stringify(payload));
+  } catch (e) {}
+}
+
+function loadUiState() {
+  try {
+    return JSON.parse(localStorage.getItem(UI_STATE_KEY) || '{}');
+  } catch (e) {
+    return {};
+  }
 }
 
 function toTitleCaseValue(value) {
@@ -1143,6 +1207,7 @@ function setInstituteLocked(locked) {
   instituteLocked = !!locked;
   document.getElementById('instituteName').disabled = instituteLocked;
   document.getElementById('otherInstituteName').readOnly = instituteLocked;
+  saveUiState();
 }
 
 function hasEntryData() {
@@ -1161,6 +1226,7 @@ function hasEntryData() {
 function refreshInstituteLock() {
   batchInstituteLocked = batchInstituteLocked || hasEntryData();
   setInstituteLocked(batchInstituteLocked || hasEntryData());
+  saveUiState();
 }
 
 function generateSerialLocal() {
@@ -1306,6 +1372,7 @@ function handleInstituteChange() {
   loadSettings();
   loadBatchSummary();
   refreshInstituteLock();
+  saveUiState();
 }
 
 function setType(type) {
@@ -1355,15 +1422,24 @@ async function loadBatchSummary() {
 
 async function loadSubmittedCards() {
   const list = document.getElementById('submittedCardsList');
+  const picker = document.getElementById('savedCardPicker');
+  const summary = document.getElementById('savedCardsSummary');
+  const panel = document.getElementById('savedCardsPanel');
   try {
     const institute = encodeURIComponent(getInstituteValue());
     const res = await fetch(`/api/batch-records?institute=${institute}`);
     const data = await res.json();
     const instituteRecords = data.records || [];
     if (!instituteRecords.length) {
+      picker.innerHTML = '<option value="">Select an entered card</option>';
+      summary.textContent = 'Entered cards for this institute (0)';
+      panel.open = true;
       list.innerHTML = '<div class="batch-note">No cards for this institute yet.</div>';
       return;
     }
+    picker.innerHTML = '<option value="">Select an entered card</option>' + instituteRecords.slice().reverse().map(record => `<option value="${escapeHtml(record.serial_no || '')}">${escapeHtml(record.name || 'Unnamed')} | ${escapeHtml(record.serial_no || '-')}</option>`).join('');
+    summary.textContent = `Entered cards for this institute (${instituteRecords.length})`;
+    panel.open = instituteRecords.length <= 8;
     list.innerHTML = instituteRecords.slice().reverse().map(record => `
       <div class="submitted-card">
         <strong>${escapeHtml(record.name || 'Unnamed')}</strong>
@@ -1376,8 +1452,16 @@ async function loadSubmittedCards() {
       </div>
     `).join('');
   } catch (e) {
+    picker.innerHTML = '<option value="">Select an entered card</option>';
+    summary.textContent = 'Entered cards for this institute';
     list.innerHTML = '<div class="batch-note">Unable to load cards right now.</div>';
   }
+}
+
+function jumpToSelectedCard() {
+  const serial = document.getElementById('savedCardPicker').value;
+  if (!serial) return;
+  editSubmittedCard(serial);
 }
 
 function escapeHtml(value) {
@@ -1919,14 +2003,22 @@ function resetForm() {
   ensureSerialGenerated();
   updatePreview();
   setInstituteLocked(batchInstituteLocked);
+  saveUiState();
   loadBatchSummary();
 }
 
 // Init
 installFieldFormatters();
+const persistedUiState = loadUiState();
+if (persistedUiState.instituteName) {
+  document.getElementById('instituteName').value = persistedUiState.instituteName;
+}
+if (typeof persistedUiState.otherInstituteName === 'string') {
+  document.getElementById('otherInstituteName').value = persistedUiState.otherInstituteName;
+}
 handleInstituteChange();
-batchInstituteLocked = false;
-setInstituteLocked(false);
+batchInstituteLocked = !!persistedUiState.batchInstituteLocked;
+setInstituteLocked(batchInstituteLocked);
 ensureSerialGenerated();
 updatePreview();
 loadSettings();

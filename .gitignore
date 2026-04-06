@@ -7,4 +7,5 @@ Thumbs.db
 records.json
 certificates.json
 settings.json
+data_store/
 static/uploads/
