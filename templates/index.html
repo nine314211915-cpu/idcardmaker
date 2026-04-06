@@ -475,6 +475,24 @@
     overflow: auto;
     padding: 0 10px 10px;
   }
+  .selected-batch-card {
+    margin-top: 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: white;
+    padding: 12px;
+  }
+  .selected-batch-card strong {
+    display: block;
+    color: var(--red);
+    font-size: 13px;
+  }
+  .selected-batch-card .meta {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
 
   /* SUCCESS TOAST */
   .toast {
@@ -1009,6 +1027,7 @@
             <div class="batch-pill">Saved Cards<strong id="savedCardsCount">0</strong></div>
             <div class="batch-pill">Submitted Cards<strong id="submittedCardsCount">0</strong></div>
             <div class="batch-pill">Current Institute<strong id="batchInstituteName">-</strong></div>
+            <div class="batch-pill">Batch State<strong id="batchStateLabel">Ready</strong></div>
           </div>
           <button class="btn-submit" type="button" onclick="submitWholeBatch()">Submit Whole Data</button>
           <div class="batch-note" id="batchHelperNote">Saved cards stay attached to this institute even after refresh. Status stays Pending Submission until you click Submit Whole Data.</div>
@@ -1017,14 +1036,9 @@
               <option value="">Select an entered card</option>
             </select>
           </div>
-          <details class="batch-collapsible" id="savedCardsPanel" open>
-            <summary id="savedCardsSummary">Entered cards for this institute</summary>
-            <div class="batch-list-wrap">
-              <div class="submitted-list" id="submittedCardsList">
-                <div class="batch-note">No cards for this institute yet.</div>
-              </div>
-            </div>
-          </details>
+          <div class="selected-batch-card" id="selectedBatchCard">
+            <div class="batch-note">No cards for this institute yet.</div>
+          </div>
         </div>
       </div>
     </div>
@@ -1138,6 +1152,8 @@ let editingSerialNo = '';
 let currentPhotoMeta = { url: '', drive_id: '' };
 let instituteLocked = false;
 let batchInstituteLocked = false;
+let currentBatchRecords = [];
+let selectedBatchSerial = '';
 const UI_STATE_KEY = 'idcard_ui_state_v1';
 
 function currentDateText() {
@@ -1413,6 +1429,7 @@ async function loadBatchSummary() {
     document.getElementById('savedCardsCount').textContent = data.saved_count ?? 0;
     document.getElementById('submittedCardsCount').textContent = data.submitted_count ?? 0;
     document.getElementById('batchInstituteName').textContent = getInstituteValue() || '-';
+    document.getElementById('batchStateLabel').textContent = (data.saved_count ?? 0) > 0 ? 'Active' : 'Ready';
     document.getElementById('batchHelperNote').textContent = (data.saved_count ?? 0) > 0
       ? 'Saved cards are safe. They are still Pending Submission until you click Submit Whole Data.'
       : 'Saved cards stay attached to this institute even after refresh. Status stays Pending Submission until you click Submit Whole Data.';
@@ -1422,54 +1439,67 @@ async function loadBatchSummary() {
     document.getElementById('savedCardsCount').textContent = '0';
     document.getElementById('submittedCardsCount').textContent = '0';
     document.getElementById('batchInstituteName').textContent = getInstituteValue() || '-';
+    document.getElementById('batchStateLabel').textContent = 'Ready';
     document.getElementById('batchHelperNote').textContent = 'Saved cards stay attached to this institute even after refresh. Status stays Pending Submission until you click Submit Whole Data.';
   }
   await loadSubmittedCards();
 }
 
 async function loadSubmittedCards() {
-  const list = document.getElementById('submittedCardsList');
   const picker = document.getElementById('savedCardPicker');
-  const summary = document.getElementById('savedCardsSummary');
-  const panel = document.getElementById('savedCardsPanel');
+  const selectedCard = document.getElementById('selectedBatchCard');
   try {
     const institute = encodeURIComponent(getInstituteValue());
     const res = await fetch(`/api/batch-records?institute=${institute}`);
     const data = await res.json();
     const instituteRecords = data.records || [];
+    currentBatchRecords = instituteRecords.slice().reverse();
     if (!instituteRecords.length) {
+      currentBatchRecords = [];
+      selectedBatchSerial = '';
       picker.innerHTML = '<option value="">Select an entered card</option>';
-      summary.textContent = 'Entered cards for this institute (0)';
-      panel.open = true;
-      list.innerHTML = '<div class="batch-note">No cards for this institute yet.</div>';
+      selectedCard.innerHTML = '<div class="batch-note">No cards for this institute yet.</div>';
       return;
     }
-    picker.innerHTML = '<option value="">Select an entered card</option>' + instituteRecords.slice().reverse().map(record => `<option value="${escapeHtml(record.serial_no || '')}">${escapeHtml(record.name || 'Unnamed')} | ${escapeHtml(record.serial_no || '-')}</option>`).join('');
-    summary.textContent = `Entered cards for this institute (${instituteRecords.length})`;
-    panel.open = instituteRecords.length <= 8;
-    list.innerHTML = instituteRecords.slice().reverse().map(record => `
-      <div class="submitted-card">
-        <strong>${escapeHtml(record.name || 'Unnamed')}</strong>
-        <span>${escapeHtml(record.serial_no || '-')} | ${escapeHtml(record.training_year || record.course || record.designation || record.profile_type || '')}</span>
-        <span class="status-chip ${record.submitted_at ? 'submitted' : 'saved'}">${record.submitted_at ? 'Submitted' : 'Pending Submission'}</span>
-        <span>Saved safely: ${escapeHtml(formatDateTime(record.saved_at || '-'))}</span>
-        <span>${record.submitted_at ? `Submitted: ${escapeHtml(formatDateTime(record.submitted_at))}` : 'Waiting for Submit Whole Data'}</span>
-        <div class="submitted-card-actions">
-          <button type="button" onclick="editSubmittedCard('${record.serial_no}')">Edit</button>
-        </div>
-      </div>
-    `).join('');
+    picker.innerHTML = '<option value="">Select an entered card</option>' + currentBatchRecords.map(record => `<option value="${escapeHtml(record.serial_no || '')}">${escapeHtml(record.name || 'Unnamed')} | ${escapeHtml(record.serial_no || '-')}</option>`).join('');
+    const hasSelectedRecord = currentBatchRecords.some(record => record.serial_no === selectedBatchSerial);
+    if (!hasSelectedRecord) {
+      selectedBatchSerial = currentBatchRecords[0].serial_no || '';
+    }
+    picker.value = selectedBatchSerial;
+    renderSelectedBatchCard();
   } catch (e) {
+    currentBatchRecords = [];
+    selectedBatchSerial = '';
     picker.innerHTML = '<option value="">Select an entered card</option>';
-    summary.textContent = 'Entered cards for this institute';
-    list.innerHTML = '<div class="batch-note">Unable to load cards right now.</div>';
+    selectedCard.innerHTML = '<div class="batch-note">Unable to load cards right now.</div>';
   }
 }
 
 function jumpToSelectedCard() {
-  const serial = document.getElementById('savedCardPicker').value;
-  if (!serial) return;
-  editSubmittedCard(serial);
+  selectedBatchSerial = document.getElementById('savedCardPicker').value;
+  renderSelectedBatchCard();
+}
+
+function renderSelectedBatchCard() {
+  const selectedCard = document.getElementById('selectedBatchCard');
+  const record = currentBatchRecords.find(item => item.serial_no === selectedBatchSerial) || currentBatchRecords[0];
+  if (!record) {
+    selectedCard.innerHTML = '<div class="batch-note">No cards for this institute yet.</div>';
+    return;
+  }
+  selectedBatchSerial = record.serial_no || '';
+  document.getElementById('savedCardPicker').value = selectedBatchSerial;
+  selectedCard.innerHTML = `
+    <strong>${escapeHtml(record.name || 'Unnamed')}</strong>
+    <span class="meta">${escapeHtml(record.serial_no || '-')} | ${escapeHtml(record.training_year || record.course || record.designation || record.profile_type || '')}</span>
+    <span class="status-chip ${record.submitted_at ? 'submitted' : 'saved'}">${record.submitted_at ? 'Submitted' : 'Pending Submission'}</span>
+    <span class="meta">Saved safely: ${escapeHtml(formatDateTime(record.saved_at || '-'))}</span>
+    <span class="meta">${record.submitted_at ? `Submitted: ${escapeHtml(formatDateTime(record.submitted_at))}` : 'Waiting for Submit Whole Data'}</span>
+    <div class="submitted-card-actions">
+      <button type="button" onclick="editSubmittedCard('${record.serial_no}')">Edit Selected Card</button>
+    </div>
+  `;
 }
 
 function escapeHtml(value) {
@@ -1812,6 +1842,7 @@ async function editSubmittedCard(serial) {
     const data = await res.json();
     const record = (data.records || []).find(item => item.serial_no === serial);
     if (!record) throw new Error('Submitted card not found.');
+    selectedBatchSerial = serial;
     populateFormFromRecord(record);
     lastLoadedSubmittedSerial = serial;
     showToast('Loaded submitted card for editing: ' + serial);
@@ -1931,6 +1962,7 @@ async function saveCurrentCard() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Save failed');
+    selectedBatchSerial = serial;
     showToast((data.status === 'updated' ? 'Updated' : 'Saved') + ' ID card. Serial: ' + serial);
     await loadBatchSummary();
     resetForm();
