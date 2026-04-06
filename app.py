@@ -346,6 +346,14 @@ def upload_bytes_to_supabase_storage(file_bytes, object_path, mime_type):
         raise RuntimeError(raw or f"Supabase storage upload failed with status {exc.code}") from exc
 
 
+def build_photo_storage_path(institute, serial, original_filename=""):
+    institute_slug = make_storage_slug(institute or "default")
+    source_name = os.path.splitext(original_filename or "")[0] or serial or "photo"
+    serial_slug = make_storage_slug(source_name)
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    return f"{institute_slug}/photos/{serial_slug}-{timestamp}.jpg"
+
+
 def delete_supabase_storage_url(file_url):
     if not file_url or not is_supabase_enabled():
         return
@@ -1345,36 +1353,28 @@ def generated_asset(filename):
 def upload_photo():
     if "photo" not in request.files:
         return jsonify({"error": "No file"}), 400
-    f = request.files["photo"]
-    serial = (request.form.get("serial_no") or "").strip() or gen_serial(request.form.get("institute"))
-    filename = f"{serial}.jpg"
-    raw_path = os.path.join(UPLOAD_DIR, f"raw_{filename}")
-    final_path = os.path.join(UPLOAD_DIR, filename)
-    f.save(raw_path)
     try:
-        autocrop_passport(raw_path, final_path)
-        os.remove(raw_path)
-    except Exception:
-        os.rename(raw_path, final_path)
-    photo_url = f"/uploads/{filename}"
-    photo_drive_id = None
-    if is_supabase_enabled():
         institute = canonicalize_institute_name(request.form.get("institute"))
-        storage_path = f"{make_storage_slug(institute or 'default')}/{filename}"
-        with open(final_path, "rb") as photo_file:
-            photo_url = upload_bytes_to_supabase_storage(photo_file.read(), storage_path, "image/jpeg")
-    elif is_drive_enabled():
-        try:
-            with open(final_path, "rb") as photo_file:
-                photo_drive_id, drive_url = upload_bytes_to_drive(photo_file.read(), filename, "image/jpeg", "photos")
-                if drive_url:
-                    photo_url = drive_url
-        except Exception:
-            photo_drive_id = None
-    return jsonify({"serial_no": serial, "photo_url": photo_url, "photo_drive_id": photo_drive_id})
+        serial = (request.form.get("serial_no") or "").strip() or gen_serial(institute)
+        photo_url, photo_drive_id = attach_photo_to_serial(
+            request.files["photo"],
+            serial,
+            institute=institute,
+        )
+        return jsonify({"serial_no": serial, "photo_url": photo_url, "photo_drive_id": photo_drive_id})
+    except ValueError as exc:
+        return jsonify({"error": str(exc) or "Unable to process photo"}), 400
+    except RuntimeError as exc:
+        app.logger.warning("Photo upload failed", exc_info=True)
+        return jsonify({"error": str(exc) or "Photo upload failed"}), 500
+    except Exception:
+        app.logger.exception("Unexpected photo upload failure")
+        return jsonify({"error": "Unexpected photo upload failure"}), 500
 
 
-def attach_photo_to_serial(file_storage, serial):
+def attach_photo_to_serial(file_storage, serial, institute=None):
+    if not serial:
+        raise ValueError("Serial number is required")
     filename = f"{serial}.jpg"
     raw_path = os.path.join(UPLOAD_DIR, f"raw_{filename}")
     final_path = os.path.join(UPLOAD_DIR, filename)
@@ -1387,10 +1387,13 @@ def attach_photo_to_serial(file_storage, serial):
     photo_url = f"/uploads/{filename}"
     photo_drive_id = None
     if is_supabase_enabled():
-        institute = canonicalize_institute_name(request.form.get("institute"))
-        storage_path = f"{make_storage_slug(institute or 'default')}/{filename}"
-        with open(final_path, "rb") as photo_file:
-            photo_url = upload_bytes_to_supabase_storage(photo_file.read(), storage_path, "image/jpeg")
+        institute = canonicalize_institute_name(institute or request.form.get("institute"))
+        storage_path = build_photo_storage_path(institute, serial, file_storage.filename)
+        try:
+            with open(final_path, "rb") as photo_file:
+                photo_url = upload_bytes_to_supabase_storage(photo_file.read(), storage_path, "image/jpeg")
+        except Exception as exc:
+            raise RuntimeError(f"Cloud photo upload failed for {serial}. Please retry.") from exc
     elif is_drive_enabled():
         with open(final_path, "rb") as photo_file:
             photo_drive_id, drive_url = upload_bytes_to_drive(photo_file.read(), filename, "image/jpeg", "photos")
@@ -1687,7 +1690,7 @@ def admin_attach_photo():
 
     old_drive_id = target_record.get("photo_drive_id")
     try:
-        photo_url, photo_drive_id = attach_photo_to_serial(request.files["photo"], serial)
+        photo_url, photo_drive_id = attach_photo_to_serial(request.files["photo"], serial, institute=institute)
     except Exception:
         return jsonify({"error": "Unable to process photo"}), 400
 
