@@ -18,7 +18,6 @@ STORE_DIR = os.path.join(RUNTIME_DIR, "data_store")
 RECORDS_DIR = os.path.join(STORE_DIR, "records")
 CERTIFICATES_DIR = os.path.join(STORE_DIR, "certificates")
 SETTINGS_DIR = os.path.join(STORE_DIR, "settings")
-DRIVE_SYNC_LOG_FILE = os.path.join(STORE_DIR, "drive_sync_events.json")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(ASSET_DIR, exist_ok=True)
 os.makedirs(RECORDS_DIR, exist_ok=True)
@@ -26,16 +25,6 @@ os.makedirs(CERTIFICATES_DIR, exist_ok=True)
 os.makedirs(SETTINGS_DIR, exist_ok=True)
 app.config["SIGNATURE_UPLOAD_PASSWORD"] = os.environ.get("SIGNATURE_UPLOAD_PASSWORD", "admin123")
 app.config["ADMIN_PANEL_PASSWORD"] = os.environ.get("ADMIN_PANEL_PASSWORD", "admin123")
-app.config["GOOGLE_DRIVE_ROOT_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_ROOT_FOLDER_ID", "").strip()
-app.config["GOOGLE_DRIVE_PHOTOS_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_PHOTOS_FOLDER_ID", "").strip()
-app.config["GOOGLE_DRIVE_BACKGROUNDS_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_BACKGROUNDS_FOLDER_ID", "").strip()
-app.config["GOOGLE_DRIVE_SIGNATURES_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_SIGNATURES_FOLDER_ID", "").strip()
-app.config["GOOGLE_DRIVE_DATA_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_DATA_FOLDER_ID", "").strip()
-
-_drive_service = None
-_drive_json_file_ids = {}
-_drive_sync_status = {}
-_drive_sync_events = deque(maxlen=20)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "medical-id-card-secret")
 
 for bundled_dir, runtime_dir in [
@@ -104,31 +93,7 @@ def list_local_storage_filenames(kind):
 
 
 def list_drive_storage_filenames(kind):
-    service = get_drive_service()
-    if service is None:
-        return []
-
-    names = []
-    for folder_id in get_drive_folder_candidates("data"):
-        query = [f"name contains '{_drive_query_string(kind + '__')}'", "trashed=false"]
-        if folder_id:
-            query.append(f"'{_drive_query_string(folder_id)}' in parents")
-        try:
-            response = execute_drive_request(service.files().list(
-                q=" and ".join(query),
-                fields="files(id, name, parents)",
-                pageSize=200,
-            ))
-        except Exception:
-            continue
-        for file in response.get("files", []):
-            filename = file.get("name", "")
-            if filename.startswith(f"{kind}__") and filename.endswith(".json"):
-                _drive_json_file_ids[filename] = file.get("id", "")
-                resolved_folder_id = (file.get("parents") or [folder_id or ""])[0] if file.get("parents") or folder_id else ""
-                record_drive_sync_status(filename, synced=True, error="", file_id=file.get("id", ""), folder_id=resolved_folder_id)
-                names.append(filename)
-    return sorted(set(names))
+    return []
 
 
 def load_legacy_records():
@@ -157,7 +122,7 @@ def migrate_legacy_records_if_needed():
     legacy_records = load_legacy_records()
     if not legacy_records:
         return
-    existing = set(list_local_storage_filenames("records") + list_drive_storage_filenames("records"))
+    existing = set(list_local_storage_filenames("records"))
     grouped = {}
     for record in legacy_records:
         institute = canonicalize_institute_name(record.get("institute_name"))
@@ -175,7 +140,7 @@ def migrate_legacy_certificates_if_needed():
     legacy_certificates = load_legacy_certificates()
     if not legacy_certificates:
         return
-    existing = set(list_local_storage_filenames("certificates") + list_drive_storage_filenames("certificates"))
+    existing = set(list_local_storage_filenames("certificates"))
     grouped = {}
     for certificate in legacy_certificates:
         institute = canonicalize_institute_name(certificate.get("institute_name"))
@@ -194,7 +159,7 @@ def migrate_legacy_settings_if_needed(institute):
         return
     path = make_storage_path("settings", institute)
     filename = make_storage_filename("settings", institute)
-    if os.path.exists(path) or filename in list_drive_storage_filenames("settings"):
+    if os.path.exists(path):
         return
     legacy = load_legacy_settings()
     settings = default_institute_settings(institute)
@@ -215,7 +180,7 @@ def load_records(institute=None):
         return load_json_store(make_storage_path("records", institute), make_storage_filename("records", institute), [])
 
     records = []
-    filenames = sorted(set(list_local_storage_filenames("records") + list_drive_storage_filenames("records")))
+    filenames = sorted(set(list_local_storage_filenames("records")))
     for filename in filenames:
         records.extend(load_json_store(os.path.join(RECORDS_DIR, filename), filename, []))
     return records
@@ -235,7 +200,7 @@ def load_certificates(institute=None):
         return load_json_store(make_storage_path("certificates", institute), make_storage_filename("certificates", institute), [])
 
     certificates = []
-    filenames = sorted(set(list_local_storage_filenames("certificates") + list_drive_storage_filenames("certificates")))
+    filenames = sorted(set(list_local_storage_filenames("certificates")))
     for filename in filenames:
         certificates.extend(load_json_store(os.path.join(CERTIFICATES_DIR, filename), filename, []))
     return certificates
@@ -784,6 +749,45 @@ def build_drive_storage_status(institute=None):
         "institute": institute or "",
         "files": files,
         "events": get_recent_drive_sync_events(institute),
+    }
+
+
+# Local-only storage mode: keep all JSON and assets on the app filesystem.
+def is_drive_enabled():
+    return False
+
+
+def get_drive_service():
+    return None
+
+
+def list_drive_storage_filenames(kind):
+    return []
+
+
+def load_json_store(local_path, drive_filename, default_value):
+    if os.path.exists(local_path):
+        with open(local_path, "r", encoding="utf-8") as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                pass
+    return json.loads(json.dumps(default_value))
+
+
+def save_json_store(local_path, drive_filename, payload):
+    with open(local_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+
+
+def build_drive_storage_status(institute=None):
+    institute = canonicalize_institute_name(institute)
+    return {
+        "drive_enabled": False,
+        "data_folder_id": "",
+        "institute": institute or "",
+        "files": [],
+        "events": [],
     }
 
 
