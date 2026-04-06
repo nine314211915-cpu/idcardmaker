@@ -712,6 +712,13 @@ function getFilteredRecords() {
 }
 
 async function loadSettings() {
+  if (!getSelectedInstitute()) {
+    driveStorageStatus = { drive_enabled: false, data_folder_id: '', institute: '', files: [], events: [] };
+    appSettings = { background_url: '', signature_url: '', certificate_background_url: '' };
+    renderBackgroundPreview();
+    renderDriveStorageStatus();
+    return;
+  }
   try {
     const institute = encodeURIComponent(getSelectedInstitute());
     const [cardRes, certificateRes, driveRes] = await Promise.all([
@@ -1269,9 +1276,6 @@ function exportZip() {
 }
 
 const persistedAdminUiState = loadAdminUiState();
-if (typeof persistedAdminUiState.instituteFilter === 'string') {
-  document.getElementById('instituteFilter').value = persistedAdminUiState.instituteFilter;
-}
 if (typeof persistedAdminUiState.typeFilter === 'string') {
   document.getElementById('typeFilter').value = persistedAdminUiState.typeFilter;
 }
@@ -1279,6 +1283,7 @@ if (typeof persistedAdminUiState.searchInput === 'string') {
   document.getElementById('searchInput').value = persistedAdminUiState.searchInput;
 }
 
+document.getElementById('instituteFilter').value = '';
 loadSettings();
 loadRecords();
 </script>
