@@ -833,7 +833,7 @@
           </div>
           <div class="form-group student-field" id="validUptoGroup">
             <label>Valid Upto</label>
-            <input type="text" id="validUpto" placeholder="dd-mm-yyyy" oninput="updatePreview()">
+            <input type="text" id="validUpto" placeholder="dd/mm/yyyy" oninput="updatePreview()">
           </div>
           <div class="form-group anm-field" id="batchSessionGroup" style="display:none">
             <label>Batch <span class="req">*</span></label>
@@ -876,7 +876,7 @@
 
           <div class="form-group">
             <label id="dobLabel">Date of Birth <span class="req">*</span></label>
-            <input type="text" id="dob" placeholder="dd-mm-yyyy" oninput="updatePreview()">
+            <input type="text" id="dob" placeholder="dd/mm/yyyy" oninput="updatePreview()">
           </div>
           <div class="form-group">
             <label>Contact No <span class="req">*</span></label>
@@ -896,7 +896,7 @@
 
           <div class="form-group" id="insertedDateGroup">
             <label>Issued Date</label>
-            <input type="text" id="insertedDate" placeholder="dd-mm-yyyy" oninput="updatePreview()">
+            <input type="text" id="insertedDate" placeholder="dd/mm/yyyy" oninput="updatePreview()">
           </div>
           <div class="form-group anm-field" style="display:none">
             <label>Aadhaar No.</label>
@@ -1094,7 +1094,7 @@ let currentPhotoMeta = { url: '', drive_id: '' };
 
 function currentDateText() {
   const now = new Date();
-  return `${String(now.getDate()).padStart(2,'0')}-${String(now.getMonth()+1).padStart(2,'0')}-${now.getFullYear()}`;
+  return `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
 }
 
 function toTitleCaseValue(value) {
@@ -1109,8 +1109,8 @@ function formatAadhaarValue(value) {
 function formatTypedDateValue(value) {
   const digits = String(value || '').replace(/\D/g, '').slice(0, 8);
   if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}-${digits.slice(2, 4)}-${digits.slice(4)}`;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
 function installFieldFormatters() {
@@ -1506,18 +1506,15 @@ function updatePreview() {
 
 function formatDate(d) {
   if (!d) return '—';
-  if (d.includes('/')) {
-    const [day, month, year] = d.split('/');
-    return `${day}-${month}-${year}`;
-  }
+  if (d.includes('/')) return d;
   const parts = d.split('-');
   if (parts.length === 3) {
     if (parts[0].length === 4) {
       const [y, m, day] = parts;
-      return `${day}-${m}-${y}`;
+      return `${day}/${m}/${y}`;
     }
     const [day, month, year] = parts;
-    return `${day}-${month}-${year}`;
+    return `${day}/${month}/${year}`;
   }
   return d;
 }
@@ -1613,6 +1610,8 @@ function resetForm() {
   // Keep institute name and profile type for next entry
   const institute = document.getElementById('instituteName').value;
   const type = isCollegeMode() ? currentType : 'employee';
+  const keepAnmBatch = isAnmMode() ? document.getElementById('batchSession').value : '';
+  const keepAnmYear = isAnmMode() ? document.getElementById('trainingYear').value : '';
   document.getElementById('name').value = '';
   document.getElementById('serialNo').value = '';
   document.getElementById('dob').value = '';
@@ -1620,8 +1619,8 @@ function resetForm() {
   document.getElementById('address').value = '';
   document.getElementById('fatherName').value = '';
   document.getElementById('aadhaarNo').value = '';
-  document.getElementById('batchSession').value = '';
-  document.getElementById('trainingYear').value = '';
+  document.getElementById('batchSession').value = keepAnmBatch;
+  document.getElementById('trainingYear').value = keepAnmYear;
   document.getElementById('insertedDate').value = currentDateText();
   document.getElementById('photoInput').value = '';
   document.getElementById('photoPlaceholder').style.display = '';
@@ -1815,6 +1814,8 @@ function resetForm() {
   const institute = document.getElementById('instituteName').value;
   const otherInstitute = document.getElementById('otherInstituteName').value;
   const type = isCollegeMode() ? currentType : 'employee';
+  const keepAnmBatch = isAnmMode() ? document.getElementById('batchSession').value : '';
+  const keepAnmYear = isAnmMode() ? document.getElementById('trainingYear').value : '';
 
   document.getElementById('name').value = '';
   document.getElementById('serialNo').value = '';
@@ -1823,8 +1824,8 @@ function resetForm() {
   document.getElementById('address').value = '';
   document.getElementById('fatherName').value = '';
   document.getElementById('aadhaarNo').value = '';
-  document.getElementById('batchSession').value = '';
-  document.getElementById('trainingYear').value = '';
+  document.getElementById('batchSession').value = keepAnmBatch;
+  document.getElementById('trainingYear').value = keepAnmYear;
   document.getElementById('insertedDate').value = currentDateText();
   document.getElementById('photoInput').value = '';
   document.getElementById('photoPlaceholder').style.display = '';

@@ -584,7 +584,7 @@
     </div>
     <div class="asset-box">
       <h3>CSV Data Import</h3>
-      <p>Upload a CSV file to add or update records in bulk. Dates should be in dd-mm-yyyy format.</p>
+      <p>Upload a CSV file to add or update records in bulk. Dates should be in dd/mm/yyyy format.</p>
       <div class="asset-actions">
         <button class="btn btn-outline" type="button" onclick="document.getElementById('csvImportInput').click()">Upload CSV</button>
         <span class="asset-status" id="csvImportStatus">No CSV imported yet.</span>
@@ -923,19 +923,16 @@ function renderTable(records) {
 
 function formatDate(d) {
   if (!d) return '-';
-  if (String(d).includes('/')) {
-    const [day, month, year] = String(d).split('/');
-    return `${day}-${month}-${year}`;
-  }
+  if (String(d).includes('/')) return d;
   try {
     const parts = String(d).split('-');
     if (parts.length === 3) {
       if (parts[0].length === 4) {
         const [y, m, day] = parts;
-        return `${day}-${m}-${y}`;
+        return `${day}/${m}/${y}`;
       }
       const [day, month, year] = parts;
-      return `${day}-${month}-${year}`;
+      return `${day}/${month}/${year}`;
     }
     return d;
   } catch {
