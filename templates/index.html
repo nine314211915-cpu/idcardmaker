@@ -1149,13 +1149,15 @@ let appSettings = { background_url: '', signature_url: '' };
 let pendingSignaturePassword = '';
 let lastLoadedSubmittedSerial = '';
 let editingSerialNo = '';
-let currentPhotoMeta = { url: '', drive_id: '' };
+let currentPhotoMeta = { url: '', drive_id: '', draft_photo_key: '' };
 let instituteLocked = false;
 let batchInstituteLocked = false;
 let currentBatchRecords = [];
 let selectedBatchSerial = '';
 const UI_STATE_KEY = 'idcard_ui_state_v1';
 const DRAFT_BATCHES_KEY = 'idcard_draft_batches_v1';
+const DRAFT_PHOTO_DB_NAME = 'idcard_draft_photo_db';
+const DRAFT_PHOTO_STORE = 'photos';
 
 function currentDateText() {
   const now = new Date();
@@ -1223,6 +1225,85 @@ function saveDraftRecords(institute, records) {
 
 function makeStorageKey(value) {
   return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_') || 'default';
+}
+
+function makeDraftPhotoKey(institute, serial) {
+  return `${makeStorageKey(institute)}__${serial || 'draft'}`;
+}
+
+function openDraftPhotoDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DRAFT_PHOTO_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(DRAFT_PHOTO_STORE)) {
+        db.createObjectStore(DRAFT_PHOTO_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error('Unable to open draft photo storage'));
+  });
+}
+
+async function saveDraftPhotoBlob(key, blob) {
+  const db = await openDraftPhotoDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(DRAFT_PHOTO_STORE, 'readwrite');
+    tx.objectStore(DRAFT_PHOTO_STORE).put(blob, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Unable to save draft photo'));
+  });
+  db.close();
+}
+
+async function loadDraftPhotoBlob(key) {
+  if (!key) return null;
+  const db = await openDraftPhotoDb();
+  const result = await new Promise((resolve, reject) => {
+    const tx = db.transaction(DRAFT_PHOTO_STORE, 'readonly');
+    const req = tx.objectStore(DRAFT_PHOTO_STORE).get(key);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error || new Error('Unable to load draft photo'));
+  });
+  db.close();
+  return result;
+}
+
+async function deleteDraftPhotoBlob(key) {
+  if (!key) return;
+  const db = await openDraftPhotoDb();
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(DRAFT_PHOTO_STORE, 'readwrite');
+    tx.objectStore(DRAFT_PHOTO_STORE).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Unable to delete draft photo'));
+  });
+  db.close();
+}
+
+function clearPhotoPreview() {
+  document.getElementById('photoPlaceholder').style.display = '';
+  document.getElementById('photoPreviewWrap').classList.remove('visible');
+  document.getElementById('photoArea').classList.remove('has-photo');
+  document.getElementById('cardPhotoWrap').innerHTML = '<span>Photo</span>';
+}
+
+function showPhotoPreviewFromUrl(url) {
+  const photoUrl = `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`;
+  document.getElementById('photoPreviewImg').src = photoUrl;
+  document.getElementById('photoPlaceholder').style.display = 'none';
+  document.getElementById('photoPreviewWrap').classList.add('visible');
+  document.getElementById('photoArea').classList.add('has-photo');
+  document.getElementById('cardPhotoWrap').innerHTML = `<img src="${photoUrl}" alt="Photo">`;
+}
+
+function showPhotoPreviewFromBlob(blob) {
+  const previewUrl = URL.createObjectURL(blob);
+  document.getElementById('photoPreviewImg').src = previewUrl;
+  document.getElementById('photoPlaceholder').style.display = 'none';
+  document.getElementById('photoPreviewWrap').classList.add('visible');
+  document.getElementById('photoArea').classList.add('has-photo');
+  document.getElementById('cardPhotoWrap').innerHTML = `<img src="${previewUrl}" alt="Photo">`;
 }
 
 function toTitleCaseValue(value) {
@@ -1609,33 +1690,25 @@ async function handlePhotoUpload(input) {
   refreshInstituteLock();
   showLoading('Uploading & cropping photo…');
   ensureSerialGenerated(true);
-  const formData = new FormData();
-  formData.append('photo', input.files[0]);
-  formData.append('serial_no', document.getElementById('serialNo').value.trim());
-  formData.append('institute', getInstituteValue());
   try {
-    const res = await fetch('/api/upload-photo', { method: 'POST', body: formData });
-    const data = await res.json();
+    const institute = getInstituteValue();
+    const serial = document.getElementById('serialNo').value.trim();
+    const draftPhotoKey = makeDraftPhotoKey(institute, serial);
+    const file = input.files[0];
+    await saveDraftPhotoBlob(draftPhotoKey, file);
     currentPhotoMeta = {
-      url: data.photo_url || '',
-      drive_id: data.photo_drive_id || ''
+      url: '',
+      drive_id: '',
+      draft_photo_key: draftPhotoKey
     };
-    document.getElementById('serialNo').value = data.serial_no;
-    document.getElementById('previewSerial').textContent = data.serial_no;
-    document.getElementById('prevSerial').textContent = data.serial_no;
-    // Show cropped photo
-    const previewImg = document.getElementById('photoPreviewImg');
-    previewImg.src = data.photo_url + '?t=' + Date.now();
-    document.getElementById('photoPlaceholder').style.display = 'none';
-    document.getElementById('photoPreviewWrap').classList.add('visible');
-    document.getElementById('photoArea').classList.add('has-photo');
-    // Card photo
-    document.getElementById('cardPhotoWrap').innerHTML = `<img src="${data.photo_url}?t=${Date.now()}" alt="Photo">`;
+    showPhotoPreviewFromBlob(file);
     refreshInstituteLock();
-  } catch(e) {
-    alert('Photo upload failed. Please try again.');
+    showToast('Draft photo saved on this device.');
+  } catch (e) {
+    alert('Draft photo save failed. Please try again.');
   }
   hideLoading();
+  input.value = '';
   updatePreview();
 }
 
@@ -1733,7 +1806,36 @@ function formatDateTime(value) {
   return parts.length > 1 ? `${datePart} ${parts.slice(1).join(' ')}` : datePart;
 }
 
-async function saveCurrentCard() {
+async function uploadDraftPhotoForRecord(record) {
+  if (!record || !record.draft_photo_key) return record;
+  const blob = await loadDraftPhotoBlob(record.draft_photo_key);
+  if (!blob) {
+    throw new Error(`Draft photo is missing for ${record.serial_no || 'this card'}. Please attach the photo again before submitting.`);
+  }
+
+  const formData = new FormData();
+  formData.append('photo', blob, `${record.serial_no || 'draft'}.jpg`);
+  formData.append('serial_no', record.serial_no || '');
+  formData.append('institute', record.institute_name || getInstituteValue());
+
+  const res = await fetch('/api/upload-photo', { method: 'POST', body: formData });
+  let data = {};
+  try {
+    data = await res.json();
+  } catch (e) {}
+  if (!res.ok) {
+    throw new Error(data.error || `Photo upload failed for ${record.serial_no || 'this card'}.`);
+  }
+
+  return {
+    ...record,
+    serial_no: data.serial_no || record.serial_no || '',
+    photo_url: data.photo_url || '',
+    photo_drive_id: data.photo_drive_id || '',
+  };
+}
+
+async function legacySaveCurrentCard() {
   const anmMode = isAnmMode();
   const effectiveType = anmMode ? 'student' : (isCollegeMode() ? currentType : 'employee');
   const name = document.getElementById('name').value.trim();
@@ -1754,6 +1856,7 @@ async function saveCurrentCard() {
     inserted_date: document.getElementById('insertedDate').value,
     photo_url: currentPhotoMeta.url || '',
     photo_drive_id: currentPhotoMeta.drive_id || '',
+    draft_photo_key: currentPhotoMeta.draft_photo_key || '',
   };
   if (effectiveType === 'student') {
     payload.course = anmMode ? 'ANM Training' : document.getElementById('course').value;
@@ -1784,7 +1887,7 @@ async function saveCurrentCard() {
   hideLoading();
 }
 
-async function submitWholeBatch() {
+async function legacySubmitWholeBatch() {
   const institute = getInstituteValue();
   const totalCards = parseInt(document.getElementById('totalCards').value || '0', 10);
   if (!institute || institute === 'Other') {
@@ -1813,7 +1916,7 @@ async function submitWholeBatch() {
   hideLoading();
 }
 
-function resetForm() {
+function legacyResetForm() {
   // Keep institute name and profile type for next entry
   const institute = document.getElementById('instituteName').value;
   const type = isCollegeMode() ? currentType : 'employee';
@@ -1859,24 +1962,21 @@ function showToast(msg) {
 }
 
 async function editSubmittedCard(serial) {
-  showLoading('Loading submitted card...');
+  showLoading('Loading selected card...');
   try {
-    const institute = encodeURIComponent(getInstituteValue());
-    const res = await fetch(`/api/batch-records?institute=${institute}`);
-    const data = await res.json();
-    const record = (data.records || []).find(item => item.serial_no === serial);
+    const record = currentBatchRecords.find(item => item.serial_no === serial);
     if (!record) throw new Error('Submitted card not found.');
     selectedBatchSerial = serial;
-    populateFormFromRecord(record);
+    await populateFormFromRecord(record);
     lastLoadedSubmittedSerial = serial;
-    showToast('Loaded submitted card for editing: ' + serial);
+    showToast('Loaded card for editing: ' + serial);
   } catch (e) {
     alert(e.message || 'Unable to load submitted card.');
   }
   hideLoading();
 }
 
-function populateFormFromRecord(record) {
+async function populateFormFromRecord(record) {
   const sourceInstitute = record.institute_name || '';
   setInstituteLocked(false);
   const knownInstitutes = [
@@ -1921,22 +2021,26 @@ function populateFormFromRecord(record) {
   if (record.photo_url) {
     currentPhotoMeta = {
       url: record.photo_url,
-      drive_id: record.photo_drive_id || ''
+      drive_id: record.photo_drive_id || '',
+      draft_photo_key: record.draft_photo_key || ''
     };
-    const photoUrl = record.photo_url + '?t=' + Date.now();
-    document.getElementById('photoPreviewImg').src = photoUrl;
-    document.getElementById('photoPlaceholder').style.display = 'none';
-    document.getElementById('photoPreviewWrap').classList.add('visible');
-    document.getElementById('photoArea').classList.add('has-photo');
-    document.getElementById('cardPhotoWrap').innerHTML = `<img src="${photoUrl}" alt="Photo">`;
+    showPhotoPreviewFromUrl(record.photo_url);
+  } else if (record.draft_photo_key) {
+    currentPhotoMeta = {
+      url: '',
+      drive_id: '',
+      draft_photo_key: record.draft_photo_key
+    };
+    const draftBlob = await loadDraftPhotoBlob(record.draft_photo_key);
+    if (draftBlob) {
+      showPhotoPreviewFromBlob(draftBlob);
+    } else {
+      clearPhotoPreview();
+    }
   } else {
-    currentPhotoMeta = { url: '', drive_id: '' };
-    document.getElementById('photoPlaceholder').style.display = '';
-    document.getElementById('photoPreviewWrap').classList.remove('visible');
-    document.getElementById('photoArea').classList.remove('has-photo');
-    document.getElementById('cardPhotoWrap').innerHTML = '<span>📷<br>Photo</span>';
+    currentPhotoMeta = { url: '', drive_id: '', draft_photo_key: '' };
+    clearPhotoPreview();
   }
-
   updatePreview();
   setInstituteLocked(true);
 }
@@ -1962,6 +2066,7 @@ async function saveCurrentCard() {
     inserted_date: document.getElementById('insertedDate').value,
     photo_url: currentPhotoMeta.url || '',
     photo_drive_id: currentPhotoMeta.drive_id || '',
+    draft_photo_key: currentPhotoMeta.draft_photo_key || '',
   };
 
   if (effectiveType === 'student') {
@@ -2014,17 +2119,27 @@ async function submitWholeBatch() {
 
   showLoading('Submitting whole batch...');
   try {
+    const recordsForSubmit = [];
+    for (const draftRecord of draftRecords) {
+      const uploadedRecord = await uploadDraftPhotoForRecord({ ...draftRecord });
+      delete uploadedRecord.draft_photo_key;
+      recordsForSubmit.push(uploadedRecord);
+    }
+
     const res = await fetch('/api/submit-batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         institute_name: institute,
-        records: draftRecords,
+        records: recordsForSubmit,
       })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Batch submit failed');
     showToast('Submitted ' + data.total_cards + ' card(s) for ' + institute);
+    for (const draftRecord of draftRecords) {
+      await deleteDraftPhotoBlob(draftRecord.draft_photo_key);
+    }
     saveDraftRecords(institute, []);
     currentBatchRecords = [];
     selectedBatchSerial = '';
@@ -2056,12 +2171,9 @@ function resetForm() {
   document.getElementById('trainingYear').value = keepAnmYear;
   document.getElementById('insertedDate').value = currentDateText();
   document.getElementById('photoInput').value = '';
-  document.getElementById('photoPlaceholder').style.display = '';
-  document.getElementById('photoPreviewWrap').classList.remove('visible');
-  document.getElementById('photoArea').classList.remove('has-photo');
-  document.getElementById('cardPhotoWrap').innerHTML = '<span>Photo</span>';
+  clearPhotoPreview();
   document.getElementById('previewSerial').textContent = '-';
-  currentPhotoMeta = { url: '', drive_id: '' };
+  currentPhotoMeta = { url: '', drive_id: '', draft_photo_key: '' };
 
   if (type === 'student') {
     document.getElementById('course').value = '';
