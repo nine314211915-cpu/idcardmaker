@@ -485,7 +485,7 @@ def upload_photo():
     if "photo" not in request.files:
         return jsonify({"error": "No file"}), 400
     f = request.files["photo"]
-    serial = gen_serial()
+    serial = (request.form.get("serial_no") or "").strip() or gen_serial()
     filename = f"{serial}.jpg"
     raw_path = os.path.join(UPLOAD_DIR, f"raw_{filename}")
     final_path = os.path.join(UPLOAD_DIR, filename)

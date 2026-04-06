@@ -144,27 +144,41 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
-    max-width: 220px;
+    width: 100%;
+    max-width: 260px;
   }
   .type-selector.single { grid-template-columns: 1fr; }
   .triple-grid {
     display: grid;
-    grid-template-columns: minmax(0, 220px) minmax(0, 220px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 260px) minmax(0, 1fr);
     gap: 14px;
     align-items: start;
     margin-bottom: 16px;
+  }
+  .type-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    min-height: 100%;
   }
   .helper-text {
     font-size: 11px;
     color: var(--muted);
     line-height: 1.5;
-    padding-top: 8px;
+    padding-top: 4px;
+    text-align: center;
   }
   .hidden-block { display: none !important; }
   .type-btn {
-    padding: 10px;
+    min-height: 58px;
+    padding: 8px 10px;
     border: 2px solid var(--border);
-    border-radius: 6px;
+    border-radius: 10px;
     background: var(--cream);
     cursor: pointer;
     text-align: center;
@@ -179,7 +193,15 @@
     background: var(--red-soft);
     color: var(--red);
   }
-  .type-btn .icon { font-size: 20px; display: block; margin-bottom: 4px; }
+  .type-btn .icon { font-size: 18px; display: block; margin-bottom: 2px; }
+  .type-block-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    text-align: center;
+  }
 
   /* FORM */
   .form-grid {
@@ -228,7 +250,7 @@
     color: var(--muted);
     cursor: default;
   }
-  textarea { resize: vertical; min-height: 52px; }
+  textarea { resize: none; min-height: 42px; height: 42px; }
 
   /* PHOTO UPLOAD */
   .photo-upload-area {
@@ -564,12 +586,14 @@
   .signature-strip {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
     padding: 8px 12px 6px;
     background: rgba(255,255,255,0.9);
     border-top: 1px dashed var(--border);
   }
   .signature-box {
-    width: 108px;
+    width: auto;
+    min-width: 140px;
     text-align: center;
   }
   .signature-box img {
@@ -589,6 +613,7 @@
     color: var(--muted);
     text-transform: uppercase;
     letter-spacing: 0.4px;
+    white-space: nowrap;
   }
 
   .section-title {
@@ -606,6 +631,20 @@
     border-radius: 10px;
     padding: 10px;
     min-height: 100%;
+  }
+  .top-tools-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 260px) minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+    margin-bottom: 10px;
+  }
+  .serial-box input {
+    text-align: center;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    color: var(--red);
+    background: #fffdf9;
   }
   .signature-admin-box h3 {
     font-family: 'Playfair Display', serif;
@@ -729,37 +768,12 @@
             <label>Other Institute / Office <span class="req">*</span></label>
             <input type="text" id="otherInstituteName" placeholder="Enter institute or office name" oninput="updatePreview(); loadSettings()">
           </div>
-          <div class="signature-admin-box" style="display:none">
-            <h3>HOD Signature</h3>
-            <p>Upload once with password. It will appear on every ID card preview and saved card layout.</p>
-            <div class="signature-status" id="signatureStatus">No signature uploaded yet.</div>
-            <button class="btn-mini" type="button" onclick="startSignatureUpload()">Upload Signature</button>
-            <input type="file" id="signatureInput" accept="image/*" style="display:none" onchange="handleSignatureUpload(this)">
-          </div>
+          <input type="file" id="signatureInput" accept="image/*" style="display:none" onchange="handleSignatureUpload(this)">
         </div>
 
         <!-- Profile Type -->
         <div class="section-title" id="profileTitle">Select Profile Type</div>
-        <div class="triple-grid">
-        <div class="type-selector" id="typeSelector">
-          <button class="type-btn active" onclick="setType('student')" id="btnStudent">
-            <span class="icon">🎓</span>Student / Intern
-          </button>
-          <button class="type-btn" onclick="setType('lecturer')" id="btnLecturer">
-            <span class="icon">👨‍🏫</span>Lecturer / Teacher
-          </button>
-        </div>
-        <div class="helper-text" id="modeHelper">Choose student or teacher for college cards.</div>
-        <div class="signature-admin-box">
-          <h3>HOD Signature</h3>
-          <p>Upload once with password. It will appear on every ID card preview and saved card layout.</p>
-          <div class="signature-status" id="signatureStatusAlt">No signature uploaded yet.</div>
-          <button class="btn-mini" type="button" onclick="startSignatureUpload()">Upload Signature</button>
-        </div>
-        </div>
-
-        <!-- Photo + Serial -->
-        <div class="form-grid" style="margin-bottom:10px">
+        <div class="top-tools-row">
           <div class="form-group compact-field">
             <label>Photo Upload <span class="req">*</span> — AI Powered Face-Only Crop</label>
             <div class="photo-upload-area" id="photoArea" onclick="openGalleryPicker()">
@@ -778,10 +792,27 @@
               </div>
             </div>
             <input type="file" id="photoInput" accept="image/*" onchange="handlePhotoUpload(this)">
+            <div class="form-group serial-box" style="margin-top:10px">
+              <input type="text" id="serialNo" readonly placeholder="Auto-generated">
+            </div>
           </div>
-          <div class="form-group compact-field">
-            <label>Serial Number (Auto-Generated)</label>
-            <input type="text" id="serialNo" readonly placeholder="Upload photo to generate">
+          <div class="type-block">
+            <div class="type-block-title">Select Profile Type</div>
+            <div class="type-selector" id="typeSelector">
+              <button class="type-btn active" onclick="setType('student')" id="btnStudent">
+                <span class="icon">🎓</span>Student / Intern
+              </button>
+              <button class="type-btn" onclick="setType('lecturer')" id="btnLecturer">
+                <span class="icon">👨‍🏫</span>Lecturer / Teacher
+              </button>
+            </div>
+            <div class="helper-text" id="modeHelper">Choose student or teacher for college cards.</div>
+          </div>
+          <div class="signature-admin-box">
+            <h3>HOD Signature</h3>
+            <p>Upload once with password. It will appear on every ID card preview and saved card layout.</p>
+            <div class="signature-status" id="signatureStatus">No signature uploaded yet.</div>
+            <button class="btn-mini" type="button" onclick="startSignatureUpload()">Upload Signature</button>
           </div>
         </div>
 
@@ -1066,6 +1097,27 @@ function currentDateText() {
   return `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()}`;
 }
 
+function generateSerialLocal() {
+  const now = new Date();
+  const datePart = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let rand = '';
+  for (let i = 0; i < 4; i += 1) {
+    rand += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return `ID-${datePart}-${rand}`;
+}
+
+function ensureSerialGenerated() {
+  const serialInput = document.getElementById('serialNo');
+  if (!serialInput.value.trim()) {
+    const serial = generateSerialLocal();
+    serialInput.value = serial;
+    document.getElementById('previewSerial').textContent = serial;
+    document.getElementById('prevSerial').textContent = serial;
+  }
+}
+
 document.getElementById('insertedDate').value = currentDateText();
 
 function getInstituteValue() {
@@ -1271,17 +1323,14 @@ function applyCardAssets() {
   const signatureStrip = document.getElementById('signatureStrip');
   const signaturePreview = document.getElementById('signaturePreview');
   const signatureStatus = document.getElementById('signatureStatus');
-  const signatureStatusAlt = document.getElementById('signatureStatusAlt');
   if (appSettings.signature_url && isCollegeMode()) {
     signaturePreview.src = appSettings.signature_url + '?t=' + Date.now();
     signatureStrip.style.display = 'flex';
     signatureStatus.textContent = 'Signature uploaded and active on all cards.';
-    if (signatureStatusAlt) signatureStatusAlt.textContent = 'Signature uploaded and active on all cards.';
   } else {
     signaturePreview.src = '';
     signatureStrip.style.display = 'none';
     signatureStatus.textContent = 'No signature uploaded yet.';
-    if (signatureStatusAlt) signatureStatusAlt.textContent = 'No signature uploaded yet.';
   }
 }
 
@@ -1316,8 +1365,10 @@ async function handleSignatureUpload(input) {
 async function handlePhotoUpload(input) {
   if (!input.files.length) return;
   showLoading('Uploading & cropping photo…');
+  ensureSerialGenerated();
   const formData = new FormData();
   formData.append('photo', input.files[0]);
+  formData.append('serial_no', document.getElementById('serialNo').value.trim());
   try {
     const res = await fetch('/api/upload-photo', { method: 'POST', body: formData });
     const data = await res.json();
@@ -1344,6 +1395,7 @@ async function handlePhotoUpload(input) {
 }
 
 function updatePreview() {
+  ensureSerialGenerated();
   const anmMode = isAnmMode();
   const effectiveType = anmMode ? 'student' : (isCollegeMode() ? currentType : 'employee');
   const name = document.getElementById('name').value || 'Full Name';
@@ -1431,9 +1483,10 @@ async function saveCurrentCard() {
   const anmMode = isAnmMode();
   const effectiveType = anmMode ? 'student' : (isCollegeMode() ? currentType : 'employee');
   const name = document.getElementById('name').value.trim();
+  ensureSerialGenerated();
   const serial = document.getElementById('serialNo').value.trim();
   if (!name) { alert('Please enter full name.'); return; }
-  if (!serial) { alert('Please upload a photo first to generate serial number.'); return; }
+  if (!serial) { alert('Unable to generate serial number.'); return; }
 
   showLoading('Saving record…');
   const payload = {
@@ -1445,7 +1498,7 @@ async function saveCurrentCard() {
     contact: document.getElementById('contact').value,
     address: document.getElementById('address').value,
     inserted_date: document.getElementById('insertedDate').value,
-    photo_url: currentPhotoMeta.url || `/uploads/${serial}.jpg`,
+    photo_url: currentPhotoMeta.url || '',
     photo_drive_id: currentPhotoMeta.drive_id || '',
   };
   if (effectiveType === 'student') {
@@ -1538,6 +1591,7 @@ function resetForm() {
   }
   document.getElementById('instituteName').value = institute;
   handleInstituteChange();
+  ensureSerialGenerated();
   updatePreview();
   loadBatchSummary();
 }
@@ -1620,6 +1674,10 @@ function populateFormFromRecord(record) {
     document.getElementById('cardPhotoWrap').innerHTML = `<img src="${photoUrl}" alt="Photo">`;
   } else {
     currentPhotoMeta = { url: '', drive_id: '' };
+    document.getElementById('photoPlaceholder').style.display = '';
+    document.getElementById('photoPreviewWrap').classList.remove('visible');
+    document.getElementById('photoArea').classList.remove('has-photo');
+    document.getElementById('cardPhotoWrap').innerHTML = '<span>📷<br>Photo</span>';
   }
 
   updatePreview();
@@ -1629,9 +1687,10 @@ async function saveCurrentCard() {
   const anmMode = isAnmMode();
   const effectiveType = anmMode ? 'student' : (isCollegeMode() ? currentType : 'employee');
   const name = document.getElementById('name').value.trim();
+  ensureSerialGenerated();
   const serial = document.getElementById('serialNo').value.trim();
   if (!name) { alert('Please enter full name.'); return; }
-  if (!serial) { alert('Please upload a photo first to generate serial number.'); return; }
+  if (!serial) { alert('Unable to generate serial number.'); return; }
 
   showLoading('Saving record...');
   const payload = {
@@ -1643,7 +1702,7 @@ async function saveCurrentCard() {
     contact: document.getElementById('contact').value,
     address: document.getElementById('address').value,
     inserted_date: document.getElementById('insertedDate').value,
-    photo_url: currentPhotoMeta.url || `/uploads/${serial}.jpg`,
+    photo_url: currentPhotoMeta.url || '',
     photo_drive_id: currentPhotoMeta.drive_id || '',
   };
 
@@ -1739,12 +1798,14 @@ function resetForm() {
   document.getElementById('instituteName').value = institute;
   document.getElementById('otherInstituteName').value = otherInstitute;
   handleInstituteChange();
+  ensureSerialGenerated();
   updatePreview();
   loadBatchSummary();
 }
 
 // Init
 handleInstituteChange();
+ensureSerialGenerated();
 updatePreview();
 loadSettings();
 loadBatchSummary();
