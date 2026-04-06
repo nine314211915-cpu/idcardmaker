@@ -559,10 +559,20 @@
 <div class="asset-panel">
   <div class="asset-grid">
     <div class="asset-box">
+      <h3>Drive Storage Status</h3>
+      <p>Checks whether permanent JSON storage is connected and whether the synced data files are present in Drive.</p>
+      <div class="asset-actions">
+        <button class="btn btn-outline" type="button" onclick="loadDriveStorageStatus()">Refresh Status</button>
+        <span class="asset-status" id="driveStatusSummary">Checking Drive status...</span>
+      </div>
+      <div class="asset-preview" id="driveStatusPreview">Checking Drive status...</div>
+    </div>
+    <div class="asset-box">
       <h3>ID Card Background</h3>
       <p>Upload one background image for the selected institute only. Each institute keeps its own separate background.</p>
       <div class="asset-actions">
         <button class="btn btn-red" type="button" onclick="document.getElementById('backgroundInput').click()">Upload Background</button>
+        <button class="btn btn-outline" type="button" onclick="deleteBackground()">Remove</button>
         <span class="asset-status" id="backgroundStatus">No background uploaded yet.</span>
       </div>
       <input type="file" id="backgroundInput" accept="image/*" style="display:none" onchange="handleBackgroundUpload(this)">
@@ -575,12 +585,24 @@
       <p>Upload one certificate background for the selected institute. Users can use the built-in themes while the admin background stays institute-specific.</p>
       <div class="asset-actions">
         <button class="btn btn-green" type="button" onclick="document.getElementById('certificateBackgroundInput').click()">Upload Certificate Background</button>
+        <button class="btn btn-outline" type="button" onclick="deleteCertificateBackground()">Remove</button>
         <span class="asset-status" id="certificateBackgroundStatus">No certificate background uploaded yet.</span>
       </div>
       <input type="file" id="certificateBackgroundInput" accept="image/*" style="display:none" onchange="handleCertificateBackgroundUpload(this)">
     </div>
     <div class="asset-box">
       <div class="asset-preview" id="certificateBackgroundPreview">No preview</div>
+    </div>
+    <div class="asset-box">
+      <h3>Global Signature</h3>
+      <p>Remove the current HOD signature from all previews and saved layouts.</p>
+      <div class="asset-actions">
+        <button class="btn btn-outline" type="button" onclick="deleteSignature()">Remove Signature</button>
+        <span class="asset-status" id="signatureStatus">No signature uploaded yet.</span>
+      </div>
+    </div>
+    <div class="asset-box">
+      <div class="asset-preview" id="signaturePreview">No signature preview</div>
     </div>
     <div class="asset-box">
       <h3>CSV Data Import</h3>
@@ -641,6 +663,7 @@
 let allRecords = [];
 let deleteTarget = null;
 let appSettings = { background_url: '', signature_url: '', certificate_background_url: '' };
+let driveStorageStatus = { drive_enabled: false, data_folder_id: '', files: [] };
 const COLLEGE_INSTITUTES = ['Govt. Medical College, Jhunjhunu', 'Govt. Nursing College, Jhunjhunu', 'Govt. ANM Training Center, Jhunjhunu'];
 let attachPhotoSerial = null;
 
@@ -666,19 +689,59 @@ function getFilteredRecords() {
 async function loadSettings() {
   try {
     const institute = encodeURIComponent(getSelectedInstitute());
-    const [cardRes, certificateRes] = await Promise.all([
+    const [cardRes, certificateRes, driveRes] = await Promise.all([
       fetch(`/api/settings?institute=${institute}`),
-      fetch(`/api/certificate-settings?institute=${institute}`)
+      fetch(`/api/certificate-settings?institute=${institute}`),
+      fetch('/api/drive-storage-status')
     ]);
     const cardSettings = await cardRes.json();
     const certificateSettings = await certificateRes.json();
+    driveStorageStatus = await driveRes.json();
     appSettings = {
       ...cardSettings,
       certificate_background_url: certificateSettings.background_url || ''
     };
     renderBackgroundPreview();
+    renderDriveStorageStatus();
   } catch (e) {
+    driveStorageStatus = { drive_enabled: false, data_folder_id: '', files: [] };
     appSettings = { background_url: '', signature_url: '', certificate_background_url: '' };
+    renderDriveStorageStatus('Unable to load Drive status right now.');
+  }
+}
+
+function renderDriveStorageStatus(errorMessage = '') {
+  const summary = document.getElementById('driveStatusSummary');
+  const preview = document.getElementById('driveStatusPreview');
+  if (errorMessage) {
+    summary.textContent = errorMessage;
+    preview.textContent = errorMessage;
+    return;
+  }
+  if (!driveStorageStatus.drive_enabled) {
+    summary.textContent = 'Google Drive is not configured.';
+    preview.textContent = 'Permanent JSON sync is inactive because the Drive service account is not available.';
+    return;
+  }
+  const files = Array.isArray(driveStorageStatus.files) ? driveStorageStatus.files : [];
+  const presentCount = files.filter(file => file.present).length;
+  summary.textContent = `${presentCount}/${files.length || 3} Drive data file(s) found.`;
+  const folderText = driveStorageStatus.data_folder_id
+    ? `Target folder ID: ${driveStorageStatus.data_folder_id}`
+    : 'Using Drive root folder for JSON storage.';
+  const items = files.map(file => `<div><strong>${file.name}</strong>: ${file.present ? 'Found' : 'Missing'}${file.file_id ? ` (${file.file_id})` : ''}</div>`).join('');
+  preview.innerHTML = `${folderText}<div style="margin-top:8px">${items || 'No file information available.'}</div>`;
+}
+
+async function loadDriveStorageStatus() {
+  try {
+    const res = await fetch('/api/drive-storage-status');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Unable to load Drive status');
+    driveStorageStatus = data;
+    renderDriveStorageStatus();
+  } catch (e) {
+    renderDriveStorageStatus(e.message || 'Unable to load Drive status right now.');
   }
 }
 
@@ -687,6 +750,8 @@ function renderBackgroundPreview() {
   const status = document.getElementById('backgroundStatus');
   const certificatePreview = document.getElementById('certificateBackgroundPreview');
   const certificateStatus = document.getElementById('certificateBackgroundStatus');
+  const signaturePreview = document.getElementById('signaturePreview');
+  const signatureStatus = document.getElementById('signatureStatus');
   if (!getSelectedInstitute()) {
     preview.textContent = 'Select an institute';
     status.textContent = 'Choose an institute to view or upload its background.';
@@ -701,14 +766,22 @@ function renderBackgroundPreview() {
   }
 
   if (!getSelectedInstitute()) {
-    return;
-  }
-  if (appSettings.certificate_background_url) {
+    certificatePreview.textContent = 'Select an institute';
+    certificateStatus.textContent = 'Choose an institute to view or upload its certificate background.';
+  } else if (appSettings.certificate_background_url) {
     certificatePreview.innerHTML = `<img src="${appSettings.certificate_background_url}?t=${Date.now()}" alt="Certificate background preview">`;
     certificateStatus.textContent = 'Certificate background uploaded and active.';
   } else {
     certificatePreview.textContent = 'No preview';
     certificateStatus.textContent = 'No certificate background uploaded yet.';
+  }
+
+  if (appSettings.signature_url) {
+    signaturePreview.innerHTML = `<img src="${appSettings.signature_url}?t=${Date.now()}" alt="Signature preview">`;
+    signatureStatus.textContent = 'Signature uploaded and active.';
+  } else {
+    signaturePreview.textContent = 'No signature preview';
+    signatureStatus.textContent = 'No signature uploaded yet.';
   }
 }
 
@@ -733,6 +806,24 @@ async function handleBackgroundUpload(input) {
     alert(e.message || 'Background upload failed.');
   }
   input.value = '';
+}
+
+async function deleteBackground() {
+  const institute = getSelectedInstitute();
+  if (!institute) {
+    alert('Please select an institute first.');
+    return;
+  }
+  if (!confirm(`Remove the ID card background for "${institute}"?`)) return;
+  try {
+    const res = await fetch(`/api/delete-background?institute=${encodeURIComponent(institute)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Delete failed');
+    appSettings.background_url = '';
+    renderBackgroundPreview();
+  } catch (e) {
+    alert(e.message || 'Unable to remove background.');
+  }
 }
 
 async function handleCertificateBackgroundUpload(input) {
@@ -773,6 +864,37 @@ async function handleCsvImport(input) {
     alert(e.message || 'CSV import failed.');
   }
   input.value = '';
+}
+
+async function deleteCertificateBackground() {
+  const institute = getSelectedInstitute();
+  if (!institute) {
+    alert('Please select an institute first.');
+    return;
+  }
+  if (!confirm(`Remove the certificate background for "${institute}"?`)) return;
+  try {
+    const res = await fetch(`/api/delete-certificate-background?institute=${encodeURIComponent(institute)}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Delete failed');
+    appSettings.certificate_background_url = '';
+    renderBackgroundPreview();
+  } catch (e) {
+    alert(e.message || 'Unable to remove certificate background.');
+  }
+}
+
+async function deleteSignature() {
+  if (!confirm('Remove the global HOD signature?')) return;
+  try {
+    const res = await fetch('/api/delete-signature', { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Delete failed');
+    appSettings.signature_url = '';
+    renderBackgroundPreview();
+  } catch (e) {
+    alert(e.message || 'Unable to remove signature.');
+  }
 }
 
 function startManualPhotoAttach(serial) {

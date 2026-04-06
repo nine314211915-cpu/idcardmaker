@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, render_template, send_file, send_from
 import json, os, random, string, zipfile, io, tempfile, csv
 from datetime import datetime
 from functools import wraps
-from PIL import Image, ImageOps, ImageEnhance, ImageFilter
+from PIL import Image, ImageOps, ImageEnhance, ImageFilter, UnidentifiedImageError
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -21,8 +21,10 @@ app.config["GOOGLE_DRIVE_ROOT_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_ROOT_FO
 app.config["GOOGLE_DRIVE_PHOTOS_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_PHOTOS_FOLDER_ID", "").strip()
 app.config["GOOGLE_DRIVE_BACKGROUNDS_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_BACKGROUNDS_FOLDER_ID", "").strip()
 app.config["GOOGLE_DRIVE_SIGNATURES_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_SIGNATURES_FOLDER_ID", "").strip()
+app.config["GOOGLE_DRIVE_DATA_FOLDER_ID"] = os.environ.get("GOOGLE_DRIVE_DATA_FOLDER_ID", "").strip()
 
 _drive_service = None
+_drive_json_file_ids = {}
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "medical-id-card-secret")
 
 for bundled_dir, runtime_dir in [
@@ -49,26 +51,18 @@ for bundled_file, runtime_file in [
         dst_file.write(src_file.read())
 
 def load_records():
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r") as f:
-            return json.load(f)
-    return []
+    return load_json_store(DATA_FILE, "records.json", [])
 
 def save_records(records):
-    with open(DATA_FILE, "w") as f:
-        json.dump(records, f, indent=2)
+    save_json_store(DATA_FILE, "records.json", records)
 
 
 def load_certificates():
-    if os.path.exists(CERTIFICATE_DATA_FILE):
-        with open(CERTIFICATE_DATA_FILE, "r") as f:
-            return json.load(f)
-    return []
+    return load_json_store(CERTIFICATE_DATA_FILE, "certificates.json", [])
 
 
 def save_certificates(certificates):
-    with open(CERTIFICATE_DATA_FILE, "w") as f:
-        json.dump(certificates, f, indent=2)
+    save_json_store(CERTIFICATE_DATA_FILE, "certificates.json", certificates)
 
 
 def load_settings():
@@ -81,12 +75,9 @@ def load_settings():
         "certificate_backgrounds": {},
         "certificate_background_drive_ids": {},
     }
-    if os.path.exists(SETTINGS_FILE):
-        with open(SETTINGS_FILE, "r") as f:
-            try:
-                defaults.update(json.load(f))
-            except json.JSONDecodeError:
-                pass
+    loaded = load_json_store(SETTINGS_FILE, "settings.json", defaults)
+    if isinstance(loaded, dict):
+        defaults.update(loaded)
     if not isinstance(defaults.get("backgrounds"), dict):
         defaults["backgrounds"] = {}
     if not isinstance(defaults.get("background_drive_ids"), dict):
@@ -99,8 +90,7 @@ def load_settings():
 
 
 def save_settings(settings):
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(settings, f, indent=2)
+    save_json_store(SETTINGS_FILE, "settings.json", settings)
 
 
 def normalize_date(value):
@@ -221,6 +211,135 @@ def upload_bytes_to_drive(file_bytes, filename, mime_type, kind):
     return file_id, build_drive_view_url(file_id)
 
 
+def _drive_query_string(value):
+    return value.replace("\\", "\\\\").replace("'", "\\'")
+
+
+def find_drive_file_id(filename, kind):
+    service = get_drive_service()
+    if service is None:
+        return None
+
+    folder_id = get_drive_folder_id(kind)
+    query = [f"name='{_drive_query_string(filename)}'", "trashed=false"]
+    if folder_id:
+        query.append(f"'{_drive_query_string(folder_id)}' in parents")
+    response = service.files().list(
+        q=" and ".join(query),
+        fields="files(id, name)",
+        pageSize=1,
+    ).execute()
+    files = response.get("files", [])
+    return files[0]["id"] if files else None
+
+
+def download_drive_file_bytes(file_id):
+    service = get_drive_service()
+    if service is None or not file_id:
+        return None
+
+    from googleapiclient.http import MediaIoBaseDownload
+
+    buffer = io.BytesIO()
+    request = service.files().get_media(fileId=file_id)
+    downloader = MediaIoBaseDownload(buffer, request)
+    done = False
+    while not done:
+        _, done = downloader.next_chunk()
+    return buffer.getvalue()
+
+
+def upsert_private_drive_file(file_bytes, filename, mime_type, kind):
+    service = get_drive_service()
+    if service is None:
+        return None
+
+    from googleapiclient.http import MediaIoBaseUpload
+
+    file_id = _drive_json_file_ids.get(filename) or find_drive_file_id(filename, kind)
+    metadata = {"name": filename}
+    folder_id = get_drive_folder_id(kind)
+    if folder_id:
+        metadata["parents"] = [folder_id]
+
+    media = MediaIoBaseUpload(io.BytesIO(file_bytes), mimetype=mime_type, resumable=False)
+    if file_id:
+        service.files().update(fileId=file_id, media_body=media).execute()
+        _drive_json_file_ids[filename] = file_id
+        return file_id
+
+    created = service.files().create(body=metadata, media_body=media, fields="id").execute()
+    file_id = created["id"]
+    _drive_json_file_ids[filename] = file_id
+    return file_id
+
+
+def load_json_store(local_path, drive_filename, default_value):
+    if is_drive_enabled():
+        try:
+            file_id = _drive_json_file_ids.get(drive_filename) or find_drive_file_id(drive_filename, "data")
+            if file_id:
+                _drive_json_file_ids[drive_filename] = file_id
+                file_bytes = download_drive_file_bytes(file_id)
+                if file_bytes is not None:
+                    with open(local_path, "wb") as f:
+                        f.write(file_bytes)
+                    return json.loads(file_bytes.decode("utf-8"))
+            elif os.path.exists(local_path):
+                with open(local_path, "rb") as f:
+                    existing_bytes = f.read()
+                if existing_bytes:
+                    upsert_private_drive_file(existing_bytes, drive_filename, "application/json", "data")
+                    return json.loads(existing_bytes.decode("utf-8"))
+        except Exception:
+            app.logger.warning("Drive sync failed while loading %s", drive_filename, exc_info=True)
+
+    if os.path.exists(local_path):
+        with open(local_path, "r", encoding="utf-8") as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                pass
+
+    return json.loads(json.dumps(default_value))
+
+
+def save_json_store(local_path, drive_filename, payload):
+    json_text = json.dumps(payload, indent=2)
+    with open(local_path, "w", encoding="utf-8") as f:
+        f.write(json_text)
+
+    if is_drive_enabled():
+        try:
+            upsert_private_drive_file(json_text.encode("utf-8"), drive_filename, "application/json", "data")
+        except Exception:
+            app.logger.warning("Drive sync failed while saving %s", drive_filename, exc_info=True)
+
+
+def build_drive_storage_status():
+    data_folder_id = get_drive_folder_id("data")
+    files = []
+    for filename in ("records.json", "certificates.json", "settings.json"):
+        file_id = None
+        try:
+            file_id = _drive_json_file_ids.get(filename) or find_drive_file_id(filename, "data")
+            if file_id:
+                _drive_json_file_ids[filename] = file_id
+        except Exception:
+            app.logger.warning("Unable to resolve Drive file status for %s", filename, exc_info=True)
+        files.append({
+            "name": filename,
+            "present": bool(file_id),
+            "file_id": file_id or "",
+        })
+
+    return {
+        "drive_enabled": is_drive_enabled(),
+        "data_folder_id": data_folder_id or "",
+        "files": files,
+    }
+
+
 def delete_drive_file(file_id):
     if not file_id:
         return
@@ -231,6 +350,22 @@ def delete_drive_file(file_id):
         service.files().delete(fileId=file_id).execute()
     except Exception:
         pass
+
+
+def delete_local_file_if_exists(path):
+    if path and os.path.exists(path):
+        os.remove(path)
+
+
+def delete_uploaded_file_from_url(file_url):
+    if not file_url:
+        return
+    marker = "/uploads/"
+    if marker not in file_url:
+        return
+    filename = file_url.split(marker, 1)[1].split("?", 1)[0].strip("/")
+    if filename:
+        delete_local_file_if_exists(os.path.join(UPLOAD_DIR, filename))
 
 
 def download_drive_file(file_id):
@@ -363,15 +498,35 @@ def autocrop_passport(img_path, out_path):
 
 
 def save_image_asset(file_storage, filename, kind):
-    img = Image.open(file_storage.stream)
-    img = ImageOps.exif_transpose(img).convert("RGB")
+    try:
+        file_storage.stream.seek(0)
+    except Exception:
+        pass
+
+    file_bytes = file_storage.read()
+    if not file_bytes:
+        raise ValueError("Empty image upload")
+
+    try:
+        img = Image.open(io.BytesIO(file_bytes))
+        img = ImageOps.exif_transpose(img).convert("RGB")
+    except UnidentifiedImageError as exc:
+        raise ValueError("Unsupported image format") from exc
+
     local_path = os.path.join(ASSET_DIR, filename)
-    img.save(local_path, "JPEG", quality=92)
+    output = io.BytesIO()
+    img.save(output, "JPEG", quality=92)
+    output_bytes = output.getvalue()
+    with open(local_path, "wb") as image_file:
+        image_file.write(output_bytes)
+
     drive_id = None
     drive_url = None
     if is_drive_enabled():
-        with open(local_path, "rb") as f:
-            drive_id, drive_url = upload_bytes_to_drive(f.read(), filename, "image/jpeg", kind)
+        try:
+            drive_id, drive_url = upload_bytes_to_drive(output_bytes, filename, "image/jpeg", kind)
+        except Exception:
+            app.logger.warning("Drive upload failed for asset %s", filename, exc_info=True)
     return drive_url or f"/generated-assets/{filename}", drive_id
 
 
@@ -474,6 +629,12 @@ def get_certificate_settings():
         "background_url": background_url,
         "institute": institute
     })
+
+
+@app.route("/api/drive-storage-status")
+@admin_required
+def drive_storage_status():
+    return jsonify(build_drive_storage_status())
 
 @app.route("/uploads/<filename>")
 def uploaded_file(filename):
@@ -608,6 +769,54 @@ def upload_signature():
     save_settings(settings)
     return jsonify({"status": "saved", "signature_url": signature_url})
 
+
+@app.route("/api/delete-background", methods=["DELETE"])
+@admin_required
+def delete_background():
+    institute = canonicalize_institute_name(request.args.get("institute"))
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+
+    settings = load_settings()
+    old_drive_id = settings.setdefault("background_drive_ids", {}).pop(institute, None)
+    old_url = settings.setdefault("backgrounds", {}).pop(institute, "")
+    if old_drive_id:
+        delete_drive_file(old_drive_id)
+    delete_local_file_if_exists(os.path.join(ASSET_DIR, f"card_background_{make_asset_slug(institute)}.jpg"))
+    save_settings(settings)
+    return jsonify({"status": "deleted", "background_url": old_url, "institute": institute})
+
+
+@app.route("/api/delete-certificate-background", methods=["DELETE"])
+@admin_required
+def delete_certificate_background():
+    institute = canonicalize_institute_name(request.args.get("institute"))
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+
+    settings = load_settings()
+    old_drive_id = settings.setdefault("certificate_background_drive_ids", {}).pop(institute, None)
+    old_url = settings.setdefault("certificate_backgrounds", {}).pop(institute, "")
+    if old_drive_id:
+        delete_drive_file(old_drive_id)
+    delete_local_file_if_exists(os.path.join(ASSET_DIR, f"certificate_background_{make_asset_slug(institute)}.jpg"))
+    save_settings(settings)
+    return jsonify({"status": "deleted", "background_url": old_url, "institute": institute})
+
+
+@app.route("/api/delete-signature", methods=["DELETE"])
+@admin_required
+def delete_signature():
+    settings = load_settings()
+    old_drive_id = settings.get("signature_drive_id")
+    if old_drive_id:
+        delete_drive_file(old_drive_id)
+    settings["signature_url"] = ""
+    settings["signature_drive_id"] = ""
+    delete_local_file_if_exists(os.path.join(ASSET_DIR, "hod_signature.png"))
+    save_settings(settings)
+    return jsonify({"status": "deleted"})
+
 @app.route("/api/submit", methods=["POST"])
 def submit():
     data = request.json
@@ -665,6 +874,22 @@ def certificates_api():
     if institute:
         certificates = [c for c in certificates if canonicalize_institute_name(c.get("institute_name")) == institute]
     return jsonify({"certificates": certificates, "institute": institute})
+
+
+@app.route("/api/certificates/<certificate_no>", methods=["DELETE"])
+@admin_required
+def delete_certificate(certificate_no):
+    certificates = load_certificates()
+    certificate_to_delete = next((c for c in certificates if c.get("certificate_no") == certificate_no), None)
+    certificates = [c for c in certificates if c.get("certificate_no") != certificate_no]
+    save_certificates(certificates)
+
+    if certificate_to_delete:
+        if certificate_to_delete.get("photo_drive_id"):
+            delete_drive_file(certificate_to_delete.get("photo_drive_id"))
+        delete_uploaded_file_from_url(certificate_to_delete.get("photo_url"))
+
+    return jsonify({"status": "deleted", "certificate_no": certificate_no})
 
 
 @app.route("/api/batch-summary")
@@ -843,10 +1068,8 @@ def delete_record(serial_no):
     save_records(records)
     if record_to_delete and record_to_delete.get("photo_drive_id"):
         delete_drive_file(record_to_delete.get("photo_drive_id"))
-    # Delete photo
-    photo_path = os.path.join(UPLOAD_DIR, f"{serial_no}.jpg")
-    if os.path.exists(photo_path):
-        os.remove(photo_path)
+    delete_uploaded_file_from_url((record_to_delete or {}).get("photo_url"))
+    delete_local_file_if_exists(os.path.join(UPLOAD_DIR, f"{serial_no}.jpg"))
     return jsonify({"status": "deleted"})
 
 @app.route("/api/export-excel")
