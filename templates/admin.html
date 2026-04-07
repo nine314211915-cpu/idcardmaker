@@ -231,6 +231,33 @@
     flex-wrap: wrap;
     font-size: 12px;
   }
+  .status-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    color: var(--muted);
+  }
+  .status-mini-input, .status-mini-select {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 11px;
+    font-family: 'Source Sans 3', sans-serif;
+    background: white;
+    color: var(--text);
+  }
+  .status-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text);
+  }
+  .status-note {
+    color: var(--muted);
+    font-size: 11px;
+  }
   .status-dot {
     width: 10px;
     height: 10px;
@@ -690,7 +717,18 @@
     <span class="status-dot yellow" id="supabaseStatusDot"></span>
     <strong>Supabase</strong>
     <span id="supabaseStatusSummary">Checking storage status...</span>
+    <span class="status-meta" id="supabaseUsageMeta">Usage: checking...</span>
+    <label class="status-toggle"><input type="checkbox" id="autoDeleteToggle"> Auto Delete</label>
+    <select class="status-mini-select" id="autoDeleteDays">
+      <option value="7">7 days</option>
+      <option value="15">15 days</option>
+      <option value="30">30 days</option>
+      <option value="60">60 days</option>
+    </select>
+    <input class="status-mini-input" type="number" id="storageQuotaMb" min="1" step="1" placeholder="Quota MB" style="width:92px">
+    <button class="btn btn-outline" type="button" onclick="saveStoragePolicy()">Save Policy</button>
     <button class="btn btn-outline" type="button" onclick="runSupabaseStorageTest()">Test Storage</button>
+    <span class="status-note" id="autoDeleteInfo"></span>
   </div>
 </div>
 
@@ -990,25 +1028,41 @@ async function loadSettings() {
 function renderSupabaseStatus() {
   const summary = document.getElementById('supabaseStatusSummary');
   const dot = document.getElementById('supabaseStatusDot');
+  const usage = document.getElementById('supabaseUsageMeta');
+  const quotaInput = document.getElementById('storageQuotaMb');
+  const autoToggle = document.getElementById('autoDeleteToggle');
+  const autoDays = document.getElementById('autoDeleteDays');
+  const autoInfo = document.getElementById('autoDeleteInfo');
 
   if (!supabaseStatus) {
     dot.className = 'status-dot yellow';
     summary.textContent = 'Checking storage status...';
+    usage.textContent = 'Usage: checking...';
+    autoInfo.textContent = '';
     return;
   }
+
+  quotaInput.value = supabaseStatus.storage_quota_mb || 1024;
+  autoToggle.checked = !!supabaseStatus.auto_delete_enabled;
+  autoDays.value = String(supabaseStatus.auto_delete_days || 15);
+  const cleanupText = supabaseStatus.last_auto_cleanup_at ? `Last cleanup: ${supabaseStatus.last_auto_cleanup_at}` : '';
+  autoInfo.textContent = cleanupText;
 
   if (!supabaseStatus.enabled) {
     dot.className = 'status-dot red';
     summary.textContent = supabaseStatus.bucket_error || 'Supabase is not configured';
+    usage.textContent = 'Usage: unavailable';
     return;
   }
 
   if (supabaseStatus.bucket_ready) {
     dot.className = 'status-dot green';
     summary.textContent = 'Storage connected and ready';
+    usage.textContent = `Usage: ${supabaseStatus.usage_summary || 'Not available'}`;
   } else {
     dot.className = 'status-dot red';
     summary.textContent = supabaseStatus.bucket_error || 'Storage check failed';
+    usage.textContent = 'Usage: unavailable';
   }
 }
 
@@ -1024,12 +1078,37 @@ async function loadSupabaseStatus() {
       bucket_name: '',
       bucket_ready: false,
       bucket_error: e.message || 'Unable to load Supabase status',
+      storage_quota_mb: 1024,
+      auto_delete_enabled: false,
+      auto_delete_days: 15,
+      last_auto_cleanup_at: '',
       last_uploaded_file_path: '',
       last_uploaded_serial_no: '',
       last_uploaded_file_url: '',
     };
   }
   renderSupabaseStatus();
+}
+
+async function saveStoragePolicy() {
+  try {
+    const res = await fetch('/api/admin-storage-policy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        storage_quota_mb: document.getElementById('storageQuotaMb').value,
+        auto_delete_enabled: document.getElementById('autoDeleteToggle').checked,
+        auto_delete_days: document.getElementById('autoDeleteDays').value
+      })
+    });
+    await readJsonResponse(res, 'Unable to save storage policy');
+    await loadSupabaseStatus();
+    await loadBatchOverview();
+    await loadRecords();
+    alert('Supabase storage policy saved.');
+  } catch (e) {
+    alert(e.message || 'Unable to save storage policy.');
+  }
 }
 
 async function runSupabaseStorageTest() {

@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, render_template, send_file, send_from_directory, session, redirect, url_for
 import json, os, random, string, zipfile, io, tempfile, csv
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import deque
 from functools import wraps
 from urllib import request as urllib_request, parse as urllib_parse, error as urllib_error
@@ -15,6 +15,7 @@ ASSET_DIR = os.path.join(RUNTIME_DIR, "static", "assets")
 DATA_FILE = os.path.join(RUNTIME_DIR, "records.json")
 CERTIFICATE_DATA_FILE = os.path.join(RUNTIME_DIR, "certificates.json")
 SETTINGS_FILE = os.path.join(RUNTIME_DIR, "settings.json")
+ADMIN_PREFS_FILE = os.path.join(RUNTIME_DIR, "admin_prefs.json")
 STORE_DIR = os.path.join(RUNTIME_DIR, "data_store")
 RECORDS_DIR = os.path.join(STORE_DIR, "records")
 CERTIFICATES_DIR = os.path.join(STORE_DIR, "certificates")
@@ -63,6 +64,15 @@ def default_institute_settings(institute=None):
         "certificate_background_drive_id": "",
         "signature_url": "",
         "signature_drive_id": "",
+    }
+
+
+def default_admin_prefs():
+    return {
+        "storage_quota_mb": 1024,
+        "auto_delete_enabled": False,
+        "auto_delete_days": 15,
+        "last_auto_cleanup_at": "",
     }
 
 
@@ -120,6 +130,35 @@ def load_legacy_settings():
     if isinstance(loaded, dict):
         defaults.update(loaded)
     return defaults
+
+
+def load_admin_prefs():
+    defaults = default_admin_prefs()
+    loaded = load_json_store(ADMIN_PREFS_FILE, "admin_prefs.json", defaults)
+    if isinstance(loaded, dict):
+        defaults.update(loaded)
+    try:
+        defaults["storage_quota_mb"] = max(1, int(defaults.get("storage_quota_mb", 1024) or 1024))
+    except Exception:
+        defaults["storage_quota_mb"] = 1024
+    try:
+        defaults["auto_delete_days"] = max(1, int(defaults.get("auto_delete_days", 15) or 15))
+    except Exception:
+        defaults["auto_delete_days"] = 15
+    defaults["auto_delete_enabled"] = bool(defaults.get("auto_delete_enabled"))
+    defaults["last_auto_cleanup_at"] = str(defaults.get("last_auto_cleanup_at") or "")
+    return defaults
+
+
+def save_admin_prefs(prefs):
+    payload = default_admin_prefs()
+    if isinstance(prefs, dict):
+        payload.update(prefs)
+    payload["storage_quota_mb"] = max(1, int(payload.get("storage_quota_mb", 1024) or 1024))
+    payload["auto_delete_days"] = max(1, int(payload.get("auto_delete_days", 15) or 15))
+    payload["auto_delete_enabled"] = bool(payload.get("auto_delete_enabled"))
+    payload["last_auto_cleanup_at"] = str(payload.get("last_auto_cleanup_at") or "")
+    save_json_store(ADMIN_PREFS_FILE, "admin_prefs.json", payload)
 
 
 def migrate_legacy_records_if_needed():
@@ -360,6 +399,69 @@ def upload_bytes_to_supabase_storage(file_bytes, object_path, mime_type):
         raise RuntimeError(raw or f"Supabase storage upload failed with status {exc.code}") from exc
 
 
+def list_supabase_storage_objects(prefix="", limit=1000):
+    if not is_supabase_enabled():
+        raise RuntimeError("Supabase is not configured")
+    bucket = app.config["SUPABASE_PHOTOS_BUCKET"]
+    base = app.config["SUPABASE_URL"].rstrip("/")
+    url = f"{base}/storage/v1/object/list/{urllib_parse.quote(bucket, safe='')}"
+    payload = {
+        "prefix": (prefix or "").strip("/"),
+        "limit": max(1, min(int(limit or 1000), 1000)),
+        "offset": 0,
+        "sortBy": {"column": "name", "order": "asc"},
+    }
+    req = urllib_request.Request(url, data=json.dumps(payload).encode("utf-8"), method="POST")
+    headers = supabase_headers()
+    headers["Content-Type"] = "application/json"
+    for key, value in headers.items():
+        req.add_header(key, value)
+    try:
+        with urllib_request.urlopen(req, timeout=60) as resp:
+            raw = resp.read().decode("utf-8")
+            data = json.loads(raw) if raw else []
+            return data if isinstance(data, list) else []
+    except urllib_error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(raw or f"Supabase storage list failed with status {exc.code}") from exc
+
+
+def collect_supabase_storage_usage(prefix=""):
+    total_bytes = 0
+    object_count = 0
+    folder_count = 0
+    queue = deque([(prefix or "").strip("/")])
+    visited = set()
+    while queue:
+        current_prefix = queue.popleft()
+        if current_prefix in visited:
+            continue
+        visited.add(current_prefix)
+        for item in list_supabase_storage_objects(current_prefix):
+            name = str(item.get("name") or "").strip()
+            if not name:
+                continue
+            metadata = item.get("metadata") or {}
+            is_folder = item.get("id") is None and not metadata.get("size")
+            if is_folder:
+                folder_count += 1
+                next_prefix = f"{current_prefix}/{name}".strip("/") if current_prefix else name
+                queue.append(next_prefix)
+                continue
+            size = metadata.get("size")
+            try:
+                size_int = int(size or 0)
+            except Exception:
+                size_int = 0
+            total_bytes += max(0, size_int)
+            object_count += 1
+    return {
+        "used_bytes": total_bytes,
+        "object_count": object_count,
+        "folder_count": folder_count,
+    }
+
+
 def build_photo_storage_path(institute, serial, original_filename=""):
     institute_slug = make_storage_slug(institute or "default")
     source_name = os.path.splitext(original_filename or "")[0] or serial or "photo"
@@ -414,8 +516,22 @@ def find_last_uploaded_photo_record(institute=None):
     return None
 
 
+def format_bytes(value):
+    units = ["B", "KB", "MB", "GB", "TB"]
+    amount = float(max(0, value or 0))
+    unit = units[0]
+    for unit in units:
+        if amount < 1024 or unit == units[-1]:
+            break
+        amount /= 1024.0
+    if unit == "B":
+        return f"{int(amount)} {unit}"
+    return f"{amount:.2f} {unit}"
+
+
 def build_supabase_storage_status(institute=None):
     institute = canonicalize_institute_name(institute)
+    admin_prefs = load_admin_prefs()
     status = {
         "enabled": is_supabase_enabled(),
         "project_url": app.config["SUPABASE_URL"],
@@ -426,6 +542,18 @@ def build_supabase_storage_status(institute=None):
         "last_uploaded_file_url": "",
         "last_uploaded_file_path": "",
         "last_uploaded_serial_no": "",
+        "storage_quota_mb": admin_prefs.get("storage_quota_mb", 1024),
+        "storage_quota_bytes": int(admin_prefs.get("storage_quota_mb", 1024)) * 1024 * 1024,
+        "used_bytes": 0,
+        "used_display": "0 B",
+        "left_bytes": 0,
+        "left_display": "0 B",
+        "usage_percent": 0,
+        "usage_summary": "",
+        "object_count": 0,
+        "auto_delete_enabled": admin_prefs.get("auto_delete_enabled", False),
+        "auto_delete_days": admin_prefs.get("auto_delete_days", 15),
+        "last_auto_cleanup_at": admin_prefs.get("last_auto_cleanup_at", ""),
     }
     if not status["enabled"]:
         status["bucket_error"] = "Supabase is not configured"
@@ -436,6 +564,23 @@ def build_supabase_storage_status(institute=None):
         status["bucket_ready"] = True
     except Exception as exc:
         status["bucket_error"] = str(exc) or "Unable to verify bucket"
+
+    if status["bucket_ready"]:
+        try:
+            usage = collect_supabase_storage_usage("")
+            quota_bytes = status["storage_quota_bytes"]
+            used_bytes = int(usage.get("used_bytes", 0) or 0)
+            left_bytes = max(0, quota_bytes - used_bytes)
+            usage_percent = min(100, round((used_bytes / quota_bytes) * 100, 1)) if quota_bytes else 0
+            status["used_bytes"] = used_bytes
+            status["used_display"] = format_bytes(used_bytes)
+            status["left_bytes"] = left_bytes
+            status["left_display"] = format_bytes(left_bytes)
+            status["usage_percent"] = usage_percent
+            status["object_count"] = int(usage.get("object_count", 0) or 0)
+            status["usage_summary"] = f"{status['used_display']} used, {status['left_display']} left ({usage_percent}% used)"
+        except Exception as exc:
+            status["bucket_error"] = status["bucket_error"] or (str(exc) or "Unable to read bucket usage")
 
     try:
         latest = find_last_uploaded_photo_record(institute or None)
@@ -448,6 +593,18 @@ def build_supabase_storage_status(institute=None):
         status["last_uploaded_file_path"] = extract_supabase_object_path(latest.get("photo_url", ""))
         status["last_uploaded_serial_no"] = latest.get("serial_no", "")
     return status
+
+
+def parse_timestamp_display(value):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    for fmt in ("%d/%m/%Y %H:%M:%S", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    return None
 
 
 def default_batch_name(institute):
@@ -627,6 +784,89 @@ def merge_supabase_batches(institute, batch_ids):
         "moved_records": merged_record_total,
         "total_records": len(target_records),
     }
+
+
+def delete_supabase_batch_data(institute, batch_id):
+    institute = canonicalize_institute_name(institute)
+    batch_id = (batch_id or "").strip()
+    if not institute:
+        raise ValueError("Institute is required")
+    if not batch_id:
+        raise ValueError("Batch is required")
+
+    batch = get_supabase_batch(institute, batch_id)
+    if not batch:
+        raise ValueError("Batch not found")
+
+    batch_records = list_supabase_records(institute, batch_id)
+    deleted_photos = 0
+    for record in batch_records:
+        photo_url = record.get("photo_url", "")
+        if photo_url:
+            delete_supabase_storage_url(photo_url)
+            delete_uploaded_file_from_url(photo_url)
+            deleted_photos += 1
+        if record.get("photo_drive_id"):
+            delete_drive_file(record.get("photo_drive_id"))
+        serial_no = record.get("serial_no", "")
+        if serial_no:
+            delete_local_file_if_exists(os.path.join(UPLOAD_DIR, f"{serial_no}.jpg"))
+
+    supabase_request(
+        "DELETE",
+        "records",
+        query={"batch_id": f"eq.{batch_id}", "institute_name": f"eq.{institute}"},
+    )
+    supabase_request(
+        "DELETE",
+        "batches",
+        query={"id": f"eq.{batch_id}", "institute_name": f"eq.{institute}"},
+    )
+    return {
+        "status": "deleted",
+        "batch_id": batch_id,
+        "batch_name": batch.get("batch_name", ""),
+        "deleted_records": len(batch_records),
+        "deleted_photos": deleted_photos,
+        "institute": institute,
+    }
+
+
+def run_supabase_auto_cleanup(force=False):
+    prefs = load_admin_prefs()
+    result = {
+        "enabled": prefs.get("auto_delete_enabled", False),
+        "auto_delete_days": prefs.get("auto_delete_days", 15),
+        "deleted_batches": 0,
+        "deleted_records": 0,
+        "deleted_photos": 0,
+        "last_run_at": prefs.get("last_auto_cleanup_at", ""),
+    }
+    if not is_supabase_enabled() or not prefs.get("auto_delete_enabled"):
+        return result
+
+    last_run = parse_timestamp_display(prefs.get("last_auto_cleanup_at"))
+    if not force and last_run and (datetime.now() - last_run) < timedelta(hours=1):
+        return result
+
+    cutoff = datetime.now() - timedelta(days=max(1, int(prefs.get("auto_delete_days", 15) or 15)))
+    batches = list_all_supabase_batches()
+    for batch in batches:
+        batch_time = parse_timestamp_display(batch.get("submitted_at") or batch.get("created_at"))
+        if not batch_time or batch_time > cutoff:
+            continue
+        try:
+            deleted = delete_supabase_batch_data(batch.get("institute_name"), batch.get("id"))
+        except Exception:
+            continue
+        result["deleted_batches"] += 1
+        result["deleted_records"] += int(deleted.get("deleted_records", 0) or 0)
+        result["deleted_photos"] += int(deleted.get("deleted_photos", 0) or 0)
+
+    result["last_run_at"] = current_timestamp_display()
+    prefs["last_auto_cleanup_at"] = result["last_run_at"]
+    save_admin_prefs(prefs)
+    return result
 
 
 def create_supabase_batch(institute, records, batch_name=None):
@@ -1856,9 +2096,42 @@ def batch_overview():
 def supabase_storage_status():
     institute = canonicalize_institute_name(request.args.get("institute"))
     try:
+        run_supabase_auto_cleanup()
         return jsonify(build_supabase_storage_status(institute or None))
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to load Supabase status"}), 500
+
+
+@app.route("/api/admin-storage-policy")
+@admin_required
+def get_admin_storage_policy():
+    return jsonify(load_admin_prefs())
+
+
+@app.route("/api/admin-storage-policy", methods=["POST"])
+@admin_required
+def save_admin_storage_policy():
+    payload = request.json or {}
+    prefs = load_admin_prefs()
+    if "storage_quota_mb" in payload:
+        try:
+            prefs["storage_quota_mb"] = max(1, int(payload.get("storage_quota_mb") or 1024))
+        except Exception:
+            return jsonify({"error": "Storage quota must be a number"}), 400
+    if "auto_delete_days" in payload:
+        try:
+            prefs["auto_delete_days"] = max(1, int(payload.get("auto_delete_days") or 15))
+        except Exception:
+            return jsonify({"error": "Auto delete days must be a number"}), 400
+    if "auto_delete_enabled" in payload:
+        prefs["auto_delete_enabled"] = bool(payload.get("auto_delete_enabled"))
+    save_admin_prefs(prefs)
+    cleanup_result = run_supabase_auto_cleanup(force=True)
+    return jsonify({
+        "status": "saved",
+        "policy": load_admin_prefs(),
+        "cleanup": cleanup_result,
+    })
 
 
 @app.route("/api/supabase-storage-test", methods=["POST"])
@@ -1898,40 +2171,13 @@ def delete_batch(batch_id):
         return jsonify({"error": "Supabase is not configured"}), 500
 
     try:
-        batch = get_supabase_batch(institute, batch_id)
-        if not batch:
-            return jsonify({"error": "Batch not found"}), 404
-
-        batch_records = list_supabase_records(institute, batch_id)
-        deleted_photos = 0
-        for record in batch_records:
-            photo_url = record.get("photo_url", "")
-            if photo_url:
-                delete_supabase_storage_url(photo_url)
-                delete_uploaded_file_from_url(photo_url)
-                deleted_photos += 1
-            if record.get("photo_drive_id"):
-                delete_drive_file(record.get("photo_drive_id"))
-            serial_no = record.get("serial_no", "")
-            if serial_no:
-                delete_local_file_if_exists(os.path.join(UPLOAD_DIR, f"{serial_no}.jpg"))
-
-        supabase_request(
-            "DELETE",
-            "batches",
-            query={"id": f"eq.{batch_id}", "institute_name": f"eq.{institute}"},
-        )
+        result = delete_supabase_batch_data(institute, batch_id)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 404
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to delete batch"}), 500
 
-    return jsonify({
-        "status": "deleted",
-        "batch_id": batch_id,
-        "batch_name": batch.get("batch_name", ""),
-        "deleted_records": len(batch_records),
-        "deleted_photos": deleted_photos,
-        "institute": institute,
-    })
+    return jsonify(result)
 
 
 @app.route("/api/batches/merge", methods=["POST"])
