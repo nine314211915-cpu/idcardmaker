@@ -198,6 +198,17 @@
     font-size: 12px;
     color: var(--red);
   }
+  .kv-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--text);
+    word-break: break-word;
+  }
+  .kv-list strong {
+    color: var(--red);
+  }
   .asset-preview {
     min-height: 120px;
     border: 1px dashed var(--border);
@@ -528,8 +539,6 @@
 <div class="toolbar">
   <div class="stats-bar">
     <div class="stat-pill">Total: <span class="num" id="statTotal">-</span></div>
-    <div class="stat-pill"><span id="statLabelPrimary">Students</span>: <span class="num" id="statStudents">-</span></div>
-    <div class="stat-pill"><span id="statLabelSecondary">Staff</span>: <span class="num" id="statFaculty">-</span></div>
     <div class="stat-pill">Scope: <span class="num" id="statScope">All Institutes</span></div>
   </div>
   <select class="filter-select" id="instituteFilter" onchange="loadRecords()">
@@ -549,15 +558,31 @@
   </select>
   <button class="btn btn-outline" onclick="deleteSelectedBatch()">Delete Batch</button>
   <input type="text" class="search-bar" id="searchInput" placeholder="Search name / serial" oninput="filterTable()">
-  <select class="filter-select" id="typeFilter" onchange="filterTable()">
-    <option value="">All Types</option>
-    <option value="student">Student</option>
-    <option value="lecturer">Teacher</option>
-    <option value="employee">Employee</option>
-  </select>
   <button class="btn btn-green" onclick="exportExcel()">Export Excel</button>
   <button class="btn btn-red" onclick="exportZip()">Download ZIP</button>
   <button class="btn btn-outline" onclick="loadRecords()">Refresh</button>
+</div>
+
+<div class="asset-panel">
+  <div class="asset-grid">
+    <div class="asset-box">
+      <h3>Supabase Status</h3>
+      <p>Monitor the active project, storage bucket, and the most recent uploaded file for the selected institute.</p>
+      <div class="asset-actions">
+        <button class="btn btn-outline" type="button" onclick="runSupabaseStorageTest()">Test Storage</button>
+        <span class="asset-status" id="supabaseStatusSummary">Checking Supabase status...</span>
+      </div>
+      <div class="kv-list">
+        <div><strong>Project URL:</strong> <span id="supabaseProjectUrl">-</span></div>
+        <div><strong>Bucket Name:</strong> <span id="supabaseBucketName">-</span></div>
+        <div><strong>Last Uploaded File:</strong> <span id="supabaseLastFilePath">-</span></div>
+        <div><strong>Last Uploaded Serial:</strong> <span id="supabaseLastSerial">-</span></div>
+      </div>
+    </div>
+    <div class="asset-box">
+      <div class="asset-preview" id="supabaseTestPreview">Run a storage test to verify bucket access.</div>
+    </div>
+  </div>
 </div>
 
 <div class="asset-panel">
@@ -658,6 +683,7 @@
 let allRecords = [];
 let deleteTarget = null;
 let appSettings = { background_url: '', signature_url: '', certificate_background_url: '' };
+let supabaseStatus = null;
 const COLLEGE_INSTITUTES = ['Govt. Medical College, Jhunjhunu', 'Govt. Nursing College, Jhunjhunu', 'Govt. ANM Training Center, Jhunjhunu'];
 let attachPhotoTarget = null;
 const ADMIN_UI_STATE_KEY = 'admin_ui_state_v1';
@@ -666,7 +692,6 @@ function saveAdminUiState() {
   const payload = {
     instituteFilter: document.getElementById('instituteFilter').value,
     batchFilter: document.getElementById('batchFilter').value,
-    typeFilter: document.getElementById('typeFilter').value,
     searchInput: document.getElementById('searchInput').value,
   };
   try {
@@ -697,11 +722,9 @@ function isDepartmentInstitute() {
 
 function getFilteredRecords() {
   const q = document.getElementById('searchInput').value.toLowerCase();
-  const type = document.getElementById('typeFilter').value;
   return allRecords.filter(r => {
     const matchQ = !q || (r.name || '').toLowerCase().includes(q) || (r.serial_no || '').toLowerCase().includes(q);
-    const matchType = !type || r.profile_type === type;
-    return matchQ && matchType;
+    return matchQ;
   });
 }
 
@@ -744,6 +767,86 @@ async function loadSettings() {
   } catch (e) {
     appSettings = { background_url: '', signature_url: '', certificate_background_url: '' };
     renderBackgroundPreview();
+  }
+}
+
+function renderSupabaseStatus() {
+  const summary = document.getElementById('supabaseStatusSummary');
+  const project = document.getElementById('supabaseProjectUrl');
+  const bucket = document.getElementById('supabaseBucketName');
+  const lastPath = document.getElementById('supabaseLastFilePath');
+  const lastSerial = document.getElementById('supabaseLastSerial');
+  const preview = document.getElementById('supabaseTestPreview');
+
+  if (!supabaseStatus) {
+    summary.textContent = 'Checking Supabase status...';
+    project.textContent = '-';
+    bucket.textContent = '-';
+    lastPath.textContent = '-';
+    lastSerial.textContent = '-';
+    preview.textContent = 'Run a storage test to verify bucket access.';
+    return;
+  }
+
+  project.textContent = supabaseStatus.project_url || '-';
+  bucket.textContent = supabaseStatus.bucket_name || '-';
+  lastPath.textContent = supabaseStatus.last_uploaded_file_path || '-';
+  lastSerial.textContent = supabaseStatus.last_uploaded_serial_no || '-';
+
+  if (!supabaseStatus.enabled) {
+    summary.textContent = supabaseStatus.bucket_error || 'Supabase is not configured.';
+    preview.textContent = 'Supabase is not configured for this deployment.';
+    return;
+  }
+
+  if (supabaseStatus.bucket_ready) {
+    summary.textContent = 'Bucket connected and ready.';
+  } else {
+    summary.textContent = supabaseStatus.bucket_error || 'Bucket check failed.';
+  }
+
+  if (supabaseStatus.last_uploaded_file_url) {
+    preview.innerHTML = `<a href="${supabaseStatus.last_uploaded_file_url}" target="_blank" rel="noreferrer">Open last uploaded file</a>`;
+  } else {
+    preview.textContent = 'No uploaded photo found for the current scope yet.';
+  }
+}
+
+async function loadSupabaseStatus() {
+  try {
+    const institute = encodeURIComponent(getSelectedInstitute() || '');
+    const res = await fetch(`/api/supabase-storage-status?institute=${institute}`);
+    supabaseStatus = await readJsonResponse(res, 'Unable to load Supabase status');
+  } catch (e) {
+    supabaseStatus = {
+      enabled: false,
+      project_url: '',
+      bucket_name: '',
+      bucket_ready: false,
+      bucket_error: e.message || 'Unable to load Supabase status',
+      last_uploaded_file_path: '',
+      last_uploaded_serial_no: '',
+      last_uploaded_file_url: '',
+    };
+  }
+  renderSupabaseStatus();
+}
+
+async function runSupabaseStorageTest() {
+  try {
+    document.getElementById('supabaseStatusSummary').textContent = 'Running storage test...';
+    const res = await fetch('/api/supabase-storage-test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ institute: getSelectedInstitute() || '' })
+    });
+    const data = await readJsonResponse(res, 'Storage test failed');
+    document.getElementById('supabaseTestPreview').textContent = `${data.message}. Probe: ${data.probe_path}`;
+    await loadSupabaseStatus();
+    alert('Supabase storage test completed successfully.');
+  } catch (e) {
+    document.getElementById('supabaseTestPreview').textContent = e.message || 'Storage test failed.';
+    alert(e.message || 'Storage test failed.');
   }
 }
 
@@ -798,6 +901,7 @@ async function deleteSelectedBatch() {
     allRecords = [];
     updateStats([]);
     await loadBatches();
+    await loadSupabaseStatus();
     document.getElementById('recordCount').textContent = 'Select a batch';
     document.getElementById('tableContainer').innerHTML = '<div class="no-records">Select a batch to load records</div>';
     alert(`Deleted batch "${data.batch_name || batchId}" with ${data.deleted_records || 0} record(s).`);
@@ -996,6 +1100,7 @@ async function loadRecords() {
     await loadBatches();
   }
   loadSettings();
+  loadSupabaseStatus();
   if (!getSelectedInstitute()) {
     allRecords = [];
     document.getElementById('recordCount').textContent = 'Select an institute';
@@ -1029,28 +1134,8 @@ async function loadRecords() {
 
 function updateStats(records) {
   const source = records || allRecords;
-  const students = source.filter(r => r.profile_type === 'student').length;
-  const teachers = source.filter(r => r.profile_type === 'lecturer').length;
-  const employees = source.filter(r => r.profile_type === 'employee').length;
-  const sections = new Set(source.map(r => (r.department || '').trim()).filter(Boolean)).size;
   document.getElementById('statTotal').textContent = source.length;
   document.getElementById('statScope').textContent = getSelectedInstitute() || 'All Institutes';
-  if (isDepartmentInstitute()) {
-    document.getElementById('statLabelPrimary').textContent = 'Employees';
-    document.getElementById('statLabelSecondary').textContent = 'Sections';
-    document.getElementById('statStudents').textContent = employees;
-    document.getElementById('statFaculty').textContent = sections;
-  } else if (getSelectedInstitute()) {
-    document.getElementById('statLabelPrimary').textContent = 'Students';
-    document.getElementById('statLabelSecondary').textContent = 'Teachers';
-    document.getElementById('statStudents').textContent = students;
-    document.getElementById('statFaculty').textContent = teachers;
-  } else {
-    document.getElementById('statLabelPrimary').textContent = 'Students';
-    document.getElementById('statLabelSecondary').textContent = 'Staff';
-    document.getElementById('statStudents').textContent = students;
-    document.getElementById('statFaculty').textContent = teachers + employees;
-  }
 }
 
 function filterTable() {
@@ -1292,14 +1377,12 @@ document.getElementById('batchFilter').innerHTML = '<option value="">Select Batc
 if (typeof persistedAdminUiState.batchFilter === 'string') {
   document.getElementById('batchFilter').dataset.pendingValue = persistedAdminUiState.batchFilter;
 }
-if (typeof persistedAdminUiState.typeFilter === 'string') {
-  document.getElementById('typeFilter').value = persistedAdminUiState.typeFilter;
+if (typeof persistedAdminUiState.instituteFilter === 'string') {
+  document.getElementById('instituteFilter').value = persistedAdminUiState.instituteFilter;
 }
 if (typeof persistedAdminUiState.searchInput === 'string') {
   document.getElementById('searchInput').value = persistedAdminUiState.searchInput;
 }
-
-document.getElementById('instituteFilter').value = '';
 loadSettings();
 loadRecords();
 </script>

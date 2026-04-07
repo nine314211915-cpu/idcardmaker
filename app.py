@@ -390,6 +390,66 @@ def delete_supabase_storage_url(file_url):
         return
 
 
+def extract_supabase_object_path(file_url):
+    if not file_url or not is_supabase_enabled():
+        return ""
+    base = app.config["SUPABASE_URL"].rstrip("/")
+    public_prefix = f"{base}/storage/v1/object/public/"
+    if not file_url.startswith(public_prefix):
+        return ""
+    remainder = file_url[len(public_prefix):]
+    bucket, _, object_path = remainder.partition("/")
+    if bucket != app.config["SUPABASE_PHOTOS_BUCKET"]:
+        return ""
+    return object_path
+
+
+def find_last_uploaded_photo_record(institute=None):
+    if not is_supabase_enabled():
+        return None
+    records = list_supabase_records(institute)
+    for record in records:
+        if record.get("photo_url"):
+            return record
+    return None
+
+
+def build_supabase_storage_status(institute=None):
+    institute = canonicalize_institute_name(institute)
+    status = {
+        "enabled": is_supabase_enabled(),
+        "project_url": app.config["SUPABASE_URL"],
+        "bucket_name": app.config["SUPABASE_PHOTOS_BUCKET"],
+        "bucket_ready": False,
+        "bucket_error": "",
+        "institute": institute or "",
+        "last_uploaded_file_url": "",
+        "last_uploaded_file_path": "",
+        "last_uploaded_serial_no": "",
+    }
+    if not status["enabled"]:
+        status["bucket_error"] = "Supabase is not configured"
+        return status
+
+    try:
+        ensure_supabase_bucket(status["bucket_name"])
+        status["bucket_ready"] = True
+    except Exception as exc:
+        status["bucket_error"] = str(exc) or "Unable to verify bucket"
+
+    try:
+        latest = find_last_uploaded_photo_record(institute or None)
+    except Exception as exc:
+        status["bucket_error"] = status["bucket_error"] or (str(exc) or "Unable to read latest uploads")
+        latest = None
+
+    if latest:
+        status["last_uploaded_file_url"] = latest.get("photo_url", "")
+        status["last_uploaded_file_path"] = extract_supabase_object_path(latest.get("photo_url", ""))
+        status["last_uploaded_serial_no"] = latest.get("serial_no", "")
+    return status
+
+
 def default_batch_name(institute):
     institute_slug = make_storage_slug(institute).replace("_", "-")
     return f"{institute_slug}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
@@ -1672,6 +1732,41 @@ def get_batches():
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to load batches"}), 500
     return jsonify({"batches": batches, "institute": institute})
+
+
+@app.route("/api/supabase-storage-status")
+@admin_required
+def supabase_storage_status():
+    institute = canonicalize_institute_name(request.args.get("institute"))
+    try:
+        return jsonify(build_supabase_storage_status(institute or None))
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Unable to load Supabase status"}), 500
+
+
+@app.route("/api/supabase-storage-test", methods=["POST"])
+@admin_required
+def supabase_storage_test():
+    institute = canonicalize_institute_name((request.json or {}).get("institute"))
+    if not is_supabase_enabled():
+        return jsonify({"error": "Supabase is not configured"}), 500
+    try:
+        ensure_supabase_bucket(app.config["SUPABASE_PHOTOS_BUCKET"])
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+        probe_path = f"system-tests/{make_storage_slug(institute or 'default')}/probe-{timestamp}.txt"
+        probe_text = f"Supabase storage test {timestamp}".encode("utf-8")
+        probe_url = upload_bytes_to_supabase_storage(probe_text, probe_path, "text/plain")
+        delete_supabase_storage_url(probe_url)
+        return jsonify({
+            "status": "ok",
+            "project_url": app.config["SUPABASE_URL"],
+            "bucket_name": app.config["SUPABASE_PHOTOS_BUCKET"],
+            "probe_path": probe_path,
+            "probe_url": probe_url,
+            "message": "Storage test completed successfully",
+        })
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Storage test failed"}), 500
 
 
 @app.route("/api/batches/<batch_id>", methods=["DELETE"])
