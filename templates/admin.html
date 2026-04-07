@@ -547,6 +547,7 @@
   <select class="filter-select" id="batchFilter" onchange="loadRecords()">
     <option value="">Select Batch</option>
   </select>
+  <button class="btn btn-outline" onclick="deleteSelectedBatch()">Delete Batch</button>
   <input type="text" class="search-bar" id="searchInput" placeholder="Search name / serial" oninput="filterTable()">
   <select class="filter-select" id="typeFilter" onchange="filterTable()">
     <option value="">All Types</option>
@@ -768,6 +769,40 @@ async function loadBatches() {
     delete batchFilter.dataset.pendingValue;
   } catch (e) {
     batchFilter.innerHTML = '<option value="">Select Batch</option>';
+  }
+}
+
+async function deleteSelectedBatch() {
+  const institute = getSelectedInstitute();
+  const batchId = getSelectedBatch();
+  if (!institute) {
+    alert('Please select an institute first.');
+    return;
+  }
+  if (!batchId) {
+    alert('Please select a batch first.');
+    return;
+  }
+
+  const selectedOption = document.querySelector(`#batchFilter option[value="${CSS.escape(batchId)}"]`);
+  const batchLabel = selectedOption ? selectedOption.textContent.trim() : batchId;
+  if (!confirm(`Delete this batch and all records inside it?\n\n${batchLabel}`)) return;
+
+  try {
+    const res = await fetch(`/api/batches/${encodeURIComponent(batchId)}?institute=${encodeURIComponent(institute)}`, {
+      method: 'DELETE'
+    });
+    const data = await readJsonResponse(res, 'Unable to delete batch');
+    document.getElementById('batchFilter').dataset.pendingValue = '';
+    document.getElementById('batchFilter').value = '';
+    allRecords = [];
+    updateStats([]);
+    await loadBatches();
+    document.getElementById('recordCount').textContent = 'Select a batch';
+    document.getElementById('tableContainer').innerHTML = '<div class="no-records">Select a batch to load records</div>';
+    alert(`Deleted batch "${data.batch_name || batchId}" with ${data.deleted_records || 0} record(s).`);
+  } catch (e) {
+    alert(e.message || 'Unable to delete batch.');
   }
 }
 

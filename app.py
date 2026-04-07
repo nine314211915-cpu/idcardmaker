@@ -455,6 +455,26 @@ def list_supabase_records(institute=None, batch_id=None):
     return [unpack_supabase_record(row) for row in (rows if isinstance(rows, list) else [])]
 
 
+def get_supabase_batch(institute, batch_id):
+    institute = canonicalize_institute_name(institute)
+    batch_id = (batch_id or "").strip()
+    if not institute or not batch_id:
+        return None
+    rows = supabase_request(
+        "GET",
+        "batches",
+        query={
+            "select": "id,batch_name,institute_name,status,total_cards,created_at,submitted_at",
+            "id": f"eq.{batch_id}",
+            "institute_name": f"eq.{institute}",
+            "limit": 1,
+        },
+    )
+    if isinstance(rows, list) and rows:
+        return rows[0]
+    return None
+
+
 def create_supabase_batch(institute, records, batch_name=None):
     institute = canonicalize_institute_name(institute)
     if not institute:
@@ -1652,6 +1672,54 @@ def get_batches():
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to load batches"}), 500
     return jsonify({"batches": batches, "institute": institute})
+
+
+@app.route("/api/batches/<batch_id>", methods=["DELETE"])
+@admin_required
+def delete_batch(batch_id):
+    institute = canonicalize_institute_name(request.args.get("institute"))
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    if not batch_id:
+        return jsonify({"error": "Batch is required"}), 400
+    if not is_supabase_enabled():
+        return jsonify({"error": "Supabase is not configured"}), 500
+
+    try:
+        batch = get_supabase_batch(institute, batch_id)
+        if not batch:
+            return jsonify({"error": "Batch not found"}), 404
+
+        batch_records = list_supabase_records(institute, batch_id)
+        deleted_photos = 0
+        for record in batch_records:
+            photo_url = record.get("photo_url", "")
+            if photo_url:
+                delete_supabase_storage_url(photo_url)
+                delete_uploaded_file_from_url(photo_url)
+                deleted_photos += 1
+            if record.get("photo_drive_id"):
+                delete_drive_file(record.get("photo_drive_id"))
+            serial_no = record.get("serial_no", "")
+            if serial_no:
+                delete_local_file_if_exists(os.path.join(UPLOAD_DIR, f"{serial_no}.jpg"))
+
+        supabase_request(
+            "DELETE",
+            "batches",
+            query={"id": f"eq.{batch_id}", "institute_name": f"eq.{institute}"},
+        )
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Unable to delete batch"}), 500
+
+    return jsonify({
+        "status": "deleted",
+        "batch_id": batch_id,
+        "batch_name": batch.get("batch_name", ""),
+        "deleted_records": len(batch_records),
+        "deleted_photos": deleted_photos,
+        "institute": institute,
+    })
 
 
 @app.route("/api/submit-batch", methods=["POST"])
