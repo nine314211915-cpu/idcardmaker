@@ -140,6 +140,26 @@
     gap: 6px;
   }
   .stat-pill .num { font-weight: 700; color: var(--red); }
+  .active-batch-bar {
+    max-width: 1200px;
+    margin: 10px auto 0;
+    padding: 0 16px;
+  }
+  .active-batch-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 10px 14px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+    font-size: 12px;
+  }
+  .active-batch-card strong {
+    color: var(--red);
+  }
   .btn {
     padding: 8px 14px;
     border: none;
@@ -578,9 +598,18 @@
     <option value="">Select Batch</option>
   </select>
   <button class="btn btn-outline" onclick="deleteSelectedBatch()">Delete Batch</button>
+  <button class="btn btn-outline" type="button" onclick="document.getElementById('csvImportInput').click()">CSV Import</button>
   <button class="btn btn-green" onclick="exportExcel()">Export Excel</button>
   <button class="btn btn-red" onclick="exportZip()">Download ZIP</button>
   <button class="btn btn-outline" onclick="loadRecords()">Refresh</button>
+</div>
+
+<div class="active-batch-bar">
+  <div class="active-batch-card">
+    <div><strong>Institute:</strong> <span id="activeInstituteInfo">No institute selected</span></div>
+    <div><strong>Batch:</strong> <span id="activeBatchInfo">No batch selected</span></div>
+    <div><strong>Status:</strong> <span id="activeBatchState">Waiting for selection</span></div>
+  </div>
 </div>
 
 <div class="asset-panel">
@@ -599,18 +628,10 @@
         <div><strong>Last Uploaded Serial:</strong> <span id="supabaseLastSerial">-</span></div>
       </div>
     </div>
-    <div class="asset-box compact">
-      <h3>CSV Import</h3>
-      <p>Upload bulk records before managing photos and batches.</p>
-      <div class="asset-actions">
-        <button class="btn btn-outline" type="button" onclick="document.getElementById('csvImportInput').click()">Upload CSV</button>
-        <span class="asset-status" id="csvImportStatus">No CSV imported yet.</span>
-      </div>
-      <input type="file" id="csvImportInput" accept=".csv,text/csv" style="display:none" onchange="handleCsvImport(this)">
-      <div class="asset-preview" id="csvImportPreview">CSV import lets you create records first and attach photos later from the table.</div>
-    </div>
   </div>
 </div>
+
+<input type="file" id="csvImportInput" accept=".csv,text/csv" style="display:none" onchange="handleCsvImport(this)">
 
 <div class="table-wrap">
   <div class="panel">
@@ -732,6 +753,26 @@ function getFilteredRecords() {
   return allRecords.slice();
 }
 
+function renderActiveBatchDetails() {
+  const instituteLabel = document.getElementById('activeInstituteInfo');
+  const batchLabel = document.getElementById('activeBatchInfo');
+  const batchState = document.getElementById('activeBatchState');
+  const institute = getSelectedInstitute();
+  const batchId = getSelectedBatch();
+  const selectedOption = batchId ? document.querySelector(`#batchFilter option[value="${CSS.escape(batchId)}"]`) : null;
+
+  instituteLabel.textContent = institute || 'No institute selected';
+  batchLabel.textContent = selectedOption ? selectedOption.textContent.trim() : 'No batch selected';
+
+  if (!institute) {
+    batchState.textContent = 'Select an institute';
+  } else if (!batchId) {
+    batchState.textContent = 'Select a batch';
+  } else {
+    batchState.textContent = 'Batch loaded for this institute';
+  }
+}
+
 async function readJsonResponse(res, fallbackMessage) {
   const rawText = await res.text();
   let data = null;
@@ -753,6 +794,7 @@ async function loadSettings() {
   if (!getSelectedInstitute()) {
     appSettings = { background_url: '', signature_url: '', certificate_background_url: '' };
     renderBackgroundPreview();
+    renderActiveBatchDetails();
     return;
   }
   try {
@@ -772,6 +814,7 @@ async function loadSettings() {
     appSettings = { background_url: '', signature_url: '', certificate_background_url: '' };
     renderBackgroundPreview();
   }
+  renderActiveBatchDetails();
 }
 
 function renderSupabaseStatus() {
@@ -848,6 +891,7 @@ async function loadBatches() {
   const institute = getSelectedInstitute();
   if (!institute) {
     batchFilter.innerHTML = '<option value="">Select Batch</option>';
+    renderActiveBatchDetails();
     return;
   }
   try {
@@ -866,6 +910,7 @@ async function loadBatches() {
   } catch (e) {
     batchFilter.innerHTML = '<option value="">Select Batch</option>';
   }
+  renderActiveBatchDetails();
 }
 
 async function deleteSelectedBatch() {
@@ -1015,8 +1060,7 @@ async function handleCsvImport(input) {
     const res = await fetch('/api/import-csv', { method: 'POST', body: formData });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'CSV import failed');
-    document.getElementById('csvImportStatus').textContent = `Imported ${data.imported} and updated ${data.updated} record(s).`;
-    document.getElementById('csvImportPreview').textContent = 'CSV import completed successfully.';
+    alert(`CSV imported: ${data.imported} added, ${data.updated} updated.`);
     loadRecords();
   } catch (e) {
     alert(e.message || 'CSV import failed.');
@@ -1099,6 +1143,7 @@ async function loadRecords() {
     document.getElementById('recordCount').textContent = 'Select an institute';
     document.getElementById('tableContainer').innerHTML = '<div class="no-records">Select an institute to load records</div>';
     updateStats([]);
+    renderActiveBatchDetails();
     return;
   }
   if (!getSelectedBatch()) {
@@ -1106,6 +1151,7 @@ async function loadRecords() {
     document.getElementById('recordCount').textContent = 'Select a batch';
     document.getElementById('tableContainer').innerHTML = '<div class="no-records">Select a batch to load records</div>';
     updateStats([]);
+    renderActiveBatchDetails();
     return;
   }
   document.getElementById('tableContainer').innerHTML = '<div class="loading-text">Loading...</div>';
@@ -1118,10 +1164,12 @@ async function loadRecords() {
     const filtered = getFilteredRecords();
     updateStats(filtered);
     renderTable(filtered);
+    renderActiveBatchDetails();
   } catch (e) {
     allRecords = [];
     updateStats([]);
     document.getElementById('tableContainer').innerHTML = `<div class="loading-text">${e.message || 'Failed to load records.'}</div>`;
+    renderActiveBatchDetails();
   }
 }
 
