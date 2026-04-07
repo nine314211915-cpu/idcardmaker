@@ -1176,6 +1176,7 @@ function saveUiState() {
   const payload = {
     instituteName: document.getElementById('instituteName').value,
     otherInstituteName: document.getElementById('otherInstituteName').value,
+    selectedBatchSerial,
   };
   try {
     localStorage.setItem(UI_STATE_KEY, JSON.stringify(payload));
@@ -1569,6 +1570,7 @@ async function loadSubmittedCards() {
     selectedBatchSerial = '';
     picker.innerHTML = '<option value="">Select an entered card</option>';
     selectedCard.innerHTML = '<div class="batch-note">No cards for this institute yet.</div>';
+    saveUiState();
     return;
   }
   picker.innerHTML = '<option value="">Select an entered card</option>' + currentBatchRecords.map(record => `<option value="${escapeHtml(record.serial_no || '')}">${escapeHtml(record.name || 'Unnamed')} | ${escapeHtml(record.serial_no || '-')}</option>`).join('');
@@ -1578,10 +1580,16 @@ async function loadSubmittedCards() {
   }
   picker.value = selectedBatchSerial;
   renderSelectedBatchCard();
+  saveUiState();
 }
 
-function jumpToSelectedCard() {
+async function jumpToSelectedCard() {
   selectedBatchSerial = document.getElementById('savedCardPicker').value;
+  saveUiState();
+  if (selectedBatchSerial) {
+    await editSubmittedCard(selectedBatchSerial);
+    return;
+  }
   renderSelectedBatchCard();
 }
 
@@ -1966,6 +1974,7 @@ async function editSubmittedCard(serial) {
     const record = currentBatchRecords.find(item => item.serial_no === serial);
     if (!record) throw new Error('Submitted card not found.');
     selectedBatchSerial = serial;
+    saveUiState();
     await populateFormFromRecord(record);
     lastLoadedSubmittedSerial = serial;
     showToast('Loaded card for editing: ' + serial);
@@ -2204,12 +2213,19 @@ if (persistedUiState.instituteName) {
 if (typeof persistedUiState.otherInstituteName === 'string') {
   document.getElementById('otherInstituteName').value = persistedUiState.otherInstituteName;
 }
+if (typeof persistedUiState.selectedBatchSerial === 'string') {
+  selectedBatchSerial = persistedUiState.selectedBatchSerial;
+}
 handleInstituteChange();
 batchInstituteLocked = false;
 setInstituteLocked(false);
 updatePreview();
 loadSettings();
-loadBatchSummary();
+loadBatchSummary().then(async () => {
+  if (selectedBatchSerial && currentBatchRecords.some(record => record.serial_no === selectedBatchSerial)) {
+    await editSubmittedCard(selectedBatchSerial);
+  }
+});
 </script>
 </body>
 </html>
