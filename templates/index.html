@@ -856,10 +856,6 @@
         <div class="section-title" id="profileTitle">Select Profile Type</div>
         <div class="top-tools-row">
           <div class="form-group compact-field">
-            <label>Auto Generated Serial</label>
-            <div class="form-group serial-box">
-              <input type="text" id="serialNo" readonly placeholder="Auto-generated">
-            </div>
             <label>Photo Upload <span class="req">*</span> — AI Powered Face-Only Crop</label>
             <div class="photo-upload-area" id="photoArea" onclick="openGalleryPicker()">
               <div class="photo-placeholder" id="photoPlaceholder">
@@ -882,7 +878,7 @@
               <div class="bulk-photo-row">
                 <button class="btn-mini" type="button" onclick="openBulkPhotoPicker()">Upload Bulk Photos</button>
               </div>
-              <div class="bulk-photo-note">Photo file name format: use the saved name like <strong>Mamta</strong>, <strong>Mamta 1</strong>, <strong>Mamta 2</strong> or the ending number from the serial like <strong>1</strong>, <strong>2</strong>, <strong>3</strong>. The app will match automatically inside this local batch.</div>
+              <div class="bulk-photo-note">Use saved names like <strong>Mamta</strong>, <strong>Mamta 1</strong>, or numbers like <strong>1</strong>, <strong>2</strong>, <strong>3</strong>. Matching is automatic.</div>
             </div>
           </div>
           <div class="type-block">
@@ -894,6 +890,9 @@
               <button class="type-btn" onclick="setType('lecturer')" id="btnLecturer">
                 <span class="icon">👨‍🏫</span>Lecturer / Teacher
               </button>
+            </div>
+            <div class="form-group serial-box">
+              <input type="text" id="serialNo" readonly placeholder="Auto-generated">
             </div>
             <div class="helper-text" id="modeHelper">Choose student or teacher for college cards.</div>
           </div>
