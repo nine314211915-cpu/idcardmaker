@@ -313,6 +313,14 @@
     font-size: 10px;
     color: var(--muted);
     line-height: 1.4;
+    max-width: 280px;
+  }
+  .bulk-photo-note strong {
+    color: var(--red);
+    font-weight: 700;
+  }
+  .serial-box {
+    margin-bottom: 10px;
   }
   #photoInput { display: none; }
 
@@ -848,6 +856,10 @@
         <div class="section-title" id="profileTitle">Select Profile Type</div>
         <div class="top-tools-row">
           <div class="form-group compact-field">
+            <label>Auto Generated Serial</label>
+            <div class="form-group serial-box">
+              <input type="text" id="serialNo" readonly placeholder="Auto-generated">
+            </div>
             <label>Photo Upload <span class="req">*</span> — AI Powered Face-Only Crop</label>
             <div class="photo-upload-area" id="photoArea" onclick="openGalleryPicker()">
               <div class="photo-placeholder" id="photoPlaceholder">
@@ -868,16 +880,9 @@
             <input type="file" id="bulkPhotoInput" accept="image/*" multiple style="display:none" onchange="handleBulkPhotoUpload(this)">
             <div class="bulk-photo-tools">
               <div class="bulk-photo-row">
-                <select id="bulkPhotoMode">
-                  <option value="serial">Bulk Match by Serial Number</option>
-                  <option value="name">Bulk Match by Name</option>
-                </select>
                 <button class="btn-mini" type="button" onclick="openBulkPhotoPicker()">Upload Bulk Photos</button>
               </div>
-              <div class="bulk-photo-note">Serial mode matches by the last number in the serial or filename. Name mode matches names like `Mamta`, `Mamta 1`, `Mamta 2` within this local draft batch.</div>
-            </div>
-            <div class="form-group serial-box" style="margin-top:10px">
-              <input type="text" id="serialNo" readonly placeholder="Auto-generated">
+              <div class="bulk-photo-note">Photo file name format: use the saved name like <strong>Mamta</strong>, <strong>Mamta 1</strong>, <strong>Mamta 2</strong> or the ending number from the serial like <strong>1</strong>, <strong>2</strong>, <strong>3</strong>. The app will match automatically inside this local batch.</div>
             </div>
           </div>
           <div class="type-block">
@@ -1625,7 +1630,7 @@ function openBulkPhotoPicker() {
   document.getElementById('bulkPhotoInput').click();
 }
 
-async function applyBulkPhotosToDraftBatch(mode, files) {
+async function applyBulkPhotosToDraftBatch(files) {
   const institute = getInstituteValue();
   const records = getDraftRecords(institute);
   if (!records.length) {
@@ -1636,54 +1641,53 @@ async function applyBulkPhotosToDraftBatch(mode, files) {
   const results = { matched: 0, unmatchedFiles: [], missingRecords: [] };
   const filesList = Array.from(files || []);
 
-  if (mode === 'serial') {
-    const recordByNumber = new Map();
-    sortRecordsForBulkMatch(updatedRecords).forEach((record) => {
-      const info = extractTrailingNumberInfo(record.serial_no || '');
-      if (info.number !== null && !recordByNumber.has(info.number)) {
-        recordByNumber.set(info.number, record);
-      }
-    });
-
-    for (const file of filesList) {
-      const info = extractTrailingNumberInfo(file.name || '');
-      const targetRecord = info.number !== null ? recordByNumber.get(info.number) : null;
-      if (!targetRecord) {
-        results.unmatchedFiles.push(file.name);
-        continue;
-      }
-      const draftPhotoKey = makeDraftPhotoKey(institute, targetRecord.serial_no || '');
-      await saveDraftPhotoBlob(draftPhotoKey, file);
-      targetRecord.draft_photo_key = draftPhotoKey;
-      targetRecord.photo_url = '';
-      targetRecord.photo_drive_id = '';
-      results.matched += 1;
-      recordByNumber.delete(info.number);
+  const recordByNumber = new Map();
+  const groupedRecords = {};
+  sortRecordsForBulkMatch(updatedRecords).forEach((record) => {
+    const serialInfo = extractTrailingNumberInfo(record.serial_no || '');
+    if (serialInfo.number !== null && !recordByNumber.has(serialInfo.number)) {
+      recordByNumber.set(serialInfo.number, record);
     }
-  } else {
-    const groupedRecords = {};
-    sortRecordsForBulkMatch(updatedRecords).forEach((record) => {
-      const key = normalizeMatchText(record.name || '');
-      if (!key) return;
-      if (!groupedRecords[key]) groupedRecords[key] = [];
-      groupedRecords[key].push(record);
-    });
+    const nameKey = normalizeMatchText(record.name || '');
+    if (!nameKey) return;
+    if (!groupedRecords[nameKey]) groupedRecords[nameKey] = [];
+    groupedRecords[nameKey].push(record);
+  });
 
-    for (const file of filesList) {
-      const info = extractTrailingNumberInfo(file.name || '');
-      const candidates = groupedRecords[info.base] || [];
-      const index = Math.max(1, info.number || 1) - 1;
-      const targetRecord = candidates[index];
-      if (!targetRecord) {
-        results.unmatchedFiles.push(file.name);
-        continue;
+  const matchedSerials = new Set();
+  for (const file of filesList) {
+    const info = extractTrailingNumberInfo(file.name || '');
+    let targetRecord = null;
+
+    const candidates = groupedRecords[info.base] || [];
+    const candidateIndex = Math.max(1, info.number || 1) - 1;
+    const nameMatch = candidates[candidateIndex];
+    if (nameMatch && !matchedSerials.has(nameMatch.serial_no || '')) {
+      targetRecord = nameMatch;
+    }
+
+    if (!targetRecord && info.number !== null) {
+      const serialMatch = recordByNumber.get(info.number);
+      if (serialMatch && !matchedSerials.has(serialMatch.serial_no || '')) {
+        targetRecord = serialMatch;
       }
-      const draftPhotoKey = makeDraftPhotoKey(institute, targetRecord.serial_no || '');
-      await saveDraftPhotoBlob(draftPhotoKey, file);
-      targetRecord.draft_photo_key = draftPhotoKey;
-      targetRecord.photo_url = '';
-      targetRecord.photo_drive_id = '';
-      results.matched += 1;
+    }
+
+    if (!targetRecord) {
+      results.unmatchedFiles.push(file.name);
+      continue;
+    }
+
+    const draftPhotoKey = makeDraftPhotoKey(institute, targetRecord.serial_no || '');
+    await saveDraftPhotoBlob(draftPhotoKey, file);
+    targetRecord.draft_photo_key = draftPhotoKey;
+    targetRecord.photo_url = '';
+    targetRecord.photo_drive_id = '';
+    results.matched += 1;
+    matchedSerials.add(targetRecord.serial_no || '');
+    const matchedNumberInfo = extractTrailingNumberInfo(targetRecord.serial_no || '');
+    if (matchedNumberInfo.number !== null) {
+      recordByNumber.delete(matchedNumberInfo.number);
     }
   }
 
@@ -1700,10 +1704,9 @@ async function applyBulkPhotosToDraftBatch(mode, files) {
 async function handleBulkPhotoUpload(input) {
   const files = input.files;
   if (!files || !files.length) return;
-  const mode = document.getElementById('bulkPhotoMode').value || 'serial';
   showLoading('Matching bulk photos...');
   try {
-    const { updatedRecords, results } = await applyBulkPhotosToDraftBatch(mode, files);
+    const { updatedRecords, results } = await applyBulkPhotosToDraftBatch(files);
     await loadBatchSummary();
     const currentSerial = selectedBatchSerial || document.getElementById('serialNo').value.trim();
     const refreshedRecord = updatedRecords.find((record) => record.serial_no === currentSerial);
