@@ -1024,10 +1024,8 @@
         <div class="batch-box">
           <div class="section-title" style="margin-bottom:8px">Batch Submission</div>
           <div class="batch-meta">
-            <div class="batch-pill">Saved Cards<strong id="savedCardsCount">0</strong></div>
-            <div class="batch-pill">Submitted Cards<strong id="submittedCardsCount">0</strong></div>
-            <div class="batch-pill">Current Institute<strong id="batchInstituteName">-</strong></div>
             <div class="batch-pill">Batch State<strong id="batchStateLabel">Ready</strong></div>
+            <div class="batch-pill">Pending Drafts<strong id="savedCardsCount">0</strong></div>
           </div>
           <button class="btn-submit" type="button" onclick="submitWholeBatch()">Submit Whole Data</button>
           <div class="batch-note" id="batchHelperNote">Saved cards stay attached to this institute even after refresh. Status stays Pending Submission until you click Submit Whole Data.</div>
@@ -1549,8 +1547,6 @@ async function loadBatchSummary() {
   const draftRecords = getDraftRecords(getInstituteValue());
   setInstituteLocked(batchInstituteLocked || hasEntryData());
   document.getElementById('savedCardsCount').textContent = draftRecords.length;
-  document.getElementById('submittedCardsCount').textContent = '0';
-  document.getElementById('batchInstituteName').textContent = getInstituteValue() || '-';
   document.getElementById('batchStateLabel').textContent = draftRecords.length > 0 ? 'Draft Active' : 'Ready';
   document.getElementById('batchHelperNote').textContent = draftRecords.length > 0
     ? 'Draft cards are saved on this device. They become permanent only after you click Submit Whole Data.'

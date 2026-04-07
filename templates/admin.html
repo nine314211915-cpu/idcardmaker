@@ -219,6 +219,14 @@
     overflow: hidden;
     color: var(--muted);
   }
+  .asset-preview.card-ratio {
+    aspect-ratio: 1.58 / 1;
+    min-height: 0;
+  }
+  .asset-preview.card-ratio img {
+    object-fit: contain;
+    background: #fff;
+  }
   .asset-preview img {
     width: 100%;
     height: 100%;
@@ -627,7 +635,7 @@
         <span class="asset-status" id="backgroundStatus">No background uploaded yet.</span>
       </div>
       <input type="file" id="backgroundInput" accept="image/*" style="display:none" onchange="handleBackgroundUpload(this)">
-      <div class="asset-preview" id="backgroundPreview">No preview</div>
+      <div class="asset-preview card-ratio" id="backgroundPreview">No preview</div>
     </div>
     <div class="asset-box compact">
       <h3>Certificate Background</h3>
