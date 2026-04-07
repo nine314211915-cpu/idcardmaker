@@ -547,6 +547,88 @@ def get_supabase_batch(institute, batch_id):
     return None
 
 
+def merge_supabase_batches(institute, batch_ids):
+    institute = canonicalize_institute_name(institute)
+    unique_batch_ids = []
+    for batch_id in batch_ids or []:
+        cleaned = str(batch_id or "").strip()
+        if cleaned and cleaned not in unique_batch_ids:
+            unique_batch_ids.append(cleaned)
+    if not institute:
+        raise ValueError("Institute is required")
+    if len(unique_batch_ids) < 2:
+        raise ValueError("Select at least two batches to merge")
+
+    batches = []
+    for batch_id in unique_batch_ids:
+        batch = get_supabase_batch(institute, batch_id)
+        if not batch:
+            raise ValueError(f"Batch not found: {batch_id}")
+        batches.append(batch)
+
+    target_batch = batches[0]
+    target_batch_id = target_batch.get("id", "")
+    target_batch_name = target_batch.get("batch_name", "") or target_batch_id
+    target_submitted_at = target_batch.get("submitted_at", "") or current_timestamp_display()
+
+    merged_record_total = 0
+    merged_batch_names = [target_batch_name]
+    for source_batch in batches[1:]:
+        source_batch_id = source_batch.get("id", "")
+        source_batch_name = source_batch.get("batch_name", "") or source_batch_id
+        merged_batch_names.append(source_batch_name)
+        source_records = list_supabase_records(institute, source_batch_id)
+        merged_record_total += len(source_records)
+        for record in source_records:
+            serial = str(record.get("serial_no", "")).strip()
+            if not serial:
+                continue
+            payload = dict(record)
+            payload["batch_id"] = target_batch_id
+            payload["batch_name"] = target_batch_name
+            payload["submitted_at"] = target_submitted_at
+            supabase_request(
+                "PATCH",
+                "records",
+                payload={
+                    "batch_id": target_batch_id,
+                    "submitted_at": target_submitted_at,
+                    "payload": payload,
+                    "name": payload.get("name", ""),
+                    "profile_type": payload.get("profile_type", ""),
+                    "saved_at": payload.get("saved_at", ""),
+                },
+                query={
+                    "serial_no": f"eq.{serial}",
+                    "institute_name": f"eq.{institute}",
+                    "batch_id": f"eq.{source_batch_id}",
+                },
+            )
+        supabase_request(
+            "DELETE",
+            "batches",
+            query={"id": f"eq.{source_batch_id}", "institute_name": f"eq.{institute}"},
+        )
+
+    target_records = list_supabase_records(institute, target_batch_id)
+    supabase_request(
+        "PATCH",
+        "batches",
+        payload={"total_cards": len(target_records)},
+        query={"id": f"eq.{target_batch_id}", "institute_name": f"eq.{institute}"},
+    )
+    return {
+        "status": "merged",
+        "institute": institute,
+        "target_batch_id": target_batch_id,
+        "target_batch_name": target_batch_name,
+        "merged_batch_ids": unique_batch_ids,
+        "merged_batch_names": merged_batch_names,
+        "moved_records": merged_record_total,
+        "total_records": len(target_records),
+    }
+
+
 def create_supabase_batch(institute, records, batch_name=None):
     institute = canonicalize_institute_name(institute)
     if not institute:
@@ -1759,13 +1841,14 @@ def get_batches():
 @app.route("/api/batch-overview")
 @admin_required
 def batch_overview():
+    institute = canonicalize_institute_name(request.args.get("institute"))
     if not is_supabase_enabled():
         return jsonify({"batches": [], "warning": "Supabase is not configured"})
     try:
-        batches = list_all_supabase_batches()
+        batches = list_supabase_batches(institute) if institute else list_all_supabase_batches()
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to load batch overview"}), 500
-    return jsonify({"batches": batches})
+    return jsonify({"batches": batches, "institute": institute or ""})
 
 
 @app.route("/api/supabase-storage-status")
@@ -1849,6 +1932,25 @@ def delete_batch(batch_id):
         "deleted_photos": deleted_photos,
         "institute": institute,
     })
+
+
+@app.route("/api/batches/merge", methods=["POST"])
+@admin_required
+def merge_batches():
+    payload = request.json or {}
+    institute = canonicalize_institute_name(payload.get("institute"))
+    batch_ids = payload.get("batch_ids") or []
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    if not isinstance(batch_ids, list):
+        return jsonify({"error": "Batch IDs must be a list"}), 400
+    try:
+        result = merge_supabase_batches(institute, batch_ids)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Unable to merge batches"}), 500
+    return jsonify(result)
 
 
 @app.route("/api/submit-batch", methods=["POST"])
