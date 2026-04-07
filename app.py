@@ -335,14 +335,28 @@ def upload_bytes_to_supabase_storage(file_bytes, object_path, mime_type):
     base = app.config["SUPABASE_URL"].rstrip("/")
     object_path = object_path.strip("/")
     url = f"{base}/storage/v1/object/{urllib_parse.quote(bucket, safe='')}/{urllib_parse.quote(object_path, safe='/')}"
-    req = urllib_request.Request(url, data=file_bytes, method="POST")
-    for key, value in supabase_storage_headers(mime_type).items():
-        req.add_header(key, value)
-    try:
+    public_url = f"{base}/storage/v1/object/public/{urllib_parse.quote(bucket, safe='')}/{urllib_parse.quote(object_path, safe='/')}"
+
+    def attempt_upload():
+        req = urllib_request.Request(url, data=file_bytes, method="POST")
+        for key, value in supabase_storage_headers(mime_type).items():
+            req.add_header(key, value)
         with urllib_request.urlopen(req, timeout=60):
-            return f"{base}/storage/v1/object/public/{urllib_parse.quote(bucket, safe='')}/{urllib_parse.quote(object_path, safe='/')}"
+            return public_url
+
+    try:
+        return attempt_upload()
     except urllib_error.HTTPError as exc:
         raw = exc.read().decode("utf-8", errors="replace")
+        if exc.code == 404 and "Bucket not found" in raw:
+            ensure_supabase_bucket(bucket)
+            try:
+                return attempt_upload()
+            except urllib_error.HTTPError as retry_exc:
+                retry_raw = retry_exc.read().decode("utf-8", errors="replace")
+                raise RuntimeError(
+                    retry_raw or f'Supabase storage bucket "{bucket}" is missing or unavailable'
+                ) from retry_exc
         raise RuntimeError(raw or f"Supabase storage upload failed with status {exc.code}") from exc
 
 
