@@ -711,6 +711,7 @@
   <select class="filter-select" id="batchFilter" onchange="loadRecords()">
     <option value="">Select Batch</option>
   </select>
+  <button class="btn btn-outline" type="button" onclick="openAdminBulkPhotoPicker()">Bulk Upload Photos</button>
   <button class="btn btn-outline" onclick="deleteSelectedBatch()">Delete Batch</button>
   <button class="btn btn-outline" type="button" onclick="document.getElementById('csvImportInput').click()">CSV Import</button>
   <button class="btn btn-green" onclick="exportExcel()">Export Excel</button>
@@ -754,6 +755,7 @@
 </div>
 
 <input type="file" id="csvImportInput" accept=".csv,text/csv" style="display:none" onchange="handleCsvImport(this)">
+<input type="file" id="bulkAdminPhotoInput" accept="image/*" multiple style="display:none" onchange="handleAdminBulkPhotoUpload(this)">
 
 <div class="table-wrap">
   <div class="panel">
@@ -1447,6 +1449,53 @@ async function handleManualPhotoAttach(input) {
   }
   input.value = '';
   attachPhotoTarget = null;
+}
+
+function openAdminBulkPhotoPicker() {
+  const institute = getSelectedInstitute();
+  const batchId = getSelectedBatch();
+  if (!institute) {
+    alert('Please select an institute first.');
+    return;
+  }
+  if (!batchId) {
+    alert('Please select a batch first.');
+    return;
+  }
+  document.getElementById('bulkAdminPhotoInput').click();
+}
+
+async function handleAdminBulkPhotoUpload(input) {
+  if (!input.files.length) return;
+  const institute = getSelectedInstitute();
+  const batchId = getSelectedBatch();
+  if (!institute || !batchId) {
+    input.value = '';
+    alert('Please select an institute and batch first.');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('institute_name', institute);
+  formData.append('batch_id', batchId);
+  Array.from(input.files).forEach((file) => formData.append('photos', file));
+
+  try {
+    const res = await fetch('/api/admin-bulk-attach-photos', { method: 'POST', body: formData });
+    const data = await readJsonResponse(res, 'Bulk photo upload failed');
+    await loadRecords();
+    const parts = [`Matched ${data.matched || 0} photo(s).`];
+    if (Array.isArray(data.unmatched_files) && data.unmatched_files.length) {
+      parts.push(`Unmatched files: ${data.unmatched_files.join(', ')}`);
+    }
+    if (Array.isArray(data.missing_records) && data.missing_records.length) {
+      parts.push(`Still missing photos: ${data.missing_records.join(', ')}`);
+    }
+    alert(parts.join('\n'));
+  } catch (e) {
+    alert(e.message || 'Bulk photo upload failed.');
+  }
+  input.value = '';
 }
 
 async function loadRecords() {

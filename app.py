@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, render_template, send_file, send_from_directory, session, redirect, url_for
-import json, os, random, string, zipfile, io, tempfile, csv
+import json, os, random, string, zipfile, io, tempfile, csv, re
 from datetime import datetime, timedelta
 from collections import deque
 from functools import wraps
@@ -607,6 +607,33 @@ def parse_timestamp_display(value):
     return None
 
 
+def normalize_match_text(value):
+    return re.sub(r"\s+", " ", re.sub(r"[_-]+", " ", os.path.splitext(str(value or "").strip().lower())[0])).strip()
+
+
+def extract_trailing_number_info(value):
+    normalized = normalize_match_text(value)
+    match = re.match(r"^(.*?)(\d+)\s*$", normalized)
+    if not match:
+        return {"base": normalized, "number": None}
+    return {
+        "base": match.group(1).strip(),
+        "number": int(match.group(2)),
+    }
+
+
+def sort_records_for_bulk_match(records):
+    def sort_key(record):
+        info = extract_trailing_number_info(record.get("serial_no", ""))
+        number = info["number"] if info["number"] is not None else 10**9
+        return (
+            number,
+            str(record.get("saved_at", "")),
+            str(record.get("serial_no", "")),
+        )
+    return sorted(records, key=sort_key)
+
+
 def default_batch_name(institute):
     institute_slug = make_storage_slug(institute).replace("_", "-")
     return f"{institute_slug}-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
@@ -830,6 +857,53 @@ def delete_supabase_batch_data(institute, batch_id):
         "deleted_photos": deleted_photos,
         "institute": institute,
     }
+
+
+def save_photo_on_record(target_record, file_storage, institute):
+    serial = str(target_record.get("serial_no", "")).strip()
+    if not serial:
+        raise ValueError("Serial number is required")
+    institute = canonicalize_institute_name(institute or target_record.get("institute_name"))
+    if not institute:
+        raise ValueError("Institute is required")
+
+    old_photo_url = target_record.get("photo_url", "")
+    old_drive_id = target_record.get("photo_drive_id")
+    photo_url, photo_drive_id = attach_photo_to_serial(file_storage, serial, institute=institute)
+
+    if old_drive_id and old_drive_id != photo_drive_id:
+        delete_drive_file(old_drive_id)
+    if old_photo_url and old_photo_url != photo_url:
+        delete_supabase_storage_url(old_photo_url)
+        delete_uploaded_file_from_url(old_photo_url)
+
+    target_record["photo_url"] = photo_url
+    target_record["photo_drive_id"] = photo_drive_id or ""
+    payload = dict(target_record)
+    if is_supabase_enabled():
+        query = {"serial_no": f"eq.{serial}", "institute_name": f"eq.{institute}"}
+        if payload.get("batch_id"):
+            query["batch_id"] = f"eq.{payload.get('batch_id')}"
+        supabase_request(
+            "PATCH",
+            "records",
+            payload={
+                "payload": payload,
+                "saved_at": payload.get("saved_at", ""),
+                "name": payload.get("name", ""),
+                "profile_type": payload.get("profile_type", ""),
+            },
+            query=query,
+        )
+    else:
+        records = load_records(institute)
+        stored_record = next((rec for rec in records if rec.get("serial_no") == serial), None)
+        if not stored_record:
+            raise ValueError("Record not found")
+        stored_record["photo_url"] = photo_url
+        stored_record["photo_drive_id"] = photo_drive_id or ""
+        save_records(records, institute)
+    return {"serial_no": serial, "photo_url": photo_url, "photo_drive_id": photo_drive_id or ""}
 
 
 def run_supabase_auto_cleanup(force=False):
@@ -2247,34 +2321,92 @@ def admin_attach_photo():
         return jsonify({"error": "Record not found"}), 404
     institute = canonicalize_institute_name(target_record.get("institute_name"))
 
-    old_drive_id = target_record.get("photo_drive_id")
     try:
-        photo_url, photo_drive_id = attach_photo_to_serial(request.files["photo"], serial, institute=institute)
+        result = save_photo_on_record(target_record, request.files["photo"], institute)
     except Exception:
         return jsonify({"error": "Unable to process photo"}), 400
+    return jsonify({"status": "saved", **result})
 
-    if old_drive_id and old_drive_id != photo_drive_id:
-        delete_drive_file(old_drive_id)
 
-    target_record["photo_url"] = photo_url
-    target_record["photo_drive_id"] = photo_drive_id or ""
-    if is_supabase_enabled():
-        payload = dict(target_record)
-        supabase_request(
-            "PATCH",
-            "records",
-            payload={"payload": payload, "saved_at": payload.get("saved_at", ""), "name": payload.get("name", ""), "profile_type": payload.get("profile_type", "")},
-            query={"serial_no": f"eq.{serial}", "institute_name": f"eq.{institute}"},
-        )
-    else:
-        records = load_records(institute)
-        stored_record = next((rec for rec in records if rec.get("serial_no") == serial), None)
-        if not stored_record:
-            return jsonify({"error": "Record not found"}), 404
-        stored_record["photo_url"] = photo_url
-        stored_record["photo_drive_id"] = photo_drive_id or ""
-        save_records(records, institute)
-    return jsonify({"status": "saved", "serial_no": serial, "photo_url": photo_url})
+@app.route("/api/admin-bulk-attach-photos", methods=["POST"])
+@admin_required
+def admin_bulk_attach_photos():
+    institute = canonicalize_institute_name(request.form.get("institute_name"))
+    batch_id = (request.form.get("batch_id") or "").strip()
+    photo_files = [photo for photo in request.files.getlist("photos") if secure_filename(photo.filename)]
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    if not batch_id:
+        return jsonify({"error": "Batch is required"}), 400
+    if not photo_files:
+        return jsonify({"error": "No photo files"}), 400
+
+    records = list_supabase_records(institute, batch_id) if is_supabase_enabled() else [
+        rec for rec in load_records(institute) if str(rec.get("batch_id", "")).strip() == batch_id
+    ]
+    if not records:
+        return jsonify({"error": "No records found for this batch"}), 404
+
+    sorted_records = sort_records_for_bulk_match(records)
+    grouped_records = {}
+    record_by_number = {}
+    for record in sorted_records:
+        name_key = normalize_match_text(record.get("name", ""))
+        if name_key:
+            grouped_records.setdefault(name_key, []).append(record)
+        serial_info = extract_trailing_number_info(record.get("serial_no", ""))
+        if serial_info["number"] is not None and serial_info["number"] not in record_by_number:
+            record_by_number[serial_info["number"]] = record
+
+    matched_serials = set()
+    matched = 0
+    unmatched_files = []
+
+    for photo in photo_files:
+        info = extract_trailing_number_info(photo.filename or "")
+        target_record = None
+
+        candidates = grouped_records.get(info["base"], [])
+        if candidates:
+            if info["number"] is not None:
+                candidate_index = max(1, info["number"]) - 1
+                if candidate_index < len(candidates):
+                    candidate = candidates[candidate_index]
+                    if candidate.get("serial_no") not in matched_serials:
+                        target_record = candidate
+            if not target_record:
+                target_record = next((candidate for candidate in candidates if candidate.get("serial_no") not in matched_serials), None)
+
+        if not target_record and info["number"] is not None:
+            candidate = record_by_number.get(info["number"])
+            if candidate and candidate.get("serial_no") not in matched_serials:
+                target_record = candidate
+
+        if not target_record:
+            unmatched_files.append(photo.filename)
+            continue
+
+        try:
+            save_photo_on_record(target_record, photo, institute)
+        except Exception:
+            unmatched_files.append(photo.filename)
+            continue
+        matched += 1
+        matched_serials.add(target_record.get("serial_no"))
+
+    missing_records = [
+        record.get("serial_no") or record.get("name") or "Unnamed"
+        for record in records
+        if not record.get("photo_url") and record.get("serial_no") not in matched_serials
+    ]
+    return jsonify({
+        "status": "saved",
+        "matched": matched,
+        "unmatched_files": unmatched_files,
+        "missing_records": missing_records,
+        "batch_id": batch_id,
+        "institute": institute,
+    })
 
 
 @app.route("/api/import-csv", methods=["POST"])
