@@ -1182,6 +1182,16 @@ def download_drive_file(file_id):
     return buffer.getvalue()
 
 
+def download_file_from_url(file_url):
+    if not file_url:
+        return None
+    try:
+        with urllib_request.urlopen(file_url, timeout=60) as response:
+            return response.read()
+    except Exception:
+        return None
+
+
 def admin_required(view_func):
     @wraps(view_func)
     def wrapped(*args, **kwargs):
@@ -2136,6 +2146,10 @@ def export_zip():
                 zf.write(photo_path, f"photos/{serial}.jpg")
             elif rec.get("photo_drive_id"):
                 photo_bytes = download_drive_file(rec.get("photo_drive_id"))
+                if photo_bytes:
+                    zf.writestr(f"photos/{serial}.jpg", photo_bytes)
+            elif rec.get("photo_url"):
+                photo_bytes = download_file_from_url(rec.get("photo_url"))
                 if photo_bytes:
                     zf.writestr(f"photos/{serial}.jpg", photo_bytes)
         zf.writestr("records.csv", csv_buf.getvalue())
