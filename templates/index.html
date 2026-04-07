@@ -518,12 +518,16 @@
     top: 16px;
   }
   .id-card {
+    width: 100%;
+    aspect-ratio: 1.58 / 1;
     background: white;
     border: 2px solid var(--red);
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 4px 20px rgba(139,0,0,0.15);
     position: relative;
+    display: flex;
+    flex-direction: column;
   }
   .id-card::before {
     content: "";
@@ -567,6 +571,7 @@
     padding: 12px;
     display: flex;
     gap: 10px;
+    flex: 1;
   }
   .card-photo {
     width: 72px; height: 90px;
