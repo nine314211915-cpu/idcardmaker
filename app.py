@@ -2365,19 +2365,21 @@ def admin_bulk_attach_photos():
     for photo in photo_files:
         info = extract_trailing_number_info(photo.filename or "")
         target_record = None
+        is_serial_number_file = not info["base"] and info["number"] is not None
 
-        candidates = grouped_records.get(info["base"], [])
-        if candidates:
-            if info["number"] is not None:
-                candidate_index = max(1, info["number"]) - 1
-                if candidate_index < len(candidates):
-                    candidate = candidates[candidate_index]
-                    if candidate.get("serial_no") not in matched_serials:
-                        target_record = candidate
-            if not target_record:
-                target_record = next((candidate for candidate in candidates if candidate.get("serial_no") not in matched_serials), None)
+        if not is_serial_number_file:
+            candidates = grouped_records.get(info["base"], [])
+            if candidates:
+                if info["number"] is not None:
+                    candidate_index = max(1, info["number"]) - 1
+                    if candidate_index < len(candidates):
+                        candidate = candidates[candidate_index]
+                        if candidate.get("serial_no") not in matched_serials:
+                            target_record = candidate
+                if not target_record:
+                    target_record = next((candidate for candidate in candidates if candidate.get("serial_no") not in matched_serials), None)
 
-        if not target_record and info["number"] is not None:
+        if not target_record and is_serial_number_file and info["number"] is not None:
             candidate = record_by_number.get(info["number"])
             if candidate and candidate.get("serial_no") not in matched_serials:
                 target_record = candidate

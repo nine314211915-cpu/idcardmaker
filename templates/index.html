@@ -1657,15 +1657,21 @@ async function applyBulkPhotosToDraftBatch(files) {
   for (const file of filesList) {
     const info = extractTrailingNumberInfo(file.name || '');
     let targetRecord = null;
+    const isSerialNumberFile = !info.base && info.number !== null;
 
-    const candidates = groupedRecords[info.base] || [];
-    const candidateIndex = Math.max(1, info.number || 1) - 1;
-    const nameMatch = candidates[candidateIndex];
-    if (nameMatch && !matchedSerials.has(nameMatch.serial_no || '')) {
-      targetRecord = nameMatch;
+    if (!isSerialNumberFile) {
+      const candidates = groupedRecords[info.base] || [];
+      const candidateIndex = Math.max(1, info.number || 1) - 1;
+      const nameMatch = candidates[candidateIndex];
+      if (nameMatch && !matchedSerials.has(nameMatch.serial_no || '')) {
+        targetRecord = nameMatch;
+      }
+      if (!targetRecord) {
+        targetRecord = candidates.find((candidate) => !matchedSerials.has(candidate.serial_no || '')) || null;
+      }
     }
 
-    if (!targetRecord && info.number !== null) {
+    if (!targetRecord && isSerialNumberFile && info.number !== null) {
       const serialMatch = recordByNumber.get(info.number);
       if (serialMatch && !matchedSerials.has(serialMatch.serial_no || '')) {
         targetRecord = serialMatch;
