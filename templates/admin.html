@@ -165,6 +165,12 @@
     align-items: center;
     flex-wrap: wrap;
   }
+  .overview-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
   .overview-lines {
     display: grid;
     gap: 8px;
@@ -736,7 +742,11 @@
   <div class="overview-card">
     <div class="overview-head">
       <h3>Batch Overview</h3>
-      <button class="btn btn-outline" type="button" id="mergeSelectedBtn" onclick="mergeSelectedBatches()" style="display:none">Merge Selected Batches</button>
+      <div class="overview-actions">
+        <button class="btn btn-outline" type="button" id="selectAllBatchesBtn" onclick="selectAllOverviewBatches()" style="display:none">Select All</button>
+        <button class="btn btn-outline" type="button" id="clearBatchSelectionBtn" onclick="clearOverviewSelection()" style="display:none">Clear</button>
+        <button class="btn btn-outline" type="button" id="mergeSelectedBtn" onclick="mergeSelectedBatches()" style="display:none">Merge Selected Batches</button>
+      </div>
     </div>
     <div id="batchOverviewText">Loading institute batch overview...</div>
     <div class="overview-lines" id="batchOverviewGrid"></div>
@@ -867,6 +877,13 @@ function getFilteredRecords() {
   return allRecords.slice();
 }
 
+function getVisibleOverviewBatches() {
+  const selectedInstitute = getSelectedInstitute();
+  return selectedInstitute
+    ? batchOverviewItems.filter(batch => (batch.institute_name || '') === selectedInstitute)
+    : batchOverviewItems.slice();
+}
+
 function escapeHtml(value) {
   return String(value || '')
     .replace(/&/g, '&amp;')
@@ -898,26 +915,45 @@ function openBatchFromOverview(institute, batchId) {
 
 function updateMergeButton() {
   const mergeBtn = document.getElementById('mergeSelectedBtn');
+  const selectAllBtn = document.getElementById('selectAllBatchesBtn');
+  const clearBtn = document.getElementById('clearBatchSelectionBtn');
   const institute = getSelectedInstitute();
+  const visibleCount = getVisibleOverviewBatches().length;
   const count = selectedOverviewBatchIds.length;
   if (!institute) {
     mergeBtn.style.display = 'none';
+    selectAllBtn.style.display = 'none';
+    clearBtn.style.display = 'none';
     mergeBtn.disabled = true;
     mergeBtn.textContent = 'Merge Selected Batches';
     return;
   }
+  selectAllBtn.style.display = '';
+  clearBtn.style.display = '';
   mergeBtn.style.display = '';
+  selectAllBtn.disabled = visibleCount < 1 || count === visibleCount;
+  clearBtn.disabled = count < 1;
   mergeBtn.disabled = count < 2;
   mergeBtn.textContent = count >= 2 ? `Merge ${count} Selected Batches` : 'Merge Selected Batches';
+}
+
+function selectAllOverviewBatches() {
+  selectedOverviewBatchIds = getVisibleOverviewBatches()
+    .map(batch => batch.id || '')
+    .filter(Boolean);
+  renderBatchOverview();
+}
+
+function clearOverviewSelection() {
+  selectedOverviewBatchIds = [];
+  renderBatchOverview();
 }
 
 function renderBatchOverview() {
   const text = document.getElementById('batchOverviewText');
   const grid = document.getElementById('batchOverviewGrid');
   const selectedInstitute = getSelectedInstitute();
-  const visibleBatches = selectedInstitute
-    ? batchOverviewItems.filter(batch => (batch.institute_name || '') === selectedInstitute)
-    : batchOverviewItems.slice();
+  const visibleBatches = getVisibleOverviewBatches();
   selectedOverviewBatchIds = selectedOverviewBatchIds.filter(id => visibleBatches.some(batch => batch.id === id));
   if (!visibleBatches.length) {
     text.textContent = 'No submitted batches found yet.';
