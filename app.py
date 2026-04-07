@@ -501,6 +501,18 @@ def list_supabase_batches(institute):
     return rows if isinstance(rows, list) else []
 
 
+def list_all_supabase_batches():
+    rows = supabase_request(
+        "GET",
+        "batches",
+        query={
+            "select": "id,batch_name,institute_name,status,total_cards,created_at,submitted_at",
+            "order": "submitted_at.desc",
+        },
+    )
+    return rows if isinstance(rows, list) else []
+
+
 def list_supabase_records(institute=None, batch_id=None):
     query = {
         "select": "id,batch_id,institute_name,serial_no,name,profile_type,saved_at,submitted_at,payload",
@@ -1732,6 +1744,18 @@ def get_batches():
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to load batches"}), 500
     return jsonify({"batches": batches, "institute": institute})
+
+
+@app.route("/api/batch-overview")
+@admin_required
+def batch_overview():
+    if not is_supabase_enabled():
+        return jsonify({"batches": [], "warning": "Supabase is not configured"})
+    try:
+        batches = list_all_supabase_batches()
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Unable to load batch overview"}), 500
+    return jsonify({"batches": batches})
 
 
 @app.route("/api/supabase-storage-status")
