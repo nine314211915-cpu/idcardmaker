@@ -298,6 +298,22 @@
     cursor: pointer;
     text-decoration: underline;
   }
+  .bulk-photo-tools {
+    margin-top: 10px;
+    display: grid;
+    gap: 8px;
+  }
+  .bulk-photo-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .bulk-photo-note {
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.4;
+  }
   #photoInput { display: none; }
 
   /* DIVIDER */
@@ -849,6 +865,17 @@
               </div>
             </div>
             <input type="file" id="photoInput" accept="image/*" onchange="handlePhotoUpload(this)">
+            <input type="file" id="bulkPhotoInput" accept="image/*" multiple style="display:none" onchange="handleBulkPhotoUpload(this)">
+            <div class="bulk-photo-tools">
+              <div class="bulk-photo-row">
+                <select id="bulkPhotoMode">
+                  <option value="serial">Bulk Match by Serial Number</option>
+                  <option value="name">Bulk Match by Name</option>
+                </select>
+                <button class="btn-mini" type="button" onclick="openBulkPhotoPicker()">Upload Bulk Photos</button>
+              </div>
+              <div class="bulk-photo-note">Serial mode matches by the last number in the serial or filename. Name mode matches names like `Mamta`, `Mamta 1`, `Mamta 2` within this local draft batch.</div>
+            </div>
             <div class="form-group serial-box" style="margin-top:10px">
               <input type="text" id="serialNo" readonly placeholder="Auto-generated">
             </div>
@@ -1235,6 +1262,41 @@ function makeDraftPhotoKey(institute, serial) {
   return `${makeStorageKey(institute)}__${serial || 'draft'}`;
 }
 
+function normalizeMatchText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\.[^.]+$/, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractTrailingNumberInfo(value) {
+  const normalized = normalizeMatchText(value);
+  const match = normalized.match(/^(.*?)(\d+)\s*$/);
+  if (!match) {
+    return { base: normalized, number: null };
+  }
+  return {
+    base: match[1].trim(),
+    number: parseInt(match[2], 10),
+  };
+}
+
+function sortRecordsForBulkMatch(records) {
+  return records.slice().sort((a, b) => {
+    const serialA = extractTrailingNumberInfo(a.serial_no || '');
+    const serialB = extractTrailingNumberInfo(b.serial_no || '');
+    if (serialA.number !== null && serialB.number !== null && serialA.number !== serialB.number) {
+      return serialA.number - serialB.number;
+    }
+    const savedA = String(a.saved_at || '');
+    const savedB = String(b.saved_at || '');
+    if (savedA !== savedB) return savedA.localeCompare(savedB);
+    return String(a.serial_no || '').localeCompare(String(b.serial_no || ''));
+  });
+}
+
 function openDraftPhotoDb() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DRAFT_PHOTO_DB_NAME, 1);
@@ -1547,6 +1609,120 @@ function hideLoading() { document.getElementById('loadingOverlay').classList.rem
 
 function openGalleryPicker() {
   document.getElementById('photoInput').click();
+}
+
+function openBulkPhotoPicker() {
+  const institute = getInstituteValue();
+  if (!institute || institute === 'Other') {
+    alert('Please select or enter the institute first.');
+    return;
+  }
+  const draftRecords = getDraftRecords(institute);
+  if (!draftRecords.length) {
+    alert('Save draft cards first, then upload bulk photos for this batch.');
+    return;
+  }
+  document.getElementById('bulkPhotoInput').click();
+}
+
+async function applyBulkPhotosToDraftBatch(mode, files) {
+  const institute = getInstituteValue();
+  const records = getDraftRecords(institute);
+  if (!records.length) {
+    throw new Error('No draft cards are available for this institute.');
+  }
+
+  const updatedRecords = records.map(record => ({ ...record }));
+  const results = { matched: 0, unmatchedFiles: [], missingRecords: [] };
+  const filesList = Array.from(files || []);
+
+  if (mode === 'serial') {
+    const recordByNumber = new Map();
+    sortRecordsForBulkMatch(updatedRecords).forEach((record) => {
+      const info = extractTrailingNumberInfo(record.serial_no || '');
+      if (info.number !== null && !recordByNumber.has(info.number)) {
+        recordByNumber.set(info.number, record);
+      }
+    });
+
+    for (const file of filesList) {
+      const info = extractTrailingNumberInfo(file.name || '');
+      const targetRecord = info.number !== null ? recordByNumber.get(info.number) : null;
+      if (!targetRecord) {
+        results.unmatchedFiles.push(file.name);
+        continue;
+      }
+      const draftPhotoKey = makeDraftPhotoKey(institute, targetRecord.serial_no || '');
+      await saveDraftPhotoBlob(draftPhotoKey, file);
+      targetRecord.draft_photo_key = draftPhotoKey;
+      targetRecord.photo_url = '';
+      targetRecord.photo_drive_id = '';
+      results.matched += 1;
+      recordByNumber.delete(info.number);
+    }
+  } else {
+    const groupedRecords = {};
+    sortRecordsForBulkMatch(updatedRecords).forEach((record) => {
+      const key = normalizeMatchText(record.name || '');
+      if (!key) return;
+      if (!groupedRecords[key]) groupedRecords[key] = [];
+      groupedRecords[key].push(record);
+    });
+
+    for (const file of filesList) {
+      const info = extractTrailingNumberInfo(file.name || '');
+      const candidates = groupedRecords[info.base] || [];
+      const index = Math.max(1, info.number || 1) - 1;
+      const targetRecord = candidates[index];
+      if (!targetRecord) {
+        results.unmatchedFiles.push(file.name);
+        continue;
+      }
+      const draftPhotoKey = makeDraftPhotoKey(institute, targetRecord.serial_no || '');
+      await saveDraftPhotoBlob(draftPhotoKey, file);
+      targetRecord.draft_photo_key = draftPhotoKey;
+      targetRecord.photo_url = '';
+      targetRecord.photo_drive_id = '';
+      results.matched += 1;
+    }
+  }
+
+  updatedRecords.forEach((record) => {
+    if (!record.draft_photo_key) {
+      results.missingRecords.push(record.serial_no || record.name || 'Unnamed');
+    }
+  });
+
+  saveDraftRecords(institute, updatedRecords);
+  return { updatedRecords, results };
+}
+
+async function handleBulkPhotoUpload(input) {
+  const files = input.files;
+  if (!files || !files.length) return;
+  const mode = document.getElementById('bulkPhotoMode').value || 'serial';
+  showLoading('Matching bulk photos...');
+  try {
+    const { updatedRecords, results } = await applyBulkPhotosToDraftBatch(mode, files);
+    await loadBatchSummary();
+    const currentSerial = selectedBatchSerial || document.getElementById('serialNo').value.trim();
+    const refreshedRecord = updatedRecords.find((record) => record.serial_no === currentSerial);
+    if (refreshedRecord) {
+      await populateFormFromRecord(refreshedRecord);
+    }
+    const messageParts = [`Matched ${results.matched} photo(s).`];
+    if (results.unmatchedFiles.length) {
+      messageParts.push(`Unmatched files: ${results.unmatchedFiles.join(', ')}`);
+    }
+    if (results.missingRecords.length) {
+      messageParts.push(`Still missing photos: ${results.missingRecords.join(', ')}`);
+    }
+    alert(messageParts.join('\n'));
+  } catch (e) {
+    alert(e.message || 'Bulk photo upload failed.');
+  }
+  hideLoading();
+  input.value = '';
 }
 
 async function loadBatchSummary() {
