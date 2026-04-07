@@ -120,6 +120,14 @@
     flex-wrap: wrap;
     align-items: center;
   }
+  .toolbar-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-left: auto;
+    justify-content: flex-end;
+  }
   .stats-bar {
     display: flex;
     gap: 12px;
@@ -711,12 +719,14 @@
   <select class="filter-select" id="batchFilter" onchange="loadRecords()">
     <option value="">Select Batch</option>
   </select>
-  <button class="btn btn-outline" type="button" onclick="openAdminBulkPhotoPicker()">Bulk Upload Photos</button>
-  <button class="btn btn-outline" onclick="deleteSelectedBatch()">Delete Batch</button>
-  <button class="btn btn-outline" type="button" onclick="document.getElementById('csvImportInput').click()">CSV Import</button>
-  <button class="btn btn-green" onclick="exportExcel()">Export Excel</button>
-  <button class="btn btn-red" onclick="exportZip()">Download ZIP</button>
-  <button class="btn btn-outline" onclick="loadRecords()">Refresh</button>
+  <div class="toolbar-actions">
+    <button class="btn btn-outline" type="button" onclick="openAdminBulkPhotoPicker()">Bulk Upload Photos</button>
+    <button class="btn btn-outline" onclick="deleteSelectedBatch()">Delete Batch</button>
+    <button class="btn btn-outline" type="button" onclick="document.getElementById('csvImportInput').click()">CSV Import</button>
+    <button class="btn btn-green" onclick="exportExcel()">Export Excel</button>
+    <button class="btn btn-red" onclick="exportZip()">Download ZIP</button>
+    <button class="btn btn-outline" onclick="loadRecords()">Refresh</button>
+  </div>
 </div>
 
 <div class="status-strip">
