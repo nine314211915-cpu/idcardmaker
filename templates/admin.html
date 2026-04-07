@@ -140,26 +140,6 @@
     gap: 6px;
   }
   .stat-pill .num { font-weight: 700; color: var(--red); }
-  .active-batch-bar {
-    max-width: 1200px;
-    margin: 10px auto 0;
-    padding: 0 16px;
-  }
-  .active-batch-card {
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    box-shadow: var(--shadow);
-    padding: 10px 14px;
-    display: flex;
-    gap: 16px;
-    flex-wrap: wrap;
-    align-items: center;
-    font-size: 12px;
-  }
-  .active-batch-card strong {
-    color: var(--red);
-  }
   .overview-panel {
     max-width: 1200px;
     margin: 12px auto 0;
@@ -178,28 +158,21 @@
     font-size: 16px;
     margin-bottom: 8px;
   }
-  .overview-grid {
+  .overview-lines {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 10px;
+    gap: 8px;
     margin-top: 10px;
-  }
-  .overview-item {
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--cream);
-    padding: 10px 12px;
     font-size: 12px;
   }
-  .overview-item strong {
-    color: var(--red);
-    display: block;
-    margin-bottom: 4px;
+  .overview-line {
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--cream);
+    border: 1px solid var(--border);
+    line-height: 1.5;
   }
-  .overview-item span {
-    display: block;
-    color: var(--muted);
-    margin-top: 3px;
+  .overview-line strong {
+    color: var(--red);
   }
   .btn {
     padding: 8px 14px;
@@ -645,19 +618,11 @@
   <button class="btn btn-outline" onclick="loadRecords()">Refresh</button>
 </div>
 
-<div class="active-batch-bar">
-  <div class="active-batch-card">
-    <div><strong>Institute:</strong> <span id="activeInstituteInfo">No institute selected</span></div>
-    <div><strong>Batch:</strong> <span id="activeBatchInfo">No batch selected</span></div>
-    <div><strong>Status:</strong> <span id="activeBatchState">Waiting for selection</span></div>
-  </div>
-</div>
-
 <div class="overview-panel">
   <div class="overview-card">
     <h3>Batch Overview</h3>
     <div id="batchOverviewText">Loading institute batch overview...</div>
-    <div class="overview-grid" id="batchOverviewGrid"></div>
+    <div class="overview-lines" id="batchOverviewGrid"></div>
   </div>
 </div>
 
@@ -803,42 +768,30 @@ function getFilteredRecords() {
   return allRecords.slice();
 }
 
-function renderActiveBatchDetails() {
-  const instituteLabel = document.getElementById('activeInstituteInfo');
-  const batchLabel = document.getElementById('activeBatchInfo');
-  const batchState = document.getElementById('activeBatchState');
-  const institute = getSelectedInstitute();
-  const batchId = getSelectedBatch();
-  const selectedOption = batchId ? document.querySelector(`#batchFilter option[value="${CSS.escape(batchId)}"]`) : null;
-
-  instituteLabel.textContent = institute || 'No institute selected';
-  batchLabel.textContent = selectedOption ? selectedOption.textContent.trim() : 'No batch selected';
-
-  if (!institute) {
-    batchState.textContent = 'Select an institute';
-  } else if (!batchId) {
-    batchState.textContent = 'Select a batch';
-  } else {
-    batchState.textContent = 'Batch loaded for this institute';
-  }
-}
-
 function renderBatchOverview() {
+  const panel = document.querySelector('.overview-panel');
   const text = document.getElementById('batchOverviewText');
   const grid = document.getElementById('batchOverviewGrid');
+  if (getSelectedInstitute()) {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = '';
   if (!batchOverviewItems.length) {
     text.textContent = 'No submitted batches found yet.';
     grid.innerHTML = '';
     return;
   }
   text.textContent = 'Institutes currently holding submitted batches:';
-  grid.innerHTML = batchOverviewItems.map((batch) => `
-    <div class="overview-item">
-      <strong>${batch.institute_name || 'Unknown Institute'}</strong>
-      <span>${batch.batch_name || batch.id || 'Unnamed batch'}</span>
-      <span>${batch.total_cards || 0} card(s)</span>
-      <span>${batch.submitted_at || batch.created_at || '-'}</span>
-    </div>
+  const grouped = {};
+  batchOverviewItems.forEach((batch) => {
+    const institute = batch.institute_name || 'Unknown Institute';
+    const label = batch.batch_name || batch.id || 'Unnamed batch';
+    if (!grouped[institute]) grouped[institute] = [];
+    grouped[institute].push(label);
+  });
+  grid.innerHTML = Object.entries(grouped).map(([institute, batches]) => `
+    <div class="overview-line"><strong>${institute}:</strong> ${batches.join(', ')}</div>
   `).join('');
 }
 
@@ -877,7 +830,7 @@ async function loadSettings() {
   if (!getSelectedInstitute()) {
     appSettings = { background_url: '', signature_url: '', certificate_background_url: '' };
     renderBackgroundPreview();
-    renderActiveBatchDetails();
+    renderBatchOverview();
     return;
   }
   try {
@@ -897,7 +850,7 @@ async function loadSettings() {
     appSettings = { background_url: '', signature_url: '', certificate_background_url: '' };
     renderBackgroundPreview();
   }
-  renderActiveBatchDetails();
+  renderBatchOverview();
 }
 
 function renderSupabaseStatus() {
@@ -974,7 +927,7 @@ async function loadBatches() {
   const institute = getSelectedInstitute();
   if (!institute) {
     batchFilter.innerHTML = '<option value="">Select Batch</option>';
-    renderActiveBatchDetails();
+    renderBatchOverview();
     return;
   }
   try {
@@ -993,7 +946,7 @@ async function loadBatches() {
   } catch (e) {
     batchFilter.innerHTML = '<option value="">Select Batch</option>';
   }
-  renderActiveBatchDetails();
+  renderBatchOverview();
 }
 
 async function deleteSelectedBatch() {
@@ -1228,7 +1181,7 @@ async function loadRecords() {
     document.getElementById('recordCount').textContent = 'Select an institute';
     document.getElementById('tableContainer').innerHTML = '<div class="no-records">Select an institute to load records</div>';
     updateStats([]);
-    renderActiveBatchDetails();
+    renderBatchOverview();
     return;
   }
   if (!getSelectedBatch()) {
@@ -1236,7 +1189,7 @@ async function loadRecords() {
     document.getElementById('recordCount').textContent = 'Select a batch';
     document.getElementById('tableContainer').innerHTML = '<div class="no-records">Select a batch to load records</div>';
     updateStats([]);
-    renderActiveBatchDetails();
+    renderBatchOverview();
     return;
   }
   document.getElementById('tableContainer').innerHTML = '<div class="loading-text">Loading...</div>';
@@ -1249,12 +1202,12 @@ async function loadRecords() {
     const filtered = getFilteredRecords();
     updateStats(filtered);
     renderTable(filtered);
-    renderActiveBatchDetails();
+    renderBatchOverview();
   } catch (e) {
     allRecords = [];
     updateStats([]);
     document.getElementById('tableContainer').innerHTML = `<div class="loading-text">${e.message || 'Failed to load records.'}</div>`;
-    renderActiveBatchDetails();
+    renderBatchOverview();
   }
 }
 
