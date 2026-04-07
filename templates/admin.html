@@ -165,16 +165,15 @@
     font-family: 'Source Sans 3', sans-serif;
     outline: none;
   }
-  .search-bar { width: 200px; }
   .asset-panel { margin-top: 12px; }
   .asset-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: 14px;
   }
   .asset-box {
     border-radius: 12px;
-    padding: 15px;
+    padding: 14px;
   }
   .asset-box h3 {
     font-family: 'Playfair Display', serif;
@@ -210,7 +209,7 @@
     color: var(--red);
   }
   .asset-preview {
-    min-height: 120px;
+    min-height: 96px;
     border: 1px dashed var(--border);
     border-radius: 6px;
     background: var(--cream);
@@ -225,6 +224,20 @@
     height: 100%;
     object-fit: cover;
     display: block;
+  }
+  .asset-box.compact h3 {
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .asset-box.compact p {
+    margin-bottom: 8px;
+    font-size: 11px;
+  }
+  .compact-status {
+    display: grid;
+    gap: 6px;
+    font-size: 12px;
+    margin-top: 8px;
   }
   .table-wrap { margin-top: 12px; margin-bottom: 24px; }
   .panel {
@@ -557,7 +570,6 @@
     <option value="">Select Batch</option>
   </select>
   <button class="btn btn-outline" onclick="deleteSelectedBatch()">Delete Batch</button>
-  <input type="text" class="search-bar" id="searchInput" placeholder="Search name / serial" oninput="filterTable()">
   <button class="btn btn-green" onclick="exportExcel()">Export Excel</button>
   <button class="btn btn-red" onclick="exportZip()">Download ZIP</button>
   <button class="btn btn-outline" onclick="loadRecords()">Refresh</button>
@@ -565,75 +577,28 @@
 
 <div class="asset-panel">
   <div class="asset-grid">
-    <div class="asset-box">
+    <div class="asset-box compact">
       <h3>Supabase Status</h3>
-      <p>Monitor the active project, storage bucket, and the most recent uploaded file for the selected institute.</p>
+      <p>Current project and storage health for this admin session.</p>
       <div class="asset-actions">
         <button class="btn btn-outline" type="button" onclick="runSupabaseStorageTest()">Test Storage</button>
         <span class="asset-status" id="supabaseStatusSummary">Checking Supabase status...</span>
       </div>
-      <div class="kv-list">
+      <div class="kv-list compact-status">
         <div><strong>Project URL:</strong> <span id="supabaseProjectUrl">-</span></div>
         <div><strong>Bucket Name:</strong> <span id="supabaseBucketName">-</span></div>
         <div><strong>Last Uploaded File:</strong> <span id="supabaseLastFilePath">-</span></div>
         <div><strong>Last Uploaded Serial:</strong> <span id="supabaseLastSerial">-</span></div>
       </div>
     </div>
-    <div class="asset-box">
-      <div class="asset-preview" id="supabaseTestPreview">Run a storage test to verify bucket access.</div>
-    </div>
-  </div>
-</div>
-
-<div class="asset-panel">
-  <div class="asset-grid">
-    <div class="asset-box">
-      <h3>ID Card Background</h3>
-      <p>Upload one background image for the selected institute only. Each institute keeps its own separate background.</p>
-      <div class="asset-actions">
-        <button class="btn btn-red" type="button" onclick="document.getElementById('backgroundInput').click()">Upload Background</button>
-        <button class="btn btn-outline" type="button" onclick="deleteBackground()">Remove</button>
-        <span class="asset-status" id="backgroundStatus">No background uploaded yet.</span>
-      </div>
-      <input type="file" id="backgroundInput" accept="image/*" style="display:none" onchange="handleBackgroundUpload(this)">
-    </div>
-    <div class="asset-box">
-      <div class="asset-preview" id="backgroundPreview">No preview</div>
-    </div>
-    <div class="asset-box">
-      <h3>Certificate Background</h3>
-      <p>Upload one certificate background for the selected institute. Users can use the built-in themes while the admin background stays institute-specific.</p>
-      <div class="asset-actions">
-        <button class="btn btn-green" type="button" onclick="document.getElementById('certificateBackgroundInput').click()">Upload Certificate Background</button>
-        <button class="btn btn-outline" type="button" onclick="deleteCertificateBackground()">Remove</button>
-        <span class="asset-status" id="certificateBackgroundStatus">No certificate background uploaded yet.</span>
-      </div>
-      <input type="file" id="certificateBackgroundInput" accept="image/*" style="display:none" onchange="handleCertificateBackgroundUpload(this)">
-    </div>
-    <div class="asset-box">
-      <div class="asset-preview" id="certificateBackgroundPreview">No preview</div>
-    </div>
-    <div class="asset-box">
-      <h3>Institute Signature</h3>
-      <p>Preview or remove the HOD signature saved for the currently selected institute.</p>
-      <div class="asset-actions">
-        <button class="btn btn-outline" type="button" onclick="deleteSignature()">Remove Signature</button>
-        <span class="asset-status" id="signatureStatus">No signature uploaded yet.</span>
-      </div>
-    </div>
-    <div class="asset-box">
-      <div class="asset-preview" id="signaturePreview">No signature preview</div>
-    </div>
-    <div class="asset-box">
-      <h3>CSV Data Import</h3>
-      <p>Upload a CSV file to add or update records in bulk. Dates should be in dd/mm/yyyy format.</p>
+    <div class="asset-box compact">
+      <h3>CSV Import</h3>
+      <p>Upload bulk records before managing photos and batches.</p>
       <div class="asset-actions">
         <button class="btn btn-outline" type="button" onclick="document.getElementById('csvImportInput').click()">Upload CSV</button>
         <span class="asset-status" id="csvImportStatus">No CSV imported yet.</span>
       </div>
       <input type="file" id="csvImportInput" accept=".csv,text/csv" style="display:none" onchange="handleCsvImport(this)">
-    </div>
-    <div class="asset-box">
       <div class="asset-preview" id="csvImportPreview">CSV import lets you create records first and attach photos later from the table.</div>
     </div>
   </div>
@@ -647,6 +612,42 @@
     </div>
     <div id="tableContainer">
       <div class="loading-text">Loading records...</div>
+    </div>
+  </div>
+</div>
+
+<div class="asset-panel">
+  <div class="asset-grid">
+    <div class="asset-box compact">
+      <h3>ID Card Background</h3>
+      <p>Compact institute-specific background control.</p>
+      <div class="asset-actions">
+        <button class="btn btn-red" type="button" onclick="document.getElementById('backgroundInput').click()">Upload</button>
+        <button class="btn btn-outline" type="button" onclick="deleteBackground()">Remove</button>
+        <span class="asset-status" id="backgroundStatus">No background uploaded yet.</span>
+      </div>
+      <input type="file" id="backgroundInput" accept="image/*" style="display:none" onchange="handleBackgroundUpload(this)">
+      <div class="asset-preview" id="backgroundPreview">No preview</div>
+    </div>
+    <div class="asset-box compact">
+      <h3>Certificate Background</h3>
+      <p>Compact certificate background control for the selected institute.</p>
+      <div class="asset-actions">
+        <button class="btn btn-green" type="button" onclick="document.getElementById('certificateBackgroundInput').click()">Upload</button>
+        <button class="btn btn-outline" type="button" onclick="deleteCertificateBackground()">Remove</button>
+        <span class="asset-status" id="certificateBackgroundStatus">No certificate background uploaded yet.</span>
+      </div>
+      <input type="file" id="certificateBackgroundInput" accept="image/*" style="display:none" onchange="handleCertificateBackgroundUpload(this)">
+      <div class="asset-preview" id="certificateBackgroundPreview">No preview</div>
+    </div>
+    <div class="asset-box compact">
+      <h3>Institute Signature</h3>
+      <p>Quick signature preview and removal for the selected institute.</p>
+      <div class="asset-actions">
+        <button class="btn btn-outline" type="button" onclick="deleteSignature()">Remove</button>
+        <span class="asset-status" id="signatureStatus">No signature uploaded yet.</span>
+      </div>
+      <div class="asset-preview" id="signaturePreview">No signature preview</div>
     </div>
   </div>
 </div>
@@ -692,7 +693,6 @@ function saveAdminUiState() {
   const payload = {
     instituteFilter: document.getElementById('instituteFilter').value,
     batchFilter: document.getElementById('batchFilter').value,
-    searchInput: document.getElementById('searchInput').value,
   };
   try {
     localStorage.setItem(ADMIN_UI_STATE_KEY, JSON.stringify(payload));
@@ -721,11 +721,7 @@ function isDepartmentInstitute() {
 }
 
 function getFilteredRecords() {
-  const q = document.getElementById('searchInput').value.toLowerCase();
-  return allRecords.filter(r => {
-    const matchQ = !q || (r.name || '').toLowerCase().includes(q) || (r.serial_no || '').toLowerCase().includes(q);
-    return matchQ;
-  });
+  return allRecords.slice();
 }
 
 async function readJsonResponse(res, fallbackMessage) {
@@ -776,7 +772,6 @@ function renderSupabaseStatus() {
   const bucket = document.getElementById('supabaseBucketName');
   const lastPath = document.getElementById('supabaseLastFilePath');
   const lastSerial = document.getElementById('supabaseLastSerial');
-  const preview = document.getElementById('supabaseTestPreview');
 
   if (!supabaseStatus) {
     summary.textContent = 'Checking Supabase status...';
@@ -784,7 +779,6 @@ function renderSupabaseStatus() {
     bucket.textContent = '-';
     lastPath.textContent = '-';
     lastSerial.textContent = '-';
-    preview.textContent = 'Run a storage test to verify bucket access.';
     return;
   }
 
@@ -795,7 +789,6 @@ function renderSupabaseStatus() {
 
   if (!supabaseStatus.enabled) {
     summary.textContent = supabaseStatus.bucket_error || 'Supabase is not configured.';
-    preview.textContent = 'Supabase is not configured for this deployment.';
     return;
   }
 
@@ -803,12 +796,6 @@ function renderSupabaseStatus() {
     summary.textContent = 'Bucket connected and ready.';
   } else {
     summary.textContent = supabaseStatus.bucket_error || 'Bucket check failed.';
-  }
-
-  if (supabaseStatus.last_uploaded_file_url) {
-    preview.innerHTML = `<a href="${supabaseStatus.last_uploaded_file_url}" target="_blank" rel="noreferrer">Open last uploaded file</a>`;
-  } else {
-    preview.textContent = 'No uploaded photo found for the current scope yet.';
   }
 }
 
@@ -840,12 +827,10 @@ async function runSupabaseStorageTest() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ institute: getSelectedInstitute() || '' })
     });
-    const data = await readJsonResponse(res, 'Storage test failed');
-    document.getElementById('supabaseTestPreview').textContent = `${data.message}. Probe: ${data.probe_path}`;
+    await readJsonResponse(res, 'Storage test failed');
     await loadSupabaseStatus();
     alert('Supabase storage test completed successfully.');
   } catch (e) {
-    document.getElementById('supabaseTestPreview').textContent = e.message || 'Storage test failed.';
     alert(e.message || 'Storage test failed.');
   }
 }
@@ -1138,13 +1123,6 @@ function updateStats(records) {
   document.getElementById('statScope').textContent = getSelectedInstitute() || 'All Institutes';
 }
 
-function filterTable() {
-  saveAdminUiState();
-  const filtered = getFilteredRecords();
-  updateStats(filtered);
-  renderTable(filtered);
-}
-
 function renderTable(records) {
   document.getElementById('recordCount').textContent = `${records.length} record(s)`;
   if (!records.length) {
@@ -1379,9 +1357,6 @@ if (typeof persistedAdminUiState.batchFilter === 'string') {
 }
 if (typeof persistedAdminUiState.instituteFilter === 'string') {
   document.getElementById('instituteFilter').value = persistedAdminUiState.instituteFilter;
-}
-if (typeof persistedAdminUiState.searchInput === 'string') {
-  document.getElementById('searchInput').value = persistedAdminUiState.searchInput;
 }
 loadSettings();
 loadRecords();
