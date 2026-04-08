@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>A4 ID Card Print</title>
+  <title>A4 ID Card Preview</title>
   <style>
     :root {
       --red: #8b0000;
@@ -13,9 +13,20 @@
       --line: #d7c6c6;
       --paper: #f4efe9;
       --soft: #fffaf5;
+      --accent: #8b0000;
+      --card-width: 58mm;
+      --card-height: 37mm;
+      --sheet-gap: 3mm;
+      --sheet-padding: 4mm;
+      --bg-opacity: 0.10;
+      --name-size: 2.7mm;
+      --role-size: 2.0mm;
+      --field-size: 1.7mm;
+      --card-radius: 2mm;
     }
 
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       font-family: "Segoe UI", Arial, sans-serif;
@@ -23,10 +34,17 @@
       background: #e8e0d7;
     }
 
-    .screen-toolbar {
+    .screen-toolbar,
+    .control-panel {
       max-width: 210mm;
       margin: 0 auto;
-      padding: 14px 16px 10px;
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+
+    .screen-toolbar {
+      padding-top: 14px;
+      padding-bottom: 6px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -43,6 +61,73 @@
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
+    }
+
+    .control-panel {
+      margin-bottom: 12px;
+    }
+
+    .control-card {
+      background: rgba(255,255,255,0.94);
+      border: 1px solid #d7cbbf;
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 8px 24px rgba(76, 57, 40, 0.08);
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-group label {
+      font-size: 13px;
+      color: #5d5044;
+      font-weight: 600;
+    }
+
+    .control-group select,
+    .control-group input[type="range"],
+    .control-group input[type="color"],
+    .control-group input[type="text"] {
+      width: 100%;
+    }
+
+    .control-group select,
+    .control-group input[type="text"] {
+      border: 1px solid #cdbfb2;
+      border-radius: 10px;
+      padding: 9px 11px;
+      background: #fff;
+      font-size: 14px;
+    }
+
+    .inline-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 42px;
+      padding-top: 22px;
+      font-size: 14px;
+      color: #453b34;
+    }
+
+    .inline-check input {
+      width: 16px;
+      height: 16px;
+    }
+
+    .range-value {
+      font-size: 12px;
+      color: var(--muted);
     }
 
     .btn {
@@ -68,27 +153,31 @@
       border: 1px solid #cfc4bb;
     }
 
+    .sheet-stack {
+      max-width: 210mm;
+      margin: 0 auto 16px;
+    }
+
     .print-sheet {
       width: 210mm;
       min-height: 297mm;
       margin: 0 auto 16px;
       background: white;
       box-shadow: 0 10px 30px rgba(0,0,0,0.12);
-      padding: 8mm;
-      display: grid;
-      grid-template-columns: repeat(2, 85.6mm);
-      grid-auto-rows: 54mm;
-      gap: 6mm;
+      padding: var(--sheet-padding);
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--sheet-gap);
       justify-content: center;
-      align-content: start;
+      align-content: flex-start;
       page-break-after: always;
     }
 
     .id-card {
-      width: 85.6mm;
-      height: 54mm;
+      width: var(--card-width);
+      height: var(--card-height);
       border: 0.45mm solid var(--red);
-      border-radius: 3mm;
+      border-radius: var(--card-radius);
       overflow: hidden;
       position: relative;
       background: #fff;
@@ -105,7 +194,7 @@
       background-image: var(--card-bg, none);
       background-size: cover;
       background-position: center;
-      opacity: 0.13;
+      opacity: var(--bg-opacity);
       pointer-events: none;
     }
 
@@ -116,23 +205,23 @@
 
     .card-header {
       min-height: 10.5mm;
-      background: var(--red);
+      background: var(--accent);
       color: #fff;
-      padding: 2.2mm 2.8mm;
+      padding: 2.1mm 2.6mm;
       display: flex;
       align-items: center;
-      gap: 2.2mm;
+      gap: 2.1mm;
     }
 
     .header-mark {
-      width: 6.4mm;
-      height: 6.4mm;
+      width: 6.1mm;
+      height: 6.1mm;
       border-radius: 50%;
       background: rgba(255,255,255,0.2);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 3.1mm;
+      font-size: 2.8mm;
       font-weight: 700;
       flex-shrink: 0;
     }
@@ -143,14 +232,14 @@
     }
 
     .header-title {
-      font-size: 3.2mm;
+      font-size: 3mm;
       font-weight: 700;
       line-height: 1.05;
     }
 
     .header-subtitle {
-      margin-top: 0.5mm;
-      font-size: 2mm;
+      margin-top: 0.45mm;
+      font-size: 1.9mm;
       letter-spacing: 0.2mm;
       text-transform: uppercase;
       opacity: 0.88;
@@ -159,16 +248,16 @@
     .card-body {
       flex: 1;
       display: flex;
-      gap: 2.5mm;
-      padding: 2.6mm 2.8mm 2.2mm;
+      gap: 2.2mm;
+      padding: 2.3mm 2.5mm 1.8mm;
     }
 
     .card-photo,
     .card-photo-placeholder {
-      width: 18.5mm;
-      height: 23.5mm;
+      width: 17.5mm;
+      height: 22.5mm;
       border: 0.25mm solid var(--line);
-      border-radius: 1.2mm;
+      border-radius: 1mm;
       flex-shrink: 0;
       background: var(--soft);
       overflow: hidden;
@@ -176,7 +265,7 @@
       align-items: center;
       justify-content: center;
       color: var(--muted);
-      font-size: 2.2mm;
+      font-size: 2mm;
       text-align: center;
     }
 
@@ -196,32 +285,32 @@
 
     .card-name {
       color: var(--red);
-      font-size: 3.6mm;
+      font-size: var(--name-size);
       font-weight: 700;
-      line-height: 1.08;
-      margin-bottom: 0.9mm;
+      line-height: 1.06;
+      margin-bottom: 0.7mm;
     }
 
     .card-role {
       color: var(--gold);
-      font-size: 2.45mm;
+      font-size: var(--role-size);
       font-weight: 700;
-      line-height: 1.15;
-      margin-bottom: 1.1mm;
+      line-height: 1.12;
+      margin-bottom: 0.9mm;
     }
 
     .card-fields {
       display: grid;
-      gap: 0.55mm;
+      gap: 0.45mm;
     }
 
     .field-row {
       display: grid;
-      grid-template-columns: 12mm 1fr;
-      gap: 1.2mm;
+      grid-template-columns: 11mm 1fr;
+      gap: 1mm;
       align-items: start;
-      font-size: 2.15mm;
-      line-height: 1.15;
+      font-size: var(--field-size);
+      line-height: 1.12;
     }
 
     .field-label {
@@ -238,78 +327,79 @@
     .serial-bar {
       background: var(--paper);
       border-top: 0.25mm solid var(--line);
-      padding: 1.35mm 2.8mm;
+      padding: 1.15mm 2.5mm;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 2mm;
+      gap: 1.6mm;
     }
 
     .serial-no {
       color: var(--red);
       font-family: "Consolas", "Courier New", monospace;
-      font-size: 2.25mm;
+      font-size: 1.95mm;
       font-weight: 700;
-      letter-spacing: 0.15mm;
+      letter-spacing: 0.12mm;
     }
 
     .type-badge {
-      background: var(--red);
+      background: var(--accent);
       color: #fff;
       border-radius: 99px;
-      padding: 0.55mm 1.8mm;
-      font-size: 1.95mm;
+      padding: 0.45mm 1.5mm;
+      font-size: 1.7mm;
       font-weight: 700;
-      letter-spacing: 0.15mm;
+      letter-spacing: 0.12mm;
+      white-space: nowrap;
     }
 
     .meta-bar {
       display: flex;
       justify-content: space-between;
-      gap: 2mm;
-      padding: 1mm 2.8mm;
+      gap: 1.4mm;
+      padding: 0.8mm 2.5mm;
       border-top: 0.25mm solid #e7dede;
-      font-size: 1.95mm;
+      font-size: 1.7mm;
       color: #4f4f4f;
     }
 
     .signature-strip {
-      padding: 0.7mm 2.8mm 1mm;
+      padding: 0.6mm 2.5mm 0.8mm;
       border-top: 0.25mm dashed #d6cbcb;
       display: flex;
       justify-content: flex-end;
     }
 
     .signature-box {
-      width: 24mm;
+      width: 21mm;
       text-align: center;
     }
 
     .signature-box img {
       max-width: 100%;
-      max-height: 6mm;
+      max-height: 5.2mm;
       object-fit: contain;
       display: block;
-      margin: 0 auto 0.4mm;
+      margin: 0 auto 0.35mm;
     }
 
     .signature-line {
       border-top: 0.25mm solid #6f6f6f;
-      margin-bottom: 0.3mm;
+      margin-bottom: 0.25mm;
     }
 
     .signature-label {
-      font-size: 1.7mm;
+      font-size: 1.45mm;
       color: var(--muted);
     }
 
     .card-disclaimer {
       border-top: 0.25mm dashed #d8cece;
-      padding: 0.9mm 2.6mm 1.1mm;
+      padding: 0.7mm 2.4mm 0.9mm;
       text-align: center;
       color: var(--muted);
-      font-size: 1.75mm;
-      line-height: 1.15;
+      font-size: 1.55mm;
+      line-height: 1.12;
     }
 
     .empty-state {
@@ -324,7 +414,7 @@
 
     @page {
       size: A4 portrait;
-      margin: 8mm;
+      margin: 4mm;
     }
 
     @media print {
@@ -332,7 +422,8 @@
         background: #fff;
       }
 
-      .screen-toolbar {
+      .screen-toolbar,
+      .control-panel {
         display: none;
       }
 
@@ -348,7 +439,7 @@
   <div class="screen-toolbar">
     <div class="screen-note">
       {% if records %}
-      Ready to print {{ records|length }} card(s) on A4. Best result: scale 100%, margins default, background graphics enabled.
+      Preview {{ records|length }} card(s) before printing. Layout `10 per page` is selected by default, and you can change it anytime.
       {% else %}
       No cards found for the selected filter.
       {% endif %}
@@ -359,96 +450,216 @@
     </div>
   </div>
 
+  {% if records %}
+  <div class="control-panel">
+    <div class="control-card">
+      <div class="control-grid">
+        <div class="control-group">
+          <label for="layoutSelect">Cards per A4 page</label>
+          <select id="layoutSelect">
+            <option value="1">1 card</option>
+            <option value="4">4 cards</option>
+            <option value="8">8 cards</option>
+            <option value="10" selected>10 cards</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="accentColor">Header color</label>
+          <input id="accentColor" type="color" value="#8b0000">
+        </div>
+        <div class="control-group">
+          <label for="footerNote">Footer note</label>
+          <input id="footerNote" type="text" value="For official institute use only.">
+        </div>
+        <div class="control-group">
+          <label for="nameSize">Name size</label>
+          <input id="nameSize" type="range" min="2.4" max="5.2" step="0.1" value="2.7">
+          <div class="range-value" id="nameSizeValue">2.7 mm</div>
+        </div>
+        <div class="control-group">
+          <label for="fieldSize">Field size</label>
+          <input id="fieldSize" type="range" min="1.5" max="2.8" step="0.05" value="1.7">
+          <div class="range-value" id="fieldSizeValue">1.7 mm</div>
+        </div>
+        <div class="control-group">
+          <label for="bgOpacity">Background opacity</label>
+          <input id="bgOpacity" type="range" min="0" max="0.30" step="0.01" value="0.10">
+          <div class="range-value" id="bgOpacityValue">10%</div>
+        </div>
+        <label class="inline-check">
+          <input id="showBackground" type="checkbox" checked>
+          <span>Show background image</span>
+        </label>
+        <label class="inline-check">
+          <input id="showSignature" type="checkbox" checked>
+          <span>Show signature</span>
+        </label>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   {% if not records %}
   <div class="empty-state">
-    <h2>No records to print</h2>
-    <p>Select an institute and batch in the admin panel, then open the A4 print view again.</p>
+    <h2>No records to preview</h2>
+    <p>Select an institute and batch in the admin panel, then open the print preview again.</p>
   </div>
   {% else %}
     {% set bg_style = "--card-bg:url('" ~ settings.get('background_url', '') ~ "')" if settings.get('background_url') else "--card-bg:none" %}
-    {% for sheet in records|batch(8, None) %}
-    <section class="print-sheet">
-      {% for record in sheet if record %}
-        {% set profile_type = (record.get('profile_type') or '') %}
-        {% set type_label = 'Student Identity Card' if profile_type == 'student' else ('Employee Identity Card' if profile_type == 'employee' else 'Teacher Identity Card') %}
-        {% set type_badge = 'STUDENT' if profile_type == 'student' else ('EMPLOYEE' if profile_type == 'employee' else 'TEACHER') %}
-        {% set course_or_role = record.get('training_year') or record.get('course') or record.get('designation') or '-' %}
-        {% set issue_date = record.get('inserted_date') or record.get('issue_date') or (record.get('saved_at', '').split(' ')[0] if record.get('saved_at') else '-') %}
-        <article class="id-card" style="{{ bg_style }}">
-          <div class="card-header">
-            <div class="header-mark">MC</div>
-            <div class="header-text">
-              <div class="header-title">{{ record.get('institute_name') or institute or 'Medical College' }}</div>
-              <div class="header-subtitle">{{ type_label }}</div>
-            </div>
-          </div>
-
-          <div class="card-body">
-            {% if record.get('photo_url') %}
-            <div class="card-photo"><img src="{{ record.get('photo_url') }}" alt="Card photo"></div>
-            {% else %}
-            <div class="card-photo-placeholder">Photo</div>
-            {% endif %}
-
-            <div class="card-info">
-              <div class="card-name">{{ record.get('name') or '-' }}</div>
-              <div class="card-role">{{ course_or_role }}</div>
-              <div class="card-fields">
-                {% if profile_type == 'student' %}
-                  <div class="field-row"><div class="field-label">Blood</div><div class="field-value">{{ record.get('blood_group') or '-' }}</div></div>
-                  {% if record.get('batch_session') %}
-                  <div class="field-row"><div class="field-label">Batch</div><div class="field-value">{{ record.get('batch_session') }}</div></div>
-                  {% endif %}
-                  {% if record.get('father_name') %}
-                  <div class="field-row"><div class="field-label">Father</div><div class="field-value">{{ record.get('father_name') }}</div></div>
-                  {% endif %}
-                {% else %}
-                  <div class="field-row"><div class="field-label">Dept</div><div class="field-value">{{ record.get('department') or '-' }}</div></div>
-                  {% if profile_type == 'employee' and record.get('employee_id') %}
-                  <div class="field-row"><div class="field-label">Emp ID</div><div class="field-value">{{ record.get('employee_id') }}</div></div>
-                  {% endif %}
-                {% endif %}
-                <div class="field-row"><div class="field-label">DOB</div><div class="field-value">{{ record.get('dob') or '-' }}</div></div>
-                <div class="field-row"><div class="field-label">Contact</div><div class="field-value">{{ record.get('contact') or '-' }}</div></div>
+    <div class="sheet-stack">
+      {% for sheet in records|batch(10, None) %}
+      <section class="print-sheet">
+        {% for record in sheet if record %}
+          {% set profile_type = (record.get('profile_type') or '') %}
+          {% set type_label = 'Student Identity Card' if profile_type == 'student' else ('Employee Identity Card' if profile_type == 'employee' else 'Teacher Identity Card') %}
+          {% set type_badge = 'STUDENT' if profile_type == 'student' else ('EMPLOYEE' if profile_type == 'employee' else 'TEACHER') %}
+          {% set course_or_role = record.get('training_year') or record.get('course') or record.get('designation') or '-' %}
+          {% set issue_date = record.get('inserted_date') or record.get('issue_date') or (record.get('saved_at', '').split(' ')[0] if record.get('saved_at') else '-') %}
+          <article class="id-card" style="{{ bg_style }}">
+            <div class="card-header">
+              <div class="header-mark">MC</div>
+              <div class="header-text">
+                <div class="header-title">{{ record.get('institute_name') or institute or 'Medical College' }}</div>
+                <div class="header-subtitle">{{ type_label }}</div>
               </div>
             </div>
-          </div>
 
-          <div class="serial-bar">
-            <span class="serial-no">{{ record.get('serial_no') or '-' }}</span>
-            <span class="type-badge">{{ type_badge }}</span>
-          </div>
+            <div class="card-body">
+              {% if record.get('photo_url') %}
+              <div class="card-photo"><img src="{{ record.get('photo_url') }}" alt="Card photo"></div>
+              {% else %}
+              <div class="card-photo-placeholder">Photo</div>
+              {% endif %}
 
-          <div class="meta-bar">
-            <span>Valid: {{ record.get('valid_upto') or '-' }}</span>
-            <span>Issued: {{ issue_date }}</span>
-          </div>
-
-          {% if settings.get('signature_url') and profile_type != 'employee' %}
-          <div class="signature-strip">
-            <div class="signature-box">
-              <img src="{{ settings.get('signature_url') }}" alt="Institute signature">
-              <div class="signature-line"></div>
-              <div class="signature-label">Head of Department</div>
+              <div class="card-info">
+                <div class="card-name">{{ record.get('name') or '-' }}</div>
+                <div class="card-role">{{ course_or_role }}</div>
+                <div class="card-fields">
+                  {% if profile_type == 'student' %}
+                    <div class="field-row"><div class="field-label">Blood</div><div class="field-value">{{ record.get('blood_group') or '-' }}</div></div>
+                    {% if record.get('batch_session') %}
+                    <div class="field-row"><div class="field-label">Batch</div><div class="field-value">{{ record.get('batch_session') }}</div></div>
+                    {% endif %}
+                    {% if record.get('father_name') %}
+                    <div class="field-row"><div class="field-label">Father</div><div class="field-value">{{ record.get('father_name') }}</div></div>
+                    {% endif %}
+                  {% else %}
+                    <div class="field-row"><div class="field-label">Dept</div><div class="field-value">{{ record.get('department') or '-' }}</div></div>
+                    {% if profile_type == 'employee' and record.get('employee_id') %}
+                    <div class="field-row"><div class="field-label">Emp ID</div><div class="field-value">{{ record.get('employee_id') }}</div></div>
+                    {% endif %}
+                  {% endif %}
+                  <div class="field-row"><div class="field-label">DOB</div><div class="field-value">{{ record.get('dob') or '-' }}</div></div>
+                  <div class="field-row"><div class="field-label">Contact</div><div class="field-value">{{ record.get('contact') or '-' }}</div></div>
+                </div>
+              </div>
             </div>
-          </div>
-          {% endif %}
 
-          <div class="card-disclaimer">
-            For official institute use only.
-          </div>
-        </article>
+            <div class="serial-bar">
+              <span class="serial-no">{{ record.get('serial_no') or '-' }}</span>
+              <span class="type-badge">{{ type_badge }}</span>
+            </div>
+
+            <div class="meta-bar">
+              <span>Valid: {{ record.get('valid_upto') or '-' }}</span>
+              <span>Issued: {{ issue_date }}</span>
+            </div>
+
+            {% if settings.get('signature_url') and profile_type != 'employee' %}
+            <div class="signature-strip">
+              <div class="signature-box">
+                <img src="{{ settings.get('signature_url') }}" alt="Institute signature">
+                <div class="signature-line"></div>
+                <div class="signature-label">Head of Department</div>
+              </div>
+            </div>
+            {% endif %}
+
+            <div class="card-disclaimer" data-footer-note>
+              For official institute use only.
+            </div>
+          </article>
+        {% endfor %}
+      </section>
       {% endfor %}
-    </section>
-    {% endfor %}
+    </div>
   {% endif %}
 
-  {% if auto_print %}
   <script>
-    window.addEventListener('load', () => {
-      window.print();
-    });
+    (function () {
+      const root = document.documentElement;
+      const layoutSelect = document.getElementById('layoutSelect');
+      const accentColor = document.getElementById('accentColor');
+      const footerNote = document.getElementById('footerNote');
+      const nameSize = document.getElementById('nameSize');
+      const fieldSize = document.getElementById('fieldSize');
+      const bgOpacity = document.getElementById('bgOpacity');
+      const showBackground = document.getElementById('showBackground');
+      const showSignature = document.getElementById('showSignature');
+      const nameSizeValue = document.getElementById('nameSizeValue');
+      const fieldSizeValue = document.getElementById('fieldSizeValue');
+      const bgOpacityValue = document.getElementById('bgOpacityValue');
+
+      function updateLabels() {
+        if (nameSize && nameSizeValue) nameSizeValue.textContent = `${nameSize.value} mm`;
+        if (fieldSize && fieldSizeValue) fieldSizeValue.textContent = `${fieldSize.value} mm`;
+        if (bgOpacity && bgOpacityValue) bgOpacityValue.textContent = `${Math.round(Number(bgOpacity.value) * 100)}%`;
+      }
+
+      function applyLayout(value) {
+        const map = {
+          '1': { width: '170mm', height: '108mm', gap: '8mm', padding: '10mm', name: '5.2', field: '2.8', role: '3.3', radius: '3.5mm' },
+          '4': { width: '90mm', height: '57mm', gap: '6mm', padding: '8mm', name: '3.8', field: '2.1', role: '2.5', radius: '3mm' },
+          '8': { width: '85.6mm', height: '54mm', gap: '6mm', padding: '8mm', name: '3.3', field: '1.95', role: '2.25', radius: '3mm' },
+          '10': { width: '58mm', height: '37mm', gap: '3mm', padding: '4mm', name: '2.7', field: '1.7', role: '2.0', radius: '2mm' }
+        };
+        const cfg = map[String(value || '10')] || map['10'];
+        root.style.setProperty('--card-width', cfg.width);
+        root.style.setProperty('--card-height', cfg.height);
+        root.style.setProperty('--sheet-gap', cfg.gap);
+        root.style.setProperty('--sheet-padding', cfg.padding);
+        root.style.setProperty('--name-size', `${cfg.name}mm`);
+        root.style.setProperty('--field-size', `${cfg.field}mm`);
+        root.style.setProperty('--role-size', `${cfg.role}mm`);
+        root.style.setProperty('--card-radius', cfg.radius);
+        if (nameSize) nameSize.value = cfg.name;
+        if (fieldSize) fieldSize.value = cfg.field;
+        updateLabels();
+      }
+
+      function applyControls() {
+        if (accentColor) root.style.setProperty('--accent', accentColor.value);
+        if (nameSize) root.style.setProperty('--name-size', `${nameSize.value}mm`);
+        if (fieldSize) {
+          root.style.setProperty('--field-size', `${fieldSize.value}mm`);
+          root.style.setProperty('--role-size', `${(Number(fieldSize.value) + 0.3).toFixed(2)}mm`);
+        }
+        if (bgOpacity) {
+          root.style.setProperty('--bg-opacity', showBackground && !showBackground.checked ? '0' : bgOpacity.value);
+        }
+        document.querySelectorAll('[data-footer-note]').forEach((element) => {
+          element.textContent = (footerNote && footerNote.value.trim()) || 'For official institute use only.';
+        });
+        document.querySelectorAll('.signature-strip').forEach((element) => {
+          element.style.display = showSignature && showSignature.checked ? 'flex' : 'none';
+        });
+        updateLabels();
+      }
+
+      if (layoutSelect) {
+        layoutSelect.addEventListener('change', () => {
+          applyLayout(layoutSelect.value);
+          applyControls();
+        });
+      }
+
+      [accentColor, footerNote, nameSize, fieldSize, bgOpacity, showBackground, showSignature].forEach((control) => {
+        if (control) control.addEventListener('input', applyControls);
+      });
+
+      applyLayout(layoutSelect ? layoutSelect.value : '10');
+      applyControls();
+    })();
   </script>
-  {% endif %}
 </body>
 </html>
