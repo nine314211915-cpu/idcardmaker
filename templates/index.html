@@ -922,6 +922,78 @@
     animation: spin 0.7s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .camera-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(30,12,8,0.78);
+    z-index: 1200;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .camera-modal.show { display: flex; }
+  .camera-panel {
+    width: min(92vw, 420px);
+    background: white;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.28);
+    overflow: hidden;
+  }
+  .camera-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--red);
+    color: white;
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+  }
+  .camera-close-btn {
+    border: none;
+    background: rgba(255,255,255,0.14);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+  }
+  .camera-panel-body { padding: 14px; }
+  .camera-preview-shell {
+    border-radius: 12px;
+    overflow: hidden;
+    background: #180d09;
+    aspect-ratio: 3 / 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+  }
+  .camera-preview-shell video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    background: black;
+  }
+  .camera-help {
+    margin-top: 10px;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--muted);
+  }
+  .camera-actions {
+    margin-top: 12px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
 
   @media (max-width: 768px) {
     .container { grid-template-columns: 1fr; }
@@ -1034,11 +1106,10 @@
               </div>
             </div>
             <input type="file" id="photoInput" accept="image/*" onchange="handlePhotoUpload(this)">
-            <input type="file" id="photoCameraInput" class="visually-hidden-file" accept="image/*" capture="environment" onclick="this.value=''" onchange="handlePhotoUpload(this)">
             <input type="file" id="bulkPhotoInput" accept="image/*" multiple style="display:none" onchange="handleBulkPhotoUpload(this)">
             <div class="bulk-photo-tools">
               <div class="bulk-photo-row">
-                <label class="btn-mini file-trigger" for="photoCameraInput">Use Camera</label>
+                <button class="btn-mini" type="button" onclick="openCameraDialog()">Use Camera</button>
                 <button class="btn-mini" type="button" onclick="openGalleryPicker()">Choose Photo</button>
                 <button class="btn-mini" type="button" onclick="openBulkPhotoPicker()">Upload Bulk Photos</button>
               </div>
@@ -1270,6 +1341,25 @@
   <span id="loadingText">Processing photo…</span>
 </div>
 
+<div class="camera-modal" id="cameraModal">
+  <div class="camera-panel">
+    <div class="camera-panel-head">
+      <span>Capture Photo</span>
+      <button class="camera-close-btn" type="button" onclick="closeCameraDialog()">×</button>
+    </div>
+    <div class="camera-panel-body">
+      <div class="camera-preview-shell">
+        <video id="cameraVideo" autoplay playsinline muted></video>
+      </div>
+      <div class="camera-help" id="cameraHelpText">Allow camera access, then frame the face and tap Capture.</div>
+      <div class="camera-actions">
+        <button class="btn-mini" type="button" onclick="capturePhotoFromCamera()">Capture</button>
+        <button class="btn-mini" type="button" onclick="closeCameraDialog()">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast">✅ Record saved successfully!</div>
 
@@ -1386,6 +1476,7 @@ let instituteLocked = false;
 let batchInstituteLocked = false;
 let currentBatchRecords = [];
 let selectedBatchSerial = '';
+let activeCameraStream = null;
 const UI_STATE_KEY = 'idcard_ui_state_v1';
 const DRAFT_BATCHES_KEY = 'idcard_draft_batches_v1';
 const DRAFT_PHOTO_DB_NAME = 'idcard_draft_photo_db';
@@ -1935,6 +2026,42 @@ function openGalleryPicker() {
   input.click();
 }
 
+async function openCameraDialog() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert('Camera is not supported in this browser. Please use Choose Photo.');
+    return;
+  }
+  const modal = document.getElementById('cameraModal');
+  const video = document.getElementById('cameraVideo');
+  const help = document.getElementById('cameraHelpText');
+  help.textContent = 'Allow camera access, then frame the face and tap Capture.';
+  modal.classList.add('show');
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } },
+      audio: false
+    });
+    activeCameraStream = stream;
+    video.srcObject = stream;
+    await video.play();
+  } catch (e) {
+    closeCameraDialog();
+    alert('Unable to open camera. Please allow camera access or use Choose Photo.');
+  }
+}
+
+function stopCameraStream() {
+  if (!activeCameraStream) return;
+  activeCameraStream.getTracks().forEach((track) => track.stop());
+  activeCameraStream = null;
+  document.getElementById('cameraVideo').srcObject = null;
+}
+
+function closeCameraDialog() {
+  document.getElementById('cameraModal').classList.remove('show');
+  stopCameraStream();
+}
+
 function openBulkPhotoPicker() {
   const institute = getInstituteValue();
   if (!institute || institute === 'Other') {
@@ -2214,8 +2341,65 @@ async function handleSignatureUpload(input) {
   hideLoading();
 }
 
+async function uploadSelectedPhotoFile(file) {
+  refreshInstituteLock();
+  showLoading('Uploading & cropping photoâ€¦');
+  ensureSerialGenerated(true);
+  try {
+    const institute = getInstituteValue();
+    const serial = document.getElementById('serialNo').value.trim();
+    const formData = new FormData();
+    formData.append('photo', file);
+    formData.append('serial_no', serial);
+    formData.append('institute', institute);
+    const res = await fetch('/api/upload-photo', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Photo upload failed.');
+    if (currentPhotoMeta.draft_photo_key) {
+      await deleteDraftPhotoBlob(currentPhotoMeta.draft_photo_key);
+    }
+    currentPhotoMeta = {
+      url: data.photo_url || '',
+      drive_id: data.photo_drive_id || '',
+      draft_photo_key: ''
+    };
+    showPhotoPreviewFromUrl(currentPhotoMeta.url);
+    refreshInstituteLock();
+    saveUiState();
+    showToast('Photo uploaded and saved.');
+  } catch (e) {
+    alert(e.message || 'Photo upload failed. Please try again.');
+  }
+  hideLoading();
+  updatePreview();
+}
+
+async function capturePhotoFromCamera() {
+  const video = document.getElementById('cameraVideo');
+  if (!video.videoWidth || !video.videoHeight) {
+    alert('Camera preview is not ready yet.');
+    return;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const context = canvas.getContext('2d');
+  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+  if (!blob) {
+    alert('Unable to capture photo from camera.');
+    return;
+  }
+  closeCameraDialog();
+  const file = new File([blob], `camera-${Date.now()}.jpg`, { type: 'image/jpeg' });
+  await uploadSelectedPhotoFile(file);
+}
+
 async function handlePhotoUpload(input) {
   if (!input.files.length) return;
+  await uploadSelectedPhotoFile(input.files[0]);
+  input.value = '';
+  return;
   refreshInstituteLock();
   showLoading('Uploading & cropping photo…');
   ensureSerialGenerated(true);
@@ -2490,7 +2674,6 @@ function legacyResetForm() {
   document.getElementById('trainingYear').value = keepAnmYear;
   document.getElementById('insertedDate').value = currentDateText();
   document.getElementById('photoInput').value = '';
-  document.getElementById('photoCameraInput').value = '';
   document.getElementById('photoPlaceholder').style.display = '';
   document.getElementById('photoPreviewWrap').classList.remove('visible');
   document.getElementById('photoArea').classList.remove('has-photo');
@@ -2818,7 +3001,6 @@ function resetForm() {
   document.getElementById('trainingYear').value = keepAnmYear;
   document.getElementById('insertedDate').value = currentDateText();
   document.getElementById('photoInput').value = '';
-  document.getElementById('photoCameraInput').value = '';
   clearPhotoPreview();
   document.getElementById('previewSerial').textContent = '—';
   currentPhotoMeta = { url: '', drive_id: '', draft_photo_key: '' };
