@@ -472,6 +472,11 @@
     border-radius: 3px;
     border: 1px solid var(--border);
   }
+  .photo-cell-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
   .photo-cell-button {
     display: inline-flex;
     align-items: center;
@@ -481,6 +486,13 @@
     background: transparent;
     cursor: pointer;
     position: relative;
+  }
+  .photo-cell-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
   }
   .photo-cell-button::after {
     content: attr(data-label);
@@ -511,6 +523,24 @@
   .photo-thumb {
     object-fit: cover;
     cursor: pointer;
+  }
+  .photo-upload-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 7px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #fff7ef;
+    color: var(--red);
+    font-size: 10px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .photo-upload-link:hover {
+    background: var(--red-soft);
   }
   .photo-placeholder-thumb {
     background: var(--cream2);
@@ -923,7 +953,7 @@
   </div>
 </div>
 
-<input type="file" id="manualPhotoInput" accept="image/*" style="display:none" onchange="handleManualPhotoAttach(this)">
+<input type="file" id="manualPhotoInput" accept="image/*" style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none" onchange="handleManualPhotoAttach(this)">
 
 <script>
 let allRecords = [];
@@ -1563,7 +1593,13 @@ async function deleteSignature() {
 
 function startManualPhotoAttach(serial, institute) {
   attachPhotoTarget = { serial, institute };
-  document.getElementById('manualPhotoInput').click();
+  const photoInput = document.getElementById('manualPhotoInput');
+  photoInput.value = '';
+  if (typeof photoInput.showPicker === 'function') {
+    photoInput.showPicker();
+    return;
+  }
+  photoInput.click();
 }
 
 async function handleManualPhotoAttach(input) {
@@ -1688,6 +1724,21 @@ function hasMeaningfulValue(value) {
   return String(value || '').trim() !== '';
 }
 
+function bindPhotoCellActions() {
+  const container = document.getElementById('tableContainer');
+  if (!container || container.dataset.photoBindingReady === 'true') return;
+  container.addEventListener('change', (event) => {
+    const input = event.target.closest('.photo-cell-input');
+    if (!input || !input.files || !input.files.length) return;
+    attachPhotoTarget = {
+      serial: decodeURIComponent(input.dataset.serial || ''),
+      institute: decodeURIComponent(input.dataset.institute || ''),
+    };
+    handleManualPhotoAttach(input);
+  });
+  container.dataset.photoBindingReady = 'true';
+}
+
 function renderTable(records) {
   document.getElementById('recordCount').textContent = `${records.length} record(s)`;
   if (!records.length) {
@@ -1769,19 +1820,33 @@ function renderTable(records) {
   records.forEach((r, i) => {
     const photoUrl = r.photo_url || '';
     const photoLabel = photoUrl ? 'Change Photo' : 'Add Photo';
+    const encodedSerial = encodeURIComponent(r.serial_no || '');
+    const encodedInstitute = encodeURIComponent(r.institute_name || '');
+    const safeName = escapeHtml(r.name || 'Photo');
+    const inputId = `photo-cell-input-${i}`;
     const photoHtml = `
-      <button
-        type="button"
-        class="photo-cell-button"
-        data-label="${photoLabel}"
-        onclick="startManualPhotoAttach(${JSON.stringify(r.serial_no || '')}, ${JSON.stringify(r.institute_name || '')})"
-        title="${photoLabel}"
-      >
-        ${photoUrl
-          ? `<img class="photo-thumb" src="${photoUrl}?t=${Date.now()}" alt="${r.name || 'Photo'}">`
-          : `<div class="photo-placeholder-thumb">+</div>`
-        }
-      </button>
+      <div class="photo-cell-wrap">
+        <label
+          for="${inputId}"
+          class="photo-cell-button"
+          data-label="${escapeHtml(photoLabel)}"
+          title="${escapeHtml(photoLabel)}"
+        >
+          ${photoUrl
+            ? `<img class="photo-thumb" src="${photoUrl}?t=${Date.now()}" alt="${safeName}">`
+            : `<div class="photo-placeholder-thumb">+</div>`
+          }
+        </label>
+        <label for="${inputId}" class="photo-upload-link">${photoUrl ? 'Upload' : 'Add'}</label>
+        <input
+          id="${inputId}"
+          class="photo-cell-input"
+          type="file"
+          accept="image/*"
+          data-serial="${encodedSerial}"
+          data-institute="${encodedInstitute}"
+        >
+      </div>
     `;
     const typeClass = r.profile_type === 'student' ? 'badge-student' : (r.profile_type === 'employee' ? 'badge-employee' : 'badge-lecturer');
     const typeLabel = r.profile_type === 'student' ? 'Student' : (r.profile_type === 'employee' ? 'Employee' : 'Teacher');
@@ -1970,6 +2035,7 @@ if (typeof persistedAdminUiState.batchFilter === 'string') {
   document.getElementById('batchFilter').dataset.pendingValue = persistedAdminUiState.batchFilter;
 }
 document.getElementById('instituteFilter').value = '';
+bindPhotoCellActions();
 loadSettings();
 loadRecords();
 loadBatchOverview();
