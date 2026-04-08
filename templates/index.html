@@ -507,6 +507,40 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     background: white;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  }
+  .retrieve-box:focus-within {
+    border-color: rgba(139, 0, 0, 0.28);
+    box-shadow: 0 0 0 4px rgba(241, 210, 122, 0.28), 0 10px 22px rgba(139, 0, 0, 0.08);
+    transform: translateY(-1px);
+  }
+  .retrieve-highlight {
+    margin-bottom: 10px;
+    padding: 9px 10px;
+    border: 1px solid #f1d27a;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #fff7c8 0%, #fff0dc 100%);
+  }
+  .retrieve-highlight strong {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--red);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .retrieve-highlight span {
+    display: block;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text);
+  }
+  .retrieve-highlight mark {
+    background: #ffe181;
+    color: var(--red);
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 999px;
   }
   .retrieve-row {
     display: flex;
@@ -517,6 +551,14 @@
   .retrieve-row input {
     flex: 1;
     min-width: 180px;
+    border: 1px solid #d8c5a7;
+    background: linear-gradient(180deg, #fffdfa 0%, #fff7ef 100%);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  }
+  .retrieve-row input:focus {
+    border-color: #c48a12;
+    background: #fffdf6;
+    box-shadow: 0 0 0 4px rgba(255, 225, 129, 0.36);
   }
   .batch-toolbar {
     display: flex;
@@ -947,8 +989,10 @@
             </div>
             <div class="form-group" id="facilitySubLocationWrap" style="display:none">
               <label>Village / Town</label>
-              <input type="text" id="facilitySubLocation" list="facilitySubLocationOptions" placeholder="Select or enter village / town" oninput="handleFacilitySubLocationChange()">
-              <datalist id="facilitySubLocationOptions"></datalist>
+              <select id="facilitySubLocation" onchange="handleFacilitySubLocationChange()">
+                <option value="">Select Village / Town</option>
+              </select>
+              <input type="text" id="facilitySubLocationCustom" placeholder="Enter village / town" style="display:none; margin-top:8px;" oninput="handleFacilitySubLocationChange()">
             </div>
           </div>
           <input type="file" id="signatureInput" accept="image/*" style="display:none" onchange="handleSignatureUpload(this)">
@@ -1171,11 +1215,15 @@
         <div class="batch-box">
           <div class="retrieve-box">
             <div class="section-title" style="margin-bottom:8px">Retrieve Saved Card</div>
+            <div class="retrieve-highlight">
+              <strong>Updated Search</strong>
+              <span>Search using <mark>ID card no.</mark> or <mark>Name</mark>. If multiple records match, use the full ID card number for exact retrieval.</span>
+            </div>
             <div class="retrieve-row">
-              <input type="text" id="retrieveSerialInput" placeholder="Enter ID card no." onkeydown="if(event.key==='Enter'){event.preventDefault(); retrieveCardBySerial();}">
+              <input type="text" id="retrieveSerialInput" placeholder="Enter ID card no. or name" onkeydown="if(event.key==='Enter'){event.preventDefault(); retrieveCardBySerial();}">
               <button class="btn-submit secondary" type="button" onclick="retrieveCardBySerial()">Retrieve</button>
             </div>
-            <div class="batch-note">Load a saved card by full ID card number for correction. Card may not be available after 15 days.</div>
+            <div class="batch-note"><strong style="color:var(--red)">Update Notice:</strong> Retrieve now works with both ID card number and name. Saved cards may not be available after 15 days.</div>
           </div>
           <div class="section-title" style="margin-bottom:8px">Batch Submission</div>
           <div class="batch-meta">
@@ -1644,16 +1692,43 @@ function isFacilityLocationInstitute() {
 }
 
 function getFacilitySubLocationValue() {
-  return document.getElementById('facilitySubLocation').value.trim();
+  const subLocationSelect = document.getElementById('facilitySubLocation');
+  if (subLocationSelect.value === 'Add New') {
+    return document.getElementById('facilitySubLocationCustom').value.trim();
+  }
+  return subLocationSelect.value.trim();
 }
 
 function setFacilitySubLocationValue(value) {
-  document.getElementById('facilitySubLocation').value = String(value || '').trim();
+  const normalizedValue = String(value || '').trim();
+  const subLocationSelect = document.getElementById('facilitySubLocation');
+  const subLocationCustom = document.getElementById('facilitySubLocationCustom');
+  const hasExistingOption = Array.from(subLocationSelect.options).some((option) => option.value === normalizedValue);
+  if (!normalizedValue) {
+    subLocationSelect.value = '';
+    subLocationCustom.value = '';
+    subLocationCustom.style.display = 'none';
+    return;
+  }
+  if (hasExistingOption) {
+    subLocationSelect.value = normalizedValue;
+    subLocationCustom.value = '';
+    subLocationCustom.style.display = 'none';
+    return;
+  }
+  subLocationSelect.value = 'Add New';
+  subLocationCustom.style.display = '';
+  subLocationCustom.value = normalizedValue;
 }
 
 function handleFacilitySubLocationChange() {
-  if (document.getElementById('facilitySubLocation').value === 'Add New') {
-    document.getElementById('facilitySubLocation').value = '';
+  const subLocationSelect = document.getElementById('facilitySubLocation');
+  const subLocationCustom = document.getElementById('facilitySubLocationCustom');
+  if (subLocationSelect.value === 'Add New') {
+    subLocationCustom.style.display = '';
+  } else {
+    subLocationCustom.style.display = 'none';
+    subLocationCustom.value = '';
   }
   updatePreview();
   saveUiState();
@@ -1661,8 +1736,9 @@ function handleFacilitySubLocationChange() {
 
 function handleFacilityLocationChange() {
   const block = document.getElementById('facilityLocation').value;
-  const datalist = document.getElementById('facilitySubLocationOptions');
-  datalist.innerHTML = (FACILITY_SUB_LOCATIONS[block] || []).map((item) => `<option value="${item}"></option>`).join('');
+  const subLocationSelect = document.getElementById('facilitySubLocation');
+  const items = FACILITY_SUB_LOCATIONS[block] || [];
+  subLocationSelect.innerHTML = `<option value="">Select Village / Town</option>` + items.map((item) => `<option value="${item}">${item}</option>`).join('');
   setFacilitySubLocationValue('');
   updatePreview();
   saveUiState();
@@ -1687,12 +1763,16 @@ function handleInstituteChange() {
   document.getElementById('facilitySubLocationWrap').style.display = facilityLocationMode ? '' : 'none';
   if (facilityLocationMode) {
     populateSelect('facilityLocation', FACILITY_LOCATIONS[institute] || [], 'Select Block');
-    document.getElementById('facilitySubLocationOptions').innerHTML = '';
+    document.getElementById('facilitySubLocation').innerHTML = '<option value="">Select Village / Town</option>';
+    document.getElementById('facilitySubLocationCustom').value = '';
+    document.getElementById('facilitySubLocationCustom').style.display = 'none';
   } else {
     document.getElementById('facilityLocation').innerHTML = '<option value="">Select Block</option>';
     document.getElementById('facilityLocation').value = '';
+    document.getElementById('facilitySubLocation').innerHTML = '<option value="">Select Village / Town</option>';
     document.getElementById('facilitySubLocation').value = '';
-    document.getElementById('facilitySubLocationOptions').innerHTML = '';
+    document.getElementById('facilitySubLocationCustom').value = '';
+    document.getElementById('facilitySubLocationCustom').style.display = 'none';
   }
 
   if (!editingSerialNo && isAutoSerial(serialInput.value)) {
@@ -2031,6 +2111,16 @@ function findMatchingRecordsBySerialLookup(records, lookup) {
   const exactMatches = (records || []).filter((record) => String(record.serial_no || '').trim() === query);
   if (exactMatches.length) return exactMatches;
   return (records || []).filter((record) => String(record.serial_no || '').trim().endsWith(query));
+}
+
+function findMatchingRecordsByNameLookup(records, lookup) {
+  const query = normalizeMatchText(lookup);
+  if (!query) return [];
+  const exactMatches = (records || []).filter((record) => normalizeMatchText(record.name || '') === query);
+  if (exactMatches.length) return exactMatches;
+  const startswithMatches = (records || []).filter((record) => normalizeMatchText(record.name || '').startsWith(query));
+  if (startswithMatches.length) return startswithMatches;
+  return (records || []).filter((record) => normalizeMatchText(record.name || '').includes(query));
 }
 
 async function loadSettings() {
@@ -2421,19 +2511,22 @@ async function editSubmittedCard(serial) {
 
 async function retrieveCardBySerial() {
   const institute = getInstituteValue();
-  const serialLookup = document.getElementById('retrieveSerialInput').value.trim();
+  const lookupText = document.getElementById('retrieveSerialInput').value.trim();
   if (!institute || institute === 'Other') {
     alert('Please select or enter the institute first.');
     return;
   }
-  if (!serialLookup) {
-    alert('Please enter the ID card number.');
+  if (!lookupText) {
+    alert('Please enter the ID card number or name.');
     return;
   }
 
-  const localMatches = findMatchingRecordsBySerialLookup(getDraftRecords(institute), serialLookup);
+  let localMatches = findMatchingRecordsBySerialLookup(getDraftRecords(institute), lookupText);
+  if (!localMatches.length) {
+    localMatches = findMatchingRecordsByNameLookup(getDraftRecords(institute), lookupText);
+  }
   if (localMatches.length > 1) {
-    alert('More than one card matches this short ID. Please enter the full ID card number.');
+    alert('More than one card matches this search. Please enter the full ID card number or a more specific name.');
     return;
   }
   const localRecord = localMatches[0] || null;
@@ -2445,17 +2538,17 @@ async function retrieveCardBySerial() {
       activeRetrievedSource = 'draft';
       selectedBatchSerial = localRecord.serial_no || '';
       saveUiState();
-      document.getElementById('retrieveSerialInput').value = localRecord.serial_no || serialLookup;
-      showToast('Loaded draft card: ' + (localRecord.serial_no || serialLookup));
+      document.getElementById('retrieveSerialInput').value = localRecord.serial_no || lookupText;
+      showToast('Loaded draft card: ' + (localRecord.serial_no || lookupText));
     } else {
-      const res = await fetch(`/api/retrieve-card?institute=${encodeURIComponent(institute)}&serial_no=${encodeURIComponent(serialLookup)}`);
+      const res = await fetch(`/api/retrieve-card?institute=${encodeURIComponent(institute)}&query=${encodeURIComponent(lookupText)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Unable to retrieve card.');
       await populateFormFromRecord(data.record || {});
-      activeRetrievedSerial = (data.record && data.record.serial_no) || serialLookup;
+      activeRetrievedSerial = (data.record && data.record.serial_no) || lookupText;
       activeRetrievedSource = 'submitted';
-      document.getElementById('retrieveSerialInput').value = (data.record && data.record.serial_no) || serialLookup;
-      showToast('Loaded saved card: ' + ((data.record && data.record.serial_no) || serialLookup));
+      document.getElementById('retrieveSerialInput').value = (data.record && data.record.serial_no) || lookupText;
+      showToast('Loaded saved card: ' + ((data.record && data.record.serial_no) || lookupText));
     }
   } catch (e) {
     alert(e.message || 'Unable to retrieve card.');

@@ -472,6 +472,42 @@
     border-radius: 3px;
     border: 1px solid var(--border);
   }
+  .photo-cell-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    position: relative;
+  }
+  .photo-cell-button::after {
+    content: attr(data-label);
+    position: absolute;
+    inset: auto 2px 2px 2px;
+    font-size: 8px;
+    line-height: 1.2;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: white;
+    background: rgba(139, 0, 0, 0.82);
+    border-radius: 999px;
+    padding: 2px 4px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  }
+  .photo-cell-button:hover::after,
+  .photo-cell-button:focus-visible::after {
+    opacity: 1;
+  }
+  .photo-cell-button:focus-visible {
+    outline: 3px solid rgba(181, 134, 13, 0.35);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
   .photo-thumb {
     object-fit: cover;
     cursor: pointer;
@@ -482,6 +518,8 @@
     align-items: center;
     justify-content: center;
     font-size: 18px;
+    color: var(--red);
+    font-weight: 700;
   }
   .badge {
     display: inline-block;
@@ -1646,6 +1684,10 @@ function updateStats(records) {
   document.getElementById('statScope').textContent = getSelectedInstitute() || 'All Institutes';
 }
 
+function hasMeaningfulValue(value) {
+  return String(value || '').trim() !== '';
+}
+
 function renderTable(records) {
   document.getElementById('recordCount').textContent = `${records.length} record(s)`;
   if (!records.length) {
@@ -1653,26 +1695,71 @@ function renderTable(records) {
     return;
   }
 
+  const optionalColumns = [
+    {
+      key: 'employee_id',
+      label: 'Employee ID',
+      show: (rows) => rows.some((row) => hasMeaningfulValue(row.employee_id)),
+      render: (row) => row.employee_id || '-',
+    },
+    {
+      key: 'department',
+      label: 'Dept',
+      show: (rows) => rows.some((row) => hasMeaningfulValue(row.department) || hasMeaningfulValue(row.facility_location)),
+      render: (row) => row.department || row.facility_location || '-',
+    },
+    {
+      key: 'dob',
+      label: 'DOB',
+      show: (rows) => rows.some((row) => hasMeaningfulValue(row.dob)),
+      render: (row) => formatDate(row.dob),
+    },
+    {
+      key: 'contact',
+      label: 'Contact',
+      show: (rows) => rows.some((row) => hasMeaningfulValue(row.contact)),
+      render: (row) => row.contact || '-',
+    },
+    {
+      key: 'blood_group',
+      label: 'Blood',
+      show: (rows) => rows.some((row) => hasMeaningfulValue(row.blood_group)),
+      render: (row) => row.blood_group || '-',
+    },
+    {
+      key: 'valid_upto',
+      label: 'Valid Upto',
+      show: (rows) => rows.some((row) => hasMeaningfulValue(row.valid_upto)),
+      render: (row) => formatDate(row.valid_upto),
+    },
+    {
+      key: 'institute_name',
+      label: 'Institute',
+      show: (rows) => rows.some((row) => hasMeaningfulValue(row.institute_name)),
+      render: (row) => `<span style="display:inline-block;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${row.institute_name || ''}">${row.institute_name || '-'}</span>`,
+    },
+    {
+      key: 'saved_at',
+      label: 'Saved At',
+      show: (rows) => rows.some((row) => hasMeaningfulValue(row.saved_at)),
+      render: (row) => `<span style="color:var(--muted);white-space:nowrap">${formatDateTime(row.saved_at)}</span>`,
+    },
+  ];
+  const visibleOptionalColumns = optionalColumns.filter((column) => column.show(records));
+
   let html = `
     <div style="overflow-x:auto">
     <table>
       <thead>
         <tr>
-          <th>#</th>
           <th>Photo</th>
+          <th>#</th>
           <th>Serial No</th>
           <th>Type</th>
           <th>Name</th>
           <th>Course / Designation</th>
-          <th>Employee ID</th>
-          <th>Dept</th>
-          <th>DOB</th>
-          <th>Contact</th>
-          <th>Blood</th>
-          <th>Valid Upto</th>
-          <th>Institute</th>
+          ${visibleOptionalColumns.map((column) => `<th>${column.label}</th>`).join('')}
           <th>Status</th>
-          <th>Saved At</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -1681,9 +1768,21 @@ function renderTable(records) {
 
   records.forEach((r, i) => {
     const photoUrl = r.photo_url || '';
-    const photoHtml = photoUrl
-      ? `<img class="photo-thumb" src="${photoUrl}?t=${Date.now()}" alt="" onclick="showLightbox('${photoUrl}')" title="Click to enlarge">`
-      : `<div class="photo-placeholder-thumb">P</div>`;
+    const photoLabel = photoUrl ? 'Change Photo' : 'Add Photo';
+    const photoHtml = `
+      <button
+        type="button"
+        class="photo-cell-button"
+        data-label="${photoLabel}"
+        onclick="startManualPhotoAttach(${JSON.stringify(r.serial_no || '')}, ${JSON.stringify(r.institute_name || '')})"
+        title="${photoLabel}"
+      >
+        ${photoUrl
+          ? `<img class="photo-thumb" src="${photoUrl}?t=${Date.now()}" alt="${r.name || 'Photo'}">`
+          : `<div class="photo-placeholder-thumb">+</div>`
+        }
+      </button>
+    `;
     const typeClass = r.profile_type === 'student' ? 'badge-student' : (r.profile_type === 'employee' ? 'badge-employee' : 'badge-lecturer');
     const typeLabel = r.profile_type === 'student' ? 'Student' : (r.profile_type === 'employee' ? 'Employee' : 'Teacher');
     const courseOrDesig = r.training_year || r.course || r.designation || '-';
@@ -1691,26 +1790,18 @@ function renderTable(records) {
 
     html += `
       <tr>
-        <td style="color:var(--muted)">${i + 1}</td>
         <td>${photoHtml}</td>
+        <td style="color:var(--muted)">${i + 1}</td>
         <td><span class="serial-code">${r.serial_no || '-'}</span></td>
         <td><span class="badge ${typeClass}">${typeLabel}</span></td>
         <td><strong>${r.name || '-'}</strong></td>
         <td>${courseOrDesig}</td>
-        <td>${r.employee_id || '-'}</td>
-        <td>${r.department || '-'}</td>
-        <td>${formatDate(r.dob)}</td>
-        <td>${r.contact || '-'}</td>
-        <td>${r.blood_group || '-'}</td>
-        <td>${formatDate(r.valid_upto)}</td>
-        <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${r.institute_name || ''}">${r.institute_name || '-'}</td>
+        ${visibleOptionalColumns.map((column) => `<td>${column.render(r)}</td>`).join('')}
         <td><span class="badge ${r.submitted_at ? 'badge-student' : 'badge-lecturer'}">${r.submitted_at ? 'Submitted' : 'Pending Submission'}</span></td>
-        <td style="color:var(--muted);white-space:nowrap">${formatDateTime(r.saved_at)}</td>
         <td>
           <div class="action-btns">
             <button class="btn-sm btn-view" onclick="viewRecordFromEncoded('${safeRecord}')">View</button>
             ${photoUrl ? `<a class="btn-sm btn-dl" href="${photoUrl}" download="${r.serial_no}.jpg">Photo</a>` : ''}
-            <button class="btn-sm btn-dl" onclick="startManualPhotoAttach(${JSON.stringify(r.serial_no || '')}, ${JSON.stringify(r.institute_name || '')})">${photoUrl ? 'Change Photo' : 'Attach Photo'}</button>
             <button class="btn-sm btn-del" onclick="confirmDelete('${r.serial_no}', ${JSON.stringify(r.name || '')})">Delete</button>
           </div>
         </td>

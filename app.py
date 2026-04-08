@@ -745,6 +745,32 @@ def find_records_by_serial_lookup(records, lookup):
     ]
 
 
+def normalize_name_lookup(value):
+    return re.sub(r"\s+", " ", str(value or "").strip().lower())
+
+
+def find_records_by_name_lookup(records, lookup):
+    lookup_text = normalize_name_lookup(lookup)
+    if not lookup_text:
+        return []
+    exact_matches = [
+        record for record in (records or [])
+        if normalize_name_lookup(record.get("name", "")) == lookup_text
+    ]
+    if exact_matches:
+        return exact_matches
+    startswith_matches = [
+        record for record in (records or [])
+        if normalize_name_lookup(record.get("name", "")).startswith(lookup_text)
+    ]
+    if startswith_matches:
+        return startswith_matches
+    return [
+        record for record in (records or [])
+        if lookup_text in normalize_name_lookup(record.get("name", ""))
+    ]
+
+
 def get_supabase_batch(institute, batch_id):
     institute = canonicalize_institute_name(institute)
     batch_id = (batch_id or "").strip()
@@ -2398,21 +2424,29 @@ def submit_batch():
 def retrieve_card():
     institute = canonicalize_institute_name(request.args.get("institute"))
     serial_lookup = (request.args.get("serial_no") or "").strip()
+    query_lookup = (request.args.get("query") or "").strip()
     if not institute:
         return jsonify({"error": "Institute is required"}), 400
-    if not serial_lookup:
-        return jsonify({"error": "ID card number is required"}), 400
+    if not serial_lookup and not query_lookup:
+        return jsonify({"error": "ID card number or name is required"}), 400
 
+    lookup_value = serial_lookup or query_lookup
     if is_supabase_enabled():
-        matches = find_records_by_serial_lookup(list_supabase_records(institute), serial_lookup)
+        records = list_supabase_records(institute)
     else:
-        matches = find_records_by_serial_lookup(load_records(institute), serial_lookup)
+        records = load_records(institute)
+
+    matches = find_records_by_serial_lookup(records, lookup_value)
+    if not matches and query_lookup:
+        matches = find_records_by_name_lookup(records, query_lookup)
     if len(matches) > 1:
+        if query_lookup:
+            return jsonify({"error": "More than one card matches this name. Please enter the full ID card number or a more specific name."}), 409
         return jsonify({"error": "More than one card matches this short ID. Please enter the full ID card number."}), 409
     record = matches[0] if matches else None
     if not record:
         return jsonify({"error": "Card not found"}), 404
-    return jsonify({"record": record, "institute": institute, "serial_no": record.get("serial_no", serial_lookup)})
+    return jsonify({"record": record, "institute": institute, "serial_no": record.get("serial_no", lookup_value)})
 
 
 @app.route("/api/update-card", methods=["POST"])
