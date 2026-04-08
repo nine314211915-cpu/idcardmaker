@@ -170,7 +170,7 @@
     font-size: 11px;
     color: var(--muted);
     line-height: 1.5;
-    padding-top: 4px;
+    padding-top: 2px;
     text-align: center;
   }
   .hidden-block { display: none !important; }
@@ -327,11 +327,13 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    margin-top: 6px;
+    margin-top: 4px;
   }
   .lock-note {
     font-size: 10px;
     color: var(--muted);
+    text-align: right;
+    min-height: 12px;
   }
   .lock-note.locked {
     color: var(--red);
@@ -922,10 +924,8 @@
           </div>
           <div class="form-group compact-field" id="facilitySubLocationWrap" style="display:none">
             <label>Village / Town</label>
-            <select id="facilitySubLocation" onchange="handleFacilitySubLocationChange()">
-              <option value="">Select Village / Town</option>
-            </select>
-            <input type="text" id="facilitySubLocationCustom" placeholder="Add by yourself" style="display:none; margin-top:6px;" oninput="updatePreview(); saveUiState()">
+            <input type="text" id="facilitySubLocation" list="facilitySubLocationOptions" placeholder="Select or enter village / town" oninput="handleFacilitySubLocationChange()">
+            <datalist id="facilitySubLocationOptions"></datalist>
           </div>
           <input type="file" id="signatureInput" accept="image/*" style="display:none" onchange="handleSignatureUpload(this)">
         </div>
@@ -973,11 +973,11 @@
               <input type="hidden" id="serialNo">
               <input type="text" id="shortSerialNo" readonly placeholder="0000">
               <div class="serial-meta">
-                <span class="type-block-title">Short ID No.</span>
-                <span class="lock-note" id="lockStatusNote">Locks after name or photo</span>
+                <span class="type-block-title">ID No.</span>
+                <span class="lock-note" id="lockStatusNote"></span>
               </div>
             </div>
-            <div class="helper-text" id="modeHelper">Choose student or teacher for college cards.</div>
+            <div class="helper-text" id="modeHelper"></div>
           </div>
           <div class="signature-admin-box">
             <h3>HOD Signature</h3>
@@ -1149,10 +1149,10 @@
           <div class="retrieve-box">
             <div class="section-title" style="margin-bottom:8px">Retrieve Saved Card</div>
             <div class="retrieve-row">
-              <input type="text" id="retrieveSerialInput" placeholder="Enter full or short ID no." onkeydown="if(event.key==='Enter'){event.preventDefault(); retrieveCardBySerial();}">
+              <input type="text" id="retrieveSerialInput" placeholder="Enter ID card no." onkeydown="if(event.key==='Enter'){event.preventDefault(); retrieveCardBySerial();}">
               <button class="btn-submit secondary" type="button" onclick="retrieveCardBySerial()">Retrieve</button>
             </div>
-            <div class="batch-note">Load a saved card by full ID card number or short ID no. for correction. Retrieved cards may not be available after 30 days.</div>
+            <div class="batch-note">Load a saved card by full ID card number for correction. Card may not be available after 15 days.</div>
           </div>
           <div class="section-title" style="margin-bottom:8px">Batch Submission</div>
           <div class="batch-meta">
@@ -1554,7 +1554,7 @@ function refreshInstituteLock() {
   setInstituteLocked(shouldLockInstitute());
   const lockNote = document.getElementById('lockStatusNote');
   const locked = shouldLockInstitute();
-  lockNote.textContent = locked ? 'Page locked to this institute' : 'Locks after name or photo';
+  lockNote.textContent = locked ? 'Page locked to this institute' : '';
   lockNote.classList.toggle('locked', locked);
   saveUiState();
 }
@@ -1622,49 +1622,22 @@ function isFacilityLocationInstitute() {
 }
 
 function getFacilitySubLocationValue() {
-  const selected = document.getElementById('facilitySubLocation').value;
-  if (selected === 'Add by yourself') {
-    return document.getElementById('facilitySubLocationCustom').value.trim();
-  }
-  return selected;
+  return document.getElementById('facilitySubLocation').value.trim();
 }
 
 function setFacilitySubLocationValue(value) {
-  const normalized = String(value || '').trim();
-  const select = document.getElementById('facilitySubLocation');
-  const customInput = document.getElementById('facilitySubLocationCustom');
-  const options = Array.from(select.options).map((option) => option.value);
-  if (normalized && options.includes(normalized)) {
-    select.value = normalized;
-    customInput.value = '';
-    customInput.style.display = 'none';
-  } else if (normalized) {
-    select.value = 'Add by yourself';
-    customInput.style.display = '';
-    customInput.value = normalized;
-  } else {
-    select.value = '';
-    customInput.value = '';
-    customInput.style.display = 'none';
-  }
+  document.getElementById('facilitySubLocation').value = String(value || '').trim();
 }
 
 function handleFacilitySubLocationChange() {
-  const customInput = document.getElementById('facilitySubLocationCustom');
-  if (document.getElementById('facilitySubLocation').value === 'Add by yourself') {
-    customInput.style.display = '';
-    customInput.focus();
-  } else {
-    customInput.style.display = 'none';
-    customInput.value = '';
-  }
   updatePreview();
   saveUiState();
 }
 
 function handleFacilityLocationChange() {
   const block = document.getElementById('facilityLocation').value;
-  populateSelect('facilitySubLocation', FACILITY_SUB_LOCATIONS[block] || [], 'Select Village / Town');
+  const datalist = document.getElementById('facilitySubLocationOptions');
+  datalist.innerHTML = (FACILITY_SUB_LOCATIONS[block] || []).map((item) => `<option value="${item}"></option>`).join('');
   setFacilitySubLocationValue('');
   updatePreview();
   saveUiState();
@@ -1689,14 +1662,12 @@ function handleInstituteChange() {
   document.getElementById('facilitySubLocationWrap').style.display = facilityLocationMode ? '' : 'none';
   if (facilityLocationMode) {
     populateSelect('facilityLocation', FACILITY_LOCATIONS[institute] || [], 'Select Block');
-    populateSelect('facilitySubLocation', [], 'Select Village / Town');
+    document.getElementById('facilitySubLocationOptions').innerHTML = '';
   } else {
     document.getElementById('facilityLocation').innerHTML = '<option value="">Select Block</option>';
     document.getElementById('facilityLocation').value = '';
-    document.getElementById('facilitySubLocation').innerHTML = '<option value="">Select Village / Town</option>';
     document.getElementById('facilitySubLocation').value = '';
-    document.getElementById('facilitySubLocationCustom').value = '';
-    document.getElementById('facilitySubLocationCustom').style.display = 'none';
+    document.getElementById('facilitySubLocationOptions').innerHTML = '';
   }
 
   if (!editingSerialNo && isAutoSerial(serialInput.value)) {
@@ -1711,7 +1682,7 @@ function handleInstituteChange() {
     document.getElementById('btnStudent').innerHTML = 'ANM Student';
     document.getElementById('btnLecturer').style.display = 'none';
     document.getElementById('typeSelector').classList.add('single');
-    document.getElementById('modeHelper').textContent = 'ANM training uses trainee details only.';
+    document.getElementById('modeHelper').textContent = '';
     document.getElementById('courseLabel').innerHTML = 'Course';
     document.getElementById('dobLabel').innerHTML = 'Date of Birth <span class="req">*</span>';
     document.getElementById('signatureLabel').textContent = 'Principal / In-Charge';
@@ -1735,7 +1706,7 @@ function handleInstituteChange() {
     document.getElementById('btnLecturer').innerHTML = 'Teacher';
     document.getElementById('btnLecturer').style.display = '';
     document.getElementById('typeSelector').classList.remove('single');
-    document.getElementById('modeHelper').textContent = 'Choose student or teacher for college cards.';
+    document.getElementById('modeHelper').textContent = '';
     document.getElementById('courseLabel').innerHTML = 'Course <span class="req">*</span>';
     document.getElementById('dobLabel').innerHTML = 'Date of Birth <span class="req">*</span>';
     document.getElementById('designationLabel').innerHTML = 'Designation <span class="req">*</span>';
@@ -1762,7 +1733,7 @@ function handleInstituteChange() {
     document.getElementById('btnStudent').innerHTML = 'Employee';
     document.getElementById('btnLecturer').style.display = 'none';
     document.getElementById('typeSelector').classList.add('single');
-    document.getElementById('modeHelper').textContent = 'Department offices use employee details only.';
+    document.getElementById('modeHelper').textContent = '';
     document.getElementById('dobLabel').innerHTML = 'Date of Birth <span class="req">*</span>';
     document.getElementById('designationLabel').innerHTML = 'Designation <span class="req">*</span>';
     document.querySelectorAll('.signature-admin-box').forEach(el => el.classList.add('hidden-block'));
