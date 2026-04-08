@@ -322,7 +322,22 @@
   .serial-box {
     margin-bottom: 10px;
   }
-  #photoInput { display: none; }
+  .serial-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .lock-note {
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .lock-note.locked {
+    color: var(--red);
+    font-weight: 700;
+  }
+    #photoInput { display: none; }
 
   /* DIVIDER */
   .divider {
@@ -952,7 +967,12 @@
               </button>
             </div>
             <div class="form-group serial-box">
-              <input type="text" id="serialNo" readonly placeholder="ID No. Auto">
+              <input type="hidden" id="serialNo">
+              <input type="text" id="shortSerialNo" readonly placeholder="0000">
+              <div class="serial-meta">
+                <span class="type-block-title">Short ID No.</span>
+                <span class="lock-note" id="lockStatusNote">Locks after name or photo</span>
+              </div>
             </div>
             <div class="helper-text" id="modeHelper">Choose student or teacher for college cards.</div>
           </div>
@@ -1016,20 +1036,6 @@
             <label>Employee ID <span class="req">*</span></label>
             <input type="text" id="employeeId" placeholder="Enter employee ID" oninput="updatePreview()">
           </div>
-          <div class="form-group lecturer-field" style="display:none" id="customEmployeeFieldToggleWrap">
-            <label>Extra Field</label>
-            <button class="employee-custom-trigger" id="customEmployeeFieldToggle" type="button" onclick="toggleEmployeeCustomField()">
-              Add custom field
-            </button>
-          </div>
-          <div class="form-group full lecturer-field employee-custom-panel" style="display:none" id="customEmployeeFieldPanel">
-            <label>Custom Employee Field</label>
-            <div class="employee-custom-grid">
-              <input type="text" id="customEmployeeFieldLabel" placeholder="Field name" oninput="updatePreview()">
-              <input type="text" id="customEmployeeFieldValue" placeholder="Field value" oninput="updatePreview()">
-            </div>
-          </div>
-
           <div class="form-group">
             <label id="dobLabel">Date of Birth <span class="req">*</span></label>
             <input type="text" id="dob" placeholder="dd/mm/yyyy" oninput="updatePreview()">
@@ -1050,15 +1056,25 @@
             </select>
           </div>
 
-          <div class="form-group" id="insertedDateGroup">
-            <label>Issued Date</label>
-            <input type="text" id="insertedDate" placeholder="dd/mm/yyyy" oninput="updatePreview()">
-          </div>
+          <input type="hidden" id="insertedDate">
           <div class="form-group anm-field" style="display:none">
             <label>Aadhaar No.</label>
             <input type="text" id="aadhaarNo" placeholder="xxxx-xxxx-xxxx" maxlength="14" oninput="updatePreview()">
           </div>
 
+          <div class="form-group lecturer-field" style="display:none" id="customEmployeeFieldToggleWrap">
+            <label>Extra Field</label>
+            <button class="employee-custom-trigger" id="customEmployeeFieldToggle" type="button" onclick="toggleEmployeeCustomField()">
+              Add custom field
+            </button>
+          </div>
+          <div class="form-group full lecturer-field employee-custom-panel" style="display:none" id="customEmployeeFieldPanel">
+            <label>Custom Employee Field</label>
+            <div class="employee-custom-grid">
+              <input type="text" id="customEmployeeFieldLabel" placeholder="Field name" oninput="updatePreview()">
+              <input type="text" id="customEmployeeFieldValue" placeholder="Field value" oninput="updatePreview()">
+            </div>
+          </div>
           <div class="form-group full">
             <label>Address</label>
             <textarea id="address" placeholder="Full address" oninput="updatePreview()"></textarea>
@@ -1517,11 +1533,15 @@ function hasEntryData() {
 }
 
 function shouldLockInstitute() {
-  return batchInstituteLocked || !!String(document.getElementById('name').value || '').trim();
+  return batchInstituteLocked || !!String(document.getElementById('name').value || '').trim() || !!currentPhotoMeta.draft_photo_key || !!currentPhotoMeta.url;
 }
 
 function refreshInstituteLock() {
   setInstituteLocked(shouldLockInstitute());
+  const lockNote = document.getElementById('lockStatusNote');
+  const locked = shouldLockInstitute();
+  lockNote.textContent = locked ? 'Page locked to this institute' : 'Locks after name or photo';
+  lockNote.classList.toggle('locked', locked);
   saveUiState();
 }
 
@@ -1543,6 +1563,19 @@ function generateSerialLocal() {
   return `ID-${instituteCode}-${datePart}-${rand}`;
 }
 
+function getShortSerial(value) {
+  const cleaned = String(value || '').replace(/\D/g, '');
+  return cleaned.slice(-4) || String(value || '').trim().slice(-4).toUpperCase();
+}
+
+function setSerialValue(value) {
+  const serial = String(value || '').trim();
+  document.getElementById('serialNo').value = serial;
+  document.getElementById('shortSerialNo').value = getShortSerial(serial);
+  document.getElementById('previewSerial').textContent = serial || '—';
+  document.getElementById('prevSerial').textContent = serial || 'ID-XXXXXXXX-XXXX';
+}
+
 function isAutoSerial(value) {
   return /^ID-(?:[A-Z0-9]{3,6}-)?\d{8}-[A-Z0-9]{4}$/.test(String(value || '').trim());
 }
@@ -1551,9 +1584,7 @@ function ensureSerialGenerated(force = false) {
   const serialInput = document.getElementById('serialNo');
   if (!serialInput.value.trim() && (force || hasEntryData())) {
     const serial = generateSerialLocal();
-    serialInput.value = serial;
-    document.getElementById('previewSerial').textContent = serial;
-    document.getElementById('prevSerial').textContent = serial;
+    setSerialValue(serial);
   }
 }
 
@@ -1603,9 +1634,7 @@ function handleInstituteChange() {
 
   if (!editingSerialNo && isAutoSerial(serialInput.value)) {
     const serial = generateSerialLocal();
-    serialInput.value = serial;
-    document.getElementById('previewSerial').textContent = serial;
-    document.getElementById('prevSerial').textContent = serial;
+    setSerialValue(serial);
   }
 
   if (anmMode) {
@@ -2052,6 +2081,7 @@ function updatePreview() {
   document.getElementById('prevValid').textContent = effectiveType === 'student' && !anmMode && validUpto ? formatDate(validUpto) : '—';
   document.getElementById('prevIssued').textContent = insertedDate ? formatDate(insertedDate) : '—';
   document.getElementById('prevSerial').textContent = document.getElementById('serialNo').value || 'ID-XXXXXXXX-XXXX';
+  document.getElementById('shortSerialNo').value = getShortSerial(document.getElementById('serialNo').value);
 
   if (anmMode) {
     const trainingYear = document.getElementById('trainingYear').value;
@@ -2258,6 +2288,7 @@ function legacyResetForm() {
   const keepAnmYear = isAnmMode() ? document.getElementById('trainingYear').value : '';
   document.getElementById('name').value = '';
   document.getElementById('serialNo').value = '';
+  document.getElementById('shortSerialNo').value = '';
   document.getElementById('dob').value = '';
   document.getElementById('contact').value = '';
   document.getElementById('address').value = '';
@@ -2380,8 +2411,7 @@ async function populateFormFromRecord(record) {
   handleInstituteChange();
   setType(record.profile_type === 'lecturer' ? 'lecturer' : (record.profile_type === 'student' ? 'student' : 'employee'));
 
-  document.getElementById('serialNo').value = record.serial_no || '';
-  document.getElementById('previewSerial').textContent = record.serial_no || '-';
+  setSerialValue(record.serial_no || '');
   document.getElementById('name').value = record.name || '';
   document.getElementById('dob').value = record.dob ? formatDate(record.dob) : '';
   document.getElementById('contact').value = record.contact || '';
@@ -2575,6 +2605,7 @@ function resetForm() {
 
   document.getElementById('name').value = '';
   document.getElementById('serialNo').value = '';
+  document.getElementById('shortSerialNo').value = '';
   document.getElementById('dob').value = '';
   document.getElementById('contact').value = '';
   document.getElementById('address').value = '';
@@ -2585,7 +2616,7 @@ function resetForm() {
   document.getElementById('insertedDate').value = currentDateText();
   document.getElementById('photoInput').value = '';
   clearPhotoPreview();
-  document.getElementById('previewSerial').textContent = '-';
+  document.getElementById('previewSerial').textContent = '—';
   currentPhotoMeta = { url: '', drive_id: '', draft_photo_key: '' };
   activeRetrievedSerial = '';
   activeRetrievedSource = '';
