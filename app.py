@@ -1828,6 +1828,58 @@ def admin_print_cards():
     )
 
 
+def build_print_preview_context():
+    records, institute = get_filtered_records()
+    batch_id = (request.args.get("batch_id") or "").strip()
+    settings = load_settings(institute)
+    sample_record = records[0] if records else {
+        "profile_type": "student",
+        "name": "Aarav Sharma",
+        "training_year": "B.Sc. Nursing - Year 2",
+        "blood_group": "B+",
+        "batch_session": "2025-26",
+        "father_name": "Mahesh Sharma",
+        "dob": "14/08/2004",
+        "contact": "9876543210",
+        "valid_upto": "31/03/2027",
+        "serial_no": "ID-20260408-DEMO",
+        "institute_name": institute or "Govt. Medical College, Jhunjhunu",
+        "department": "Nursing",
+        "employee_id": "EMP-102",
+    }
+    return {
+        "records": records,
+        "institute": institute,
+        "batch_id": batch_id,
+        "settings": settings,
+        "sample_record": sample_record,
+    }
+
+
+@app.route("/admin/print-lab")
+@admin_required
+def admin_print_lab():
+    return render_template("print_lab.html", **build_print_preview_context())
+
+
+@app.route("/admin/print-lab/canva")
+@admin_required
+def admin_print_lab_canva():
+    return render_template("print_lab_canva.html", **build_print_preview_context())
+
+
+@app.route("/admin/print-lab/designer")
+@admin_required
+def admin_print_lab_designer():
+    return render_template("print_lab_designer.html", **build_print_preview_context())
+
+
+@app.route("/admin/print-lab/ai")
+@admin_required
+def admin_print_lab_ai():
+    return render_template("print_lab_ai.html", **build_print_preview_context())
+
+
 @app.route("/admin/login", methods=["POST"])
 def admin_login():
     password = request.form.get("password", "")

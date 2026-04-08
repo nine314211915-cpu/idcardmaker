@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Idea 3 - AI Style Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#f6efe7; --panel:#fffdf9; --text:#2c1810; --muted:#716458; --line:#dfd1c4; --shadow:0 18px 38px rgba(63,24,8,0.08); --theme-bg:linear-gradient(145deg, rgba(255,255,255,0.92), rgba(247,236,225,0.9)); --theme-accent:#8b0000; --theme-gold:#ad7a18; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Source Sans 3',sans-serif; background:linear-gradient(180deg, #fcf7f1 0%, var(--bg) 100%); color:var(--text); padding:24px 18px 40px; }
+  .shell { max-width:1240px; margin:0 auto; }
+  .topbar { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; margin-bottom:18px; }
+  h1 { font-family:'Playfair Display',serif; font-size:38px; line-height:1.05; }
+  .sub { margin-top:10px; color:var(--muted); max-width:760px; font-size:16px; line-height:1.55; }
+  .links { display:flex; gap:10px; flex-wrap:wrap; }
+  .links a { text-decoration:none; background:#fff; color:var(--text); border:1px solid var(--line); border-radius:14px; padding:10px 14px; font-weight:700; }
+  .layout { display:grid; grid-template-columns:330px 1fr; gap:18px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:24px; box-shadow:var(--shadow); padding:20px; }
+  .panel h2 { font-family:'Playfair Display',serif; font-size:26px; margin-bottom:10px; }
+  .panel p { color:var(--muted); line-height:1.55; }
+  .theme-list { margin-top:14px; display:grid; gap:10px; }
+  .theme-btn { width:100%; text-align:left; background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px; cursor:pointer; }
+  .theme-btn strong { display:block; color:var(--text); }
+  .theme-btn span { display:block; margin-top:4px; color:var(--muted); font-size:13px; }
+  .prompt-box { margin-top:16px; border:1px dashed #ccb9a6; border-radius:16px; padding:14px; background:#fff8ef; font-size:14px; line-height:1.5; }
+  .preview-area { min-height:640px; display:grid; place-items:center; background:radial-gradient(circle at top right, rgba(139,0,0,0.05), transparent 24%), linear-gradient(180deg, rgba(255,255,255,0.8), rgba(255,255,255,0.92)); }
+  .card { width:min(100%, 470px); aspect-ratio:1.58/1; border-radius:28px; overflow:hidden; border:1px solid #ddcfc2; box-shadow:0 24px 48px rgba(41,24,12,0.15); background:var(--theme-bg); position:relative; }
+  .card::before {
+    content:""; position:absolute; inset:0;
+    background:{% if settings.get('background_url') %}url('{{ settings.get("background_url") }}'){% else %}linear-gradient(145deg, rgba(248,238,226,0.48), rgba(232,214,197,0.4)){% endif %};
+    background-size:cover; background-position:center; opacity:0.16;
+  }
+  .inner { position:relative; z-index:1; display:grid; grid-template-rows:auto 1fr auto; height:100%; }
+  .head { padding:18px; background:linear-gradient(90deg, var(--theme-accent), color-mix(in srgb, var(--theme-accent) 72%, black 28%)); color:#fff; }
+  .head .tiny { text-transform:uppercase; letter-spacing:1.5px; font-size:11px; opacity:0.84; }
+  .head .name { font-family:'Playfair Display',serif; font-size:24px; margin-top:4px; }
+  .body { display:grid; grid-template-columns:118px 1fr; gap:16px; padding:18px; }
+  .photo { border-radius:18px; overflow:hidden; background:#f7eee6; border:1px solid rgba(0,0,0,0.08); display:flex; align-items:center; justify-content:center; color:var(--muted); }
+  .photo img { width:100%; height:100%; object-fit:cover; }
+  .content h3 { color:var(--theme-accent); font-size:28px; line-height:1.04; }
+  .content .role { margin-top:5px; color:var(--theme-gold); font-weight:700; }
+  .content .meta { margin-top:12px; display:grid; gap:7px; font-size:14px; }
+  .foot { padding:12px 18px; display:flex; justify-content:space-between; align-items:center; border-top:1px solid rgba(0,0,0,0.06); background:rgba(255,247,237,0.86); font-size:13px; }
+  .chip { background:var(--theme-accent); color:#fff; border-radius:999px; padding:5px 11px; font-size:12px; font-weight:700; }
+  @media (max-width: 980px) { .layout { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+  <main class="shell">
+    <section class="topbar">
+      <div>
+        <h1>Idea 3: AI Style Lab</h1>
+        <p class="sub">This direction uses AI for concept exploration first. We test distinct visual languages, then convert the chosen style into a stable print template.</p>
+      </div>
+      <div class="links">
+        <a href="/admin/print-lab?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">All Ideas</a>
+        <a href="/admin">Admin</a>
+      </div>
+    </section>
+    <section class="layout">
+      <article class="panel">
+        <h2>Theme Explorer</h2>
+        <p>Pick a style direction. This is where AI helps most: trying bold, premium, clinical, or government-friendly looks fast before we build the final layout.</p>
+        <div class="theme-list">
+          <button class="theme-btn" data-accent="#8b0000" data-gold="#ad7a18" data-bg="linear-gradient(145deg, rgba(255,255,255,0.92), rgba(247,236,225,0.9))">
+            <strong>Heritage Medical</strong>
+            <span>Formal, government-friendly, maroon and parchment tone.</span>
+          </button>
+          <button class="theme-btn" data-accent="#0f5c4d" data-gold="#2e8b78" data-bg="linear-gradient(145deg, rgba(244,255,251,0.94), rgba(226,244,238,0.94))">
+            <strong>Clinical Modern</strong>
+            <span>Fresh hospital look with teal accents and cleaner spacing.</span>
+          </button>
+          <button class="theme-btn" data-accent="#1b3764" data-gold="#5f88d4" data-bg="linear-gradient(145deg, rgba(245,249,255,0.96), rgba(228,237,249,0.94))">
+            <strong>Premium Academic</strong>
+            <span>Formal blue palette for universities and high-trust institutions.</span>
+          </button>
+        </div>
+        <div class="prompt-box" id="promptBox">AI prompt seed: Create a print-safe identity card concept for a medical institute using a heritage medical style, layered textures, strong title hierarchy, and clean data zones for photo, name, serial, dates, and role.</div>
+      </article>
+      <article class="panel preview-area">
+        <div class="card">
+          <div class="inner">
+            <div class="head">
+              <div class="tiny">AI Theme Preview</div>
+              <div class="name">{{ sample_record.get('institute_name') }}</div>
+            </div>
+            <div class="body">
+              <div class="photo">
+                {% if sample_record.get('photo_url') %}
+                <img src="{{ sample_record.get('photo_url') }}" alt="Preview photo">
+                {% else %}
+                <span>Photo</span>
+                {% endif %}
+              </div>
+              <div class="content">
+                <h3>{{ sample_record.get('name') }}</h3>
+                <div class="role">{{ sample_record.get('training_year') or sample_record.get('course') or sample_record.get('designation') or sample_record.get('department') }}</div>
+                <div class="meta">
+                  <div><strong>DOB:</strong> {{ sample_record.get('dob') or '-' }}</div>
+                  <div><strong>Contact:</strong> {{ sample_record.get('contact') or '-' }}</div>
+                  <div><strong>Batch:</strong> {{ sample_record.get('batch_session') or '-' }}</div>
+                  <div><strong>Valid:</strong> {{ sample_record.get('valid_upto') or '-' }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="foot">
+              <span>{{ sample_record.get('serial_no') }}</span>
+              <span class="chip">{{ (sample_record.get('profile_type') or 'student').upper() }}</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+  <script>
+    const root = document.documentElement;
+    const promptBox = document.getElementById('promptBox');
+    const promptMap = {
+      'Heritage Medical': 'AI prompt seed: Create a print-safe identity card concept for a medical institute using a heritage medical style, layered textures, strong title hierarchy, and clean data zones for photo, name, serial, dates, and role.',
+      'Clinical Modern': 'AI prompt seed: Create a clean clinical identity card concept with teal accents, bright whitespace, sharp data alignment, hospital-grade clarity, and minimal but premium surfaces.',
+      'Premium Academic': 'AI prompt seed: Create an academic premium identity card with deep blue hierarchy, elegant typography, trustworthy institutional tone, and balanced print zones for formal government or university use.'
+    };
+    document.querySelectorAll('.theme-btn').forEach((button) => {
+      button.addEventListener('click', () => {
+        root.style.setProperty('--theme-accent', button.dataset.accent);
+        root.style.setProperty('--theme-gold', button.dataset.gold);
+        root.style.setProperty('--theme-bg', button.dataset.bg);
+        promptBox.textContent = promptMap[button.querySelector('strong').textContent] || '';
+      });
+    });
+  </script>
+</body>
+</html>

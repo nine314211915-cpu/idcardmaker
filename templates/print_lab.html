@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Print Design Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --cream:#f7efe4; --panel:#fffdf8; --red:#8b0000; --text:#2c1810; --muted:#74685d; --line:#e4d7c7; --shadow:0 18px 40px rgba(63,24,8,0.08); }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { min-height:100vh; font-family:'Source Sans 3',sans-serif; background:radial-gradient(circle at top left, rgba(139,0,0,0.08), transparent 28%), linear-gradient(180deg, #fbf7f1 0%, var(--cream) 100%); color:var(--text); padding:28px 18px 48px; }
+  .shell { max-width:1180px; margin:0 auto; }
+  .hero { background:var(--panel); border:1px solid var(--line); border-radius:28px; padding:28px; box-shadow:var(--shadow); }
+  h1 { font-family:'Playfair Display',serif; font-size:40px; line-height:1.05; }
+  .hero p { margin-top:12px; color:var(--muted); font-size:17px; max-width:760px; line-height:1.55; }
+  .meta { margin-top:16px; display:flex; gap:10px; flex-wrap:wrap; }
+  .meta span { background:#fff; border:1px solid var(--line); border-radius:999px; padding:7px 12px; font-size:13px; color:var(--muted); }
+  .grid { margin-top:22px; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:18px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:24px; padding:22px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:14px; }
+  .eyebrow { color:var(--red); text-transform:uppercase; letter-spacing:1.4px; font-weight:700; font-size:11px; }
+  .card h2 { font-family:'Playfair Display',serif; font-size:28px; line-height:1.1; }
+  .card p { color:var(--muted); line-height:1.55; font-size:15px; }
+  .list { display:grid; gap:8px; color:#4d433a; font-size:14px; }
+  .action { margin-top:auto; display:inline-flex; align-self:flex-start; text-decoration:none; background:var(--red); color:#fff; border-radius:14px; padding:11px 16px; font-weight:700; }
+  .back { display:inline-flex; margin-top:18px; text-decoration:none; color:var(--red); font-weight:700; }
+  @media (max-width: 980px) { .grid { grid-template-columns:1fr; } h1 { font-size:32px; } }
+</style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <h1>Print Design Lab</h1>
+      <p>Three separate pages are ready so you can compare different print-design approaches before we commit to one final workflow.</p>
+      <div class="meta">
+        <span>Institute: {{ institute or sample_record.get('institute_name') }}</span>
+        <span>Batch: {{ batch_id or 'Demo Preview' }}</span>
+        <span>Records available: {{ records|length }}</span>
+      </div>
+      <div class="grid">
+        <article class="card">
+          <div class="eyebrow">Idea 1</div>
+          <h2>Canva Workflow</h2>
+          <p>Best when you want a polished visual layout designed outside the app, then merged with live card data here.</p>
+          <div class="list">
+            <div>Use exported Canva background artwork.</div>
+            <div>Preview dynamic text and photo over the design.</div>
+            <div>Good for fast iteration with non-technical staff.</div>
+          </div>
+          <a class="action" href="/admin/print-lab/canva?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Open Idea 1</a>
+        </article>
+        <article class="card">
+          <div class="eyebrow">Idea 2</div>
+          <h2>In-App Designer</h2>
+          <p>Best when you want a layout editor inside your own system with field positioning, spacing, and print control.</p>
+          <div class="list">
+            <div>Adjust field blocks directly in the browser.</div>
+            <div>Control grids, margins, and print modes.</div>
+            <div>Strong option for repeatable institute templates.</div>
+          </div>
+          <a class="action" href="/admin/print-lab/designer?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Open Idea 2</a>
+        </article>
+        <article class="card">
+          <div class="eyebrow">Idea 3</div>
+          <h2>AI Style Lab</h2>
+          <p>Best when you want AI-assisted directions for color, tone, and composition before locking the final print design.</p>
+          <div class="list">
+            <div>Test multiple visual themes quickly.</div>
+            <div>Generate prompt directions for future AI assets.</div>
+            <div>Helpful for deciding the design language first.</div>
+          </div>
+          <a class="action" href="/admin/print-lab/ai?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Open Idea 3</a>
+        </article>
+      </div>
+      <a class="back" href="/admin">Back to Admin</a>
+    </section>
+  </main>
+</body>
+</html>
