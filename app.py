@@ -711,6 +711,26 @@ def list_supabase_records(institute=None, batch_id=None):
     return [unpack_supabase_record(row) for row in (rows if isinstance(rows, list) else [])]
 
 
+def get_supabase_record_by_serial(institute, serial):
+    institute = canonicalize_institute_name(institute)
+    serial = (serial or "").strip()
+    if not institute or not serial:
+        return None
+    rows = supabase_request(
+        "GET",
+        "records",
+        query={
+            "select": "id,batch_id,institute_name,serial_no,name,profile_type,saved_at,submitted_at,payload",
+            "serial_no": f"eq.{serial}",
+            "institute_name": f"eq.{institute}",
+            "limit": 1,
+        },
+    )
+    if isinstance(rows, list) and rows:
+        return unpack_supabase_record(rows[0])
+    return None
+
+
 def get_supabase_batch(institute, batch_id):
     institute = canonicalize_institute_name(institute)
     batch_id = (batch_id or "").strip()
@@ -2358,6 +2378,80 @@ def submit_batch():
     except Exception as exc:
         return jsonify({"error": str(exc) or "Batch submit failed"}), 500
     return jsonify({"status": "submitted", **result})
+
+
+@app.route("/api/retrieve-card")
+def retrieve_card():
+    institute = canonicalize_institute_name(request.args.get("institute"))
+    serial = (request.args.get("serial_no") or "").strip()
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    if not serial:
+        return jsonify({"error": "ID card number is required"}), 400
+
+    if is_supabase_enabled():
+        record = get_supabase_record_by_serial(institute, serial)
+    else:
+        record = next((rec for rec in load_records(institute) if rec.get("serial_no") == serial), None)
+    if not record:
+        return jsonify({"error": "Card not found"}), 404
+    return jsonify({"record": record, "institute": institute, "serial_no": serial})
+
+
+@app.route("/api/update-card", methods=["POST"])
+def update_card():
+    payload = request.json or {}
+    institute = canonicalize_institute_name(payload.get("institute_name"))
+    serial = (payload.get("serial_no") or "").strip()
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    if not serial:
+        return jsonify({"error": "ID card number is required"}), 400
+
+    normalize_record_dates(payload)
+    payload["institute_name"] = institute
+    payload["serial_no"] = serial
+    payload["saved_at"] = current_timestamp_display()
+
+    if is_supabase_enabled():
+        existing = get_supabase_record_by_serial(institute, serial)
+        if not existing:
+            return jsonify({"error": "Card not found"}), 404
+        submitted_at = existing.get("submitted_at")
+        batch_id = existing.get("batch_id")
+        batch_name = existing.get("batch_name")
+        existing.update(payload)
+        existing["submitted_at"] = submitted_at
+        if batch_id:
+            existing["batch_id"] = batch_id
+        if batch_name:
+            existing["batch_name"] = batch_name
+        supabase_request(
+            "PATCH",
+            "records",
+            payload={
+                "payload": existing,
+                "saved_at": existing.get("saved_at", ""),
+                "name": existing.get("name", ""),
+                "profile_type": existing.get("profile_type", ""),
+                "submitted_at": submitted_at or "",
+            },
+            query={"serial_no": f"eq.{serial}", "institute_name": f"eq.{institute}"},
+        )
+        return jsonify({"status": "updated", "record": existing, "serial_no": serial})
+
+    records = load_records(institute)
+    existing = next((rec for rec in records if rec.get("serial_no") == serial), None)
+    if not existing:
+        return jsonify({"error": "Card not found"}), 404
+    submitted_at = existing.get("submitted_at")
+    batch_total_cards = existing.get("batch_total_cards")
+    existing.update(payload)
+    existing["submitted_at"] = submitted_at
+    if batch_total_cards:
+        existing["batch_total_cards"] = batch_total_cards
+    save_records(records, institute)
+    return jsonify({"status": "updated", "record": existing, "serial_no": serial})
 
 @app.route("/api/records")
 @admin_required

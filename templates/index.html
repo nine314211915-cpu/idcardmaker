@@ -465,6 +465,23 @@
     color: var(--muted);
     line-height: 1.4;
   }
+  .retrieve-box {
+    margin-bottom: 10px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: white;
+  }
+  .retrieve-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .retrieve-row input {
+    flex: 1;
+    min-width: 180px;
+  }
   .batch-toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -1058,6 +1075,14 @@
           <strong style="color:var(--red)">Note:</strong> This is a preview only. Submit the form to save data.
         </div>
         <div class="batch-box">
+          <div class="retrieve-box">
+            <div class="section-title" style="margin-bottom:8px">Retrieve Saved Card</div>
+            <div class="retrieve-row">
+              <input type="text" id="retrieveSerialInput" placeholder="Enter ID card no." onkeydown="if(event.key==='Enter'){event.preventDefault(); retrieveCardBySerial();}">
+              <button class="btn-submit secondary" type="button" onclick="retrieveCardBySerial()">Retrieve</button>
+            </div>
+            <div class="batch-note">Load a saved card by ID card number for correction.</div>
+          </div>
           <div class="section-title" style="margin-bottom:8px">Batch Submission</div>
           <div class="batch-meta">
             <div class="batch-pill">Batch State<strong id="batchStateLabel">Ready</strong></div>
@@ -1184,6 +1209,8 @@ let pendingSignaturePassword = '';
 let lastLoadedSubmittedSerial = '';
 let editingSerialNo = '';
 let currentPhotoMeta = { url: '', drive_id: '', draft_photo_key: '' };
+let activeRetrievedSerial = '';
+let activeRetrievedSource = '';
 let instituteLocked = false;
 let batchInstituteLocked = false;
 let currentBatchRecords = [];
@@ -2160,12 +2187,53 @@ async function editSubmittedCard(serial) {
     selectedBatchSerial = serial;
     saveUiState();
     await populateFormFromRecord(record);
+    activeRetrievedSerial = '';
+    activeRetrievedSource = 'draft';
     lastLoadedSubmittedSerial = serial;
     showToast('Loaded card for editing: ' + serial);
   } catch (e) {
     alert(e.message || 'Unable to load submitted card.');
   }
   hideLoading();
+}
+
+async function retrieveCardBySerial() {
+  const institute = getInstituteValue();
+  const serial = document.getElementById('retrieveSerialInput').value.trim();
+  if (!institute || institute === 'Other') {
+    alert('Please select or enter the institute first.');
+    return;
+  }
+  if (!serial) {
+    alert('Please enter the ID card number.');
+    return;
+  }
+
+  const localRecord = getDraftRecords(institute).find((record) => (record.serial_no || '').trim() === serial);
+  showLoading('Retrieving saved card...');
+  try {
+    if (localRecord) {
+      await populateFormFromRecord(localRecord);
+      activeRetrievedSerial = '';
+      activeRetrievedSource = 'draft';
+      selectedBatchSerial = serial;
+      saveUiState();
+      showToast('Loaded draft card: ' + serial);
+    } else {
+      const res = await fetch(`/api/retrieve-card?institute=${encodeURIComponent(institute)}&serial_no=${encodeURIComponent(serial)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Unable to retrieve card.');
+      await populateFormFromRecord(data.record || {});
+      activeRetrievedSerial = serial;
+      activeRetrievedSource = 'submitted';
+      document.getElementById('retrieveSerialInput').value = serial;
+      showToast('Loaded saved card: ' + serial);
+    }
+  } catch (e) {
+    alert(e.message || 'Unable to retrieve card.');
+  } finally {
+    hideLoading();
+  }
 }
 
 async function populateFormFromRecord(record) {
@@ -2277,6 +2345,31 @@ async function saveCurrentCard() {
 
   try {
     const institute = getInstituteValue();
+    if (activeRetrievedSource === 'submitted' && activeRetrievedSerial === serial) {
+      let finalPayload = { ...payload };
+      if (finalPayload.draft_photo_key) {
+        const uploadedRecord = await uploadDraftPhotoForRecord({ ...finalPayload });
+        finalPayload.photo_url = uploadedRecord.photo_url || '';
+        finalPayload.photo_drive_id = uploadedRecord.photo_drive_id || '';
+        delete finalPayload.draft_photo_key;
+      }
+      const res = await fetch('/api/update-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(finalPayload)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Unable to update saved card.');
+      showToast('Corrected saved card. Serial: ' + serial);
+      activeRetrievedSerial = '';
+      activeRetrievedSource = '';
+      document.getElementById('retrieveSerialInput').value = '';
+      await loadBatchSummary();
+      resetForm();
+      hideLoading();
+      return;
+    }
+
     const existingRecords = getDraftRecords(institute);
     const existingIndex = existingRecords.findIndex(record => record.serial_no === serial);
     payload.saved_at = currentTimestampText();
@@ -2366,6 +2459,9 @@ function resetForm() {
   clearPhotoPreview();
   document.getElementById('previewSerial').textContent = '-';
   currentPhotoMeta = { url: '', drive_id: '', draft_photo_key: '' };
+  activeRetrievedSerial = '';
+  activeRetrievedSource = '';
+  document.getElementById('retrieveSerialInput').value = '';
 
   if (type === 'student') {
     document.getElementById('course').value = '';
