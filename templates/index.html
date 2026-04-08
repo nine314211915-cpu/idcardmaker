@@ -1019,9 +1019,12 @@
               </div>
             </div>
             <input type="file" id="photoInput" accept="image/*" onchange="handlePhotoUpload(this)">
+            <input type="file" id="photoCameraInput" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoUpload(this)">
             <input type="file" id="bulkPhotoInput" accept="image/*" multiple style="display:none" onchange="handleBulkPhotoUpload(this)">
             <div class="bulk-photo-tools">
               <div class="bulk-photo-row">
+                <button class="btn-mini" type="button" onclick="openCameraPicker()">Use Camera</button>
+                <button class="btn-mini" type="button" onclick="openGalleryPicker()">Choose Photo</button>
                 <button class="btn-mini" type="button" onclick="openBulkPhotoPicker()">Upload Bulk Photos</button>
               </div>
               <div class="bulk-photo-note">Use saved names like <strong>Mamta</strong>, <strong>Mamta 1</strong>, or numbers like <strong>1</strong>, <strong>2</strong>, <strong>3</strong>. Matching is automatic.</div>
@@ -1389,6 +1392,8 @@ function saveUiState() {
     otherInstituteName: document.getElementById('otherInstituteName').value,
     facilityLocation: document.getElementById('facilityLocation').value,
     facilitySubLocation: getFacilitySubLocationValue(),
+    serialNo: document.getElementById('serialNo').value,
+    currentPhotoMeta,
     selectedBatchSerial,
   };
   try {
@@ -1910,7 +1915,19 @@ function showLoading(text) {
 function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
 
 function openGalleryPicker() {
-  document.getElementById('photoInput').click();
+  const input = document.getElementById('photoInput');
+  input.value = '';
+  input.click();
+}
+
+function openCameraPicker() {
+  const input = document.getElementById('photoCameraInput');
+  input.value = '';
+  if (typeof input.showPicker === 'function') {
+    input.showPicker();
+    return;
+  }
+  input.click();
 }
 
 function openBulkPhotoPicker() {
@@ -2200,19 +2217,28 @@ async function handlePhotoUpload(input) {
   try {
     const institute = getInstituteValue();
     const serial = document.getElementById('serialNo').value.trim();
-    const draftPhotoKey = makeDraftPhotoKey(institute, serial);
     const file = input.files[0];
-    await saveDraftPhotoBlob(draftPhotoKey, file);
+    const formData = new FormData();
+    formData.append('photo', file);
+    formData.append('serial_no', serial);
+    formData.append('institute', institute);
+    const res = await fetch('/api/upload-photo', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Photo upload failed.');
+    if (currentPhotoMeta.draft_photo_key) {
+      await deleteDraftPhotoBlob(currentPhotoMeta.draft_photo_key);
+    }
     currentPhotoMeta = {
-      url: '',
-      drive_id: '',
-      draft_photo_key: draftPhotoKey
+      url: data.photo_url || '',
+      drive_id: data.photo_drive_id || '',
+      draft_photo_key: ''
     };
-    showPhotoPreviewFromBlob(file);
+    showPhotoPreviewFromUrl(currentPhotoMeta.url);
     refreshInstituteLock();
-    showToast('Draft photo saved on this device.');
+    saveUiState();
+    showToast('Photo uploaded and saved.');
   } catch (e) {
-    alert('Draft photo save failed. Please try again.');
+    alert(e.message || 'Photo upload failed. Please try again.');
   }
   hideLoading();
   input.value = '';
@@ -2459,6 +2485,7 @@ function legacyResetForm() {
   document.getElementById('trainingYear').value = keepAnmYear;
   document.getElementById('insertedDate').value = currentDateText();
   document.getElementById('photoInput').value = '';
+  document.getElementById('photoCameraInput').value = '';
   document.getElementById('photoPlaceholder').style.display = '';
   document.getElementById('photoPreviewWrap').classList.remove('visible');
   document.getElementById('photoArea').classList.remove('has-photo');
@@ -2786,6 +2813,7 @@ function resetForm() {
   document.getElementById('trainingYear').value = keepAnmYear;
   document.getElementById('insertedDate').value = currentDateText();
   document.getElementById('photoInput').value = '';
+  document.getElementById('photoCameraInput').value = '';
   clearPhotoPreview();
   document.getElementById('previewSerial').textContent = '—';
   currentPhotoMeta = { url: '', drive_id: '', draft_photo_key: '' };
@@ -2837,6 +2865,19 @@ if (typeof persistedUiState.facilityLocation === 'string') {
 if (typeof persistedUiState.facilitySubLocation === 'string') {
   handleFacilityLocationChange();
   setFacilitySubLocationValue(persistedUiState.facilitySubLocation);
+}
+if (typeof persistedUiState.serialNo === 'string' && persistedUiState.serialNo.trim()) {
+  setSerialValue(persistedUiState.serialNo);
+}
+if (persistedUiState.currentPhotoMeta && typeof persistedUiState.currentPhotoMeta === 'object') {
+  currentPhotoMeta = {
+    url: persistedUiState.currentPhotoMeta.url || '',
+    drive_id: persistedUiState.currentPhotoMeta.drive_id || '',
+    draft_photo_key: persistedUiState.currentPhotoMeta.draft_photo_key || ''
+  };
+  if (currentPhotoMeta.url) {
+    showPhotoPreviewFromUrl(currentPhotoMeta.url);
+  }
 }
 batchInstituteLocked = false;
 setInstituteLocked(false);
