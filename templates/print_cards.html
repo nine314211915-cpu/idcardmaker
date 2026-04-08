@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A4 ID Card Print</title>
+  <style>
+    :root {
+      --red: #8b0000;
+      --gold: #9b6b13;
+      --text: #242424;
+      --muted: #6c6c6c;
+      --line: #d7c6c6;
+      --paper: #f4efe9;
+      --soft: #fffaf5;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background: #e8e0d7;
+    }
+
+    .screen-toolbar {
+      max-width: 210mm;
+      margin: 0 auto;
+      padding: 14px 16px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .screen-note {
+      font-size: 14px;
+      color: #4d433a;
+    }
+
+    .screen-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: 14px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-primary {
+      background: var(--red);
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid #cfc4bb;
+    }
+
+    .print-sheet {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto 16px;
+      background: white;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+      padding: 8mm;
+      display: grid;
+      grid-template-columns: repeat(2, 85.6mm);
+      grid-auto-rows: 54mm;
+      gap: 6mm;
+      justify-content: center;
+      align-content: start;
+      page-break-after: always;
+    }
+
+    .id-card {
+      width: 85.6mm;
+      height: 54mm;
+      border: 0.45mm solid var(--red);
+      border-radius: 3mm;
+      overflow: hidden;
+      position: relative;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .id-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: var(--card-bg, none);
+      background-size: cover;
+      background-position: center;
+      opacity: 0.13;
+      pointer-events: none;
+    }
+
+    .id-card > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .card-header {
+      min-height: 10.5mm;
+      background: var(--red);
+      color: #fff;
+      padding: 2.2mm 2.8mm;
+      display: flex;
+      align-items: center;
+      gap: 2.2mm;
+    }
+
+    .header-mark {
+      width: 6.4mm;
+      height: 6.4mm;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3.1mm;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .header-text {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .header-title {
+      font-size: 3.2mm;
+      font-weight: 700;
+      line-height: 1.05;
+    }
+
+    .header-subtitle {
+      margin-top: 0.5mm;
+      font-size: 2mm;
+      letter-spacing: 0.2mm;
+      text-transform: uppercase;
+      opacity: 0.88;
+    }
+
+    .card-body {
+      flex: 1;
+      display: flex;
+      gap: 2.5mm;
+      padding: 2.6mm 2.8mm 2.2mm;
+    }
+
+    .card-photo,
+    .card-photo-placeholder {
+      width: 18.5mm;
+      height: 23.5mm;
+      border: 0.25mm solid var(--line);
+      border-radius: 1.2mm;
+      flex-shrink: 0;
+      background: var(--soft);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 2.2mm;
+      text-align: center;
+    }
+
+    .card-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .card-info {
+      min-width: 0;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-name {
+      color: var(--red);
+      font-size: 3.6mm;
+      font-weight: 700;
+      line-height: 1.08;
+      margin-bottom: 0.9mm;
+    }
+
+    .card-role {
+      color: var(--gold);
+      font-size: 2.45mm;
+      font-weight: 700;
+      line-height: 1.15;
+      margin-bottom: 1.1mm;
+    }
+
+    .card-fields {
+      display: grid;
+      gap: 0.55mm;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 12mm 1fr;
+      gap: 1.2mm;
+      align-items: start;
+      font-size: 2.15mm;
+      line-height: 1.15;
+    }
+
+    .field-label {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .field-value {
+      color: var(--text);
+      min-width: 0;
+      word-break: break-word;
+    }
+
+    .serial-bar {
+      background: var(--paper);
+      border-top: 0.25mm solid var(--line);
+      padding: 1.35mm 2.8mm;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2mm;
+    }
+
+    .serial-no {
+      color: var(--red);
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: 2.25mm;
+      font-weight: 700;
+      letter-spacing: 0.15mm;
+    }
+
+    .type-badge {
+      background: var(--red);
+      color: #fff;
+      border-radius: 99px;
+      padding: 0.55mm 1.8mm;
+      font-size: 1.95mm;
+      font-weight: 700;
+      letter-spacing: 0.15mm;
+    }
+
+    .meta-bar {
+      display: flex;
+      justify-content: space-between;
+      gap: 2mm;
+      padding: 1mm 2.8mm;
+      border-top: 0.25mm solid #e7dede;
+      font-size: 1.95mm;
+      color: #4f4f4f;
+    }
+
+    .signature-strip {
+      padding: 0.7mm 2.8mm 1mm;
+      border-top: 0.25mm dashed #d6cbcb;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .signature-box {
+      width: 24mm;
+      text-align: center;
+    }
+
+    .signature-box img {
+      max-width: 100%;
+      max-height: 6mm;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto 0.4mm;
+    }
+
+    .signature-line {
+      border-top: 0.25mm solid #6f6f6f;
+      margin-bottom: 0.3mm;
+    }
+
+    .signature-label {
+      font-size: 1.7mm;
+      color: var(--muted);
+    }
+
+    .card-disclaimer {
+      border-top: 0.25mm dashed #d8cece;
+      padding: 0.9mm 2.6mm 1.1mm;
+      text-align: center;
+      color: var(--muted);
+      font-size: 1.75mm;
+      line-height: 1.15;
+    }
+
+    .empty-state {
+      width: 210mm;
+      margin: 24px auto;
+      background: white;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      padding: 30px;
+      text-align: center;
+      color: #5a524a;
+    }
+
+    @page {
+      size: A4 portrait;
+      margin: 8mm;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .screen-toolbar {
+        display: none;
+      }
+
+      .print-sheet,
+      .empty-state {
+        margin: 0;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="screen-toolbar">
+    <div class="screen-note">
+      {% if records %}
+      Ready to print {{ records|length }} card(s) on A4. Best result: scale 100%, margins default, background graphics enabled.
+      {% else %}
+      No cards found for the selected filter.
+      {% endif %}
+    </div>
+    <div class="screen-actions">
+      <button class="btn btn-primary" type="button" onclick="window.print()">Print A4</button>
+      <a class="btn btn-secondary" href="/admin">Back to Admin</a>
+    </div>
+  </div>
+
+  {% if not records %}
+  <div class="empty-state">
+    <h2>No records to print</h2>
+    <p>Select an institute and batch in the admin panel, then open the A4 print view again.</p>
+  </div>
+  {% else %}
+    {% set bg_style = "--card-bg:url('" ~ settings.get('background_url', '') ~ "')" if settings.get('background_url') else "--card-bg:none" %}
+    {% for sheet in records|batch(8, None) %}
+    <section class="print-sheet">
+      {% for record in sheet if record %}
+        {% set profile_type = (record.get('profile_type') or '') %}
+        {% set type_label = 'Student Identity Card' if profile_type == 'student' else ('Employee Identity Card' if profile_type == 'employee' else 'Teacher Identity Card') %}
+        {% set type_badge = 'STUDENT' if profile_type == 'student' else ('EMPLOYEE' if profile_type == 'employee' else 'TEACHER') %}
+        {% set course_or_role = record.get('training_year') or record.get('course') or record.get('designation') or '-' %}
+        {% set issue_date = record.get('inserted_date') or record.get('issue_date') or (record.get('saved_at', '').split(' ')[0] if record.get('saved_at') else '-') %}
+        <article class="id-card" style="{{ bg_style }}">
+          <div class="card-header">
+            <div class="header-mark">MC</div>
+            <div class="header-text">
+              <div class="header-title">{{ record.get('institute_name') or institute or 'Medical College' }}</div>
+              <div class="header-subtitle">{{ type_label }}</div>
+            </div>
+          </div>
+
+          <div class="card-body">
+            {% if record.get('photo_url') %}
+            <div class="card-photo"><img src="{{ record.get('photo_url') }}" alt="Card photo"></div>
+            {% else %}
+            <div class="card-photo-placeholder">Photo</div>
+            {% endif %}
+
+            <div class="card-info">
+              <div class="card-name">{{ record.get('name') or '-' }}</div>
+              <div class="card-role">{{ course_or_role }}</div>
+              <div class="card-fields">
+                {% if profile_type == 'student' %}
+                  <div class="field-row"><div class="field-label">Blood</div><div class="field-value">{{ record.get('blood_group') or '-' }}</div></div>
+                  {% if record.get('batch_session') %}
+                  <div class="field-row"><div class="field-label">Batch</div><div class="field-value">{{ record.get('batch_session') }}</div></div>
+                  {% endif %}
+                  {% if record.get('father_name') %}
+                  <div class="field-row"><div class="field-label">Father</div><div class="field-value">{{ record.get('father_name') }}</div></div>
+                  {% endif %}
+                {% else %}
+                  <div class="field-row"><div class="field-label">Dept</div><div class="field-value">{{ record.get('department') or '-' }}</div></div>
+                  {% if profile_type == 'employee' and record.get('employee_id') %}
+                  <div class="field-row"><div class="field-label">Emp ID</div><div class="field-value">{{ record.get('employee_id') }}</div></div>
+                  {% endif %}
+                {% endif %}
+                <div class="field-row"><div class="field-label">DOB</div><div class="field-value">{{ record.get('dob') or '-' }}</div></div>
+                <div class="field-row"><div class="field-label">Contact</div><div class="field-value">{{ record.get('contact') or '-' }}</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="serial-bar">
+            <span class="serial-no">{{ record.get('serial_no') or '-' }}</span>
+            <span class="type-badge">{{ type_badge }}</span>
+          </div>
+
+          <div class="meta-bar">
+            <span>Valid: {{ record.get('valid_upto') or '-' }}</span>
+            <span>Issued: {{ issue_date }}</span>
+          </div>
+
+          {% if settings.get('signature_url') and profile_type != 'employee' %}
+          <div class="signature-strip">
+            <div class="signature-box">
+              <img src="{{ settings.get('signature_url') }}" alt="Institute signature">
+              <div class="signature-line"></div>
+              <div class="signature-label">Head of Department</div>
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="card-disclaimer">
+            For official institute use only.
+          </div>
+        </article>
+      {% endfor %}
+    </section>
+    {% endfor %}
+  {% endif %}
+
+  {% if auto_print %}
+  <script>
+    window.addEventListener('load', () => {
+      window.print();
+    });
+  </script>
+  {% endif %}
+</body>
+</html>

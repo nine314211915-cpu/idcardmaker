@@ -1811,6 +1811,23 @@ def admin():
     return render_template("admin.html")
 
 
+@app.route("/admin/print-cards")
+@admin_required
+def admin_print_cards():
+    records, institute = get_filtered_records()
+    batch_id = (request.args.get("batch_id") or "").strip()
+    settings = load_settings(institute)
+    auto_print = (request.args.get("autoprint") or "").strip() == "1"
+    return render_template(
+        "print_cards.html",
+        records=records,
+        institute=institute,
+        batch_id=batch_id,
+        settings=settings,
+        auto_print=auto_print,
+    )
+
+
 @app.route("/admin/login", methods=["POST"])
 def admin_login():
     password = request.form.get("password", "")
