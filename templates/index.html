@@ -160,10 +160,10 @@
     flex-direction: column;
     gap: 8px;
     align-items: stretch;
-    background: var(--cream);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
     min-height: 100%;
   }
   .helper-text {
@@ -744,6 +744,38 @@
     color: var(--red);
     background: #fffdf9;
   }
+  .employee-custom-trigger {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    background: var(--cream);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .employee-custom-trigger.active,
+  .employee-custom-trigger:hover {
+    border-color: var(--red);
+    background: var(--red-soft);
+    color: var(--red);
+  }
+  .employee-custom-panel {
+    display: none;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fffdfa;
+  }
+  .employee-custom-panel.open { display: block; }
+  .employee-custom-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
+    gap: 10px;
+  }
   .signature-admin-box h3 {
     font-family: 'Playfair Display', serif;
     font-size: 13px;
@@ -868,10 +900,14 @@
             <input type="text" id="otherInstituteName" placeholder="Enter institute or office name" oninput="updatePreview(); loadSettings()">
           </div>
           <div class="form-group compact-field" id="facilityLocationWrap" style="display:none">
-            <label>Town / Village <span class="req">*</span></label>
+            <label>Block <span class="req">*</span></label>
             <select id="facilityLocation" onchange="updatePreview(); saveUiState()">
-              <option value="">Select Town / Village</option>
+              <option value="">Select Block</option>
             </select>
+          </div>
+          <div class="form-group compact-field" id="facilitySubLocationWrap" style="display:none">
+            <label>Village / Town</label>
+            <input type="text" id="facilitySubLocation" placeholder="Enter village or town" oninput="updatePreview(); saveUiState()">
           </div>
           <input type="file" id="signatureInput" accept="image/*" style="display:none" onchange="handleSignatureUpload(this)">
         </div>
@@ -916,7 +952,7 @@
               </button>
             </div>
             <div class="form-group serial-box">
-              <input type="text" id="serialNo" readonly placeholder="Auto-generated">
+              <input type="text" id="serialNo" readonly placeholder="ID No. Auto">
             </div>
             <div class="helper-text" id="modeHelper">Choose student or teacher for college cards.</div>
           </div>
@@ -979,6 +1015,19 @@
           <div class="form-group lecturer-field" style="display:none" id="employeeIdGroup">
             <label>Employee ID <span class="req">*</span></label>
             <input type="text" id="employeeId" placeholder="Enter employee ID" oninput="updatePreview()">
+          </div>
+          <div class="form-group lecturer-field" style="display:none" id="customEmployeeFieldToggleWrap">
+            <label>Extra Field</label>
+            <button class="employee-custom-trigger" id="customEmployeeFieldToggle" type="button" onclick="toggleEmployeeCustomField()">
+              Add custom field
+            </button>
+          </div>
+          <div class="form-group full lecturer-field employee-custom-panel" style="display:none" id="customEmployeeFieldPanel">
+            <label>Custom Employee Field</label>
+            <div class="employee-custom-grid">
+              <input type="text" id="customEmployeeFieldLabel" placeholder="Field name" oninput="updatePreview()">
+              <input type="text" id="customEmployeeFieldValue" placeholder="Field value" oninput="updatePreview()">
+            </div>
           </div>
 
           <div class="form-group">
@@ -1050,6 +1099,7 @@
                 <div class="cf-row anm-preview-row" style="display:none"><span class="cf-label">Aadhaar</span><span class="cf-val" id="prevAadhaar">—</span></div>
                 <div class="cf-row lecturer-field" style="display:none"><span class="cf-label">Dept</span><span class="cf-val" id="prevDept">—</span></div>
                 <div class="cf-row lecturer-field" style="display:none" id="prevEmployeeIdRow"><span class="cf-label">Emp ID</span><span class="cf-val" id="prevEmployeeId">—</span></div>
+                <div class="cf-row lecturer-field" style="display:none" id="prevCustomFieldRow"><span class="cf-label" id="prevCustomFieldLabel">Extra</span><span class="cf-val" id="prevCustomFieldValue">—</span></div>
               </div>
             </div>
           </div>
@@ -1237,6 +1287,7 @@ function saveUiState() {
     instituteName: document.getElementById('instituteName').value,
     otherInstituteName: document.getElementById('otherInstituteName').value,
     facilityLocation: document.getElementById('facilityLocation').value,
+    facilitySubLocation: document.getElementById('facilitySubLocation').value,
     selectedBatchSerial,
   };
   try {
@@ -1465,8 +1516,12 @@ function hasEntryData() {
   });
 }
 
+function shouldLockInstitute() {
+  return batchInstituteLocked || !!String(document.getElementById('name').value || '').trim();
+}
+
 function refreshInstituteLock() {
-  setInstituteLocked(batchInstituteLocked || hasEntryData());
+  setInstituteLocked(shouldLockInstitute());
   saveUiState();
 }
 
@@ -1537,11 +1592,13 @@ function handleInstituteChange() {
   const facilityLocationMode = isFacilityLocationInstitute();
   document.getElementById('otherInstituteWrap').style.display = institute === 'Other' ? '' : 'none';
   document.getElementById('facilityLocationWrap').style.display = facilityLocationMode ? '' : 'none';
+  document.getElementById('facilitySubLocationWrap').style.display = facilityLocationMode ? '' : 'none';
   if (facilityLocationMode) {
-    populateSelect('facilityLocation', FACILITY_LOCATIONS[institute] || [], 'Select Town / Village');
+    populateSelect('facilityLocation', FACILITY_LOCATIONS[institute] || [], 'Select Block');
   } else {
-    document.getElementById('facilityLocation').innerHTML = '<option value="">Select Town / Village</option>';
+    document.getElementById('facilityLocation').innerHTML = '<option value="">Select Block</option>';
     document.getElementById('facilityLocation').value = '';
+    document.getElementById('facilitySubLocation').value = '';
   }
 
   if (!editingSerialNo && isAutoSerial(serialInput.value)) {
@@ -1570,7 +1627,11 @@ function handleInstituteChange() {
     document.getElementById('trainingYearGroup').style.display = '';
     document.getElementById('bloodGroupGroup').style.display = '';
     document.getElementById('employeeIdGroup').style.display = 'none';
+    document.getElementById('customEmployeeFieldToggleWrap').style.display = 'none';
+    document.getElementById('customEmployeeFieldPanel').classList.remove('open');
+    document.getElementById('customEmployeeFieldPanel').style.display = 'none';
     document.getElementById('prevEmployeeIdRow').style.display = 'none';
+    document.getElementById('prevCustomFieldRow').style.display = 'none';
   } else if (collegeMode) {
     document.getElementById('profileTitle').textContent = 'Select Profile Type';
     document.getElementById('detailsTitle').textContent = 'Personal Information';
@@ -1591,7 +1652,11 @@ function handleInstituteChange() {
     document.getElementById('trainingYearGroup').style.display = 'none';
     document.getElementById('bloodGroupGroup').style.display = '';
     document.getElementById('employeeIdGroup').style.display = 'none';
+    document.getElementById('customEmployeeFieldToggleWrap').style.display = 'none';
+    document.getElementById('customEmployeeFieldPanel').classList.remove('open');
+    document.getElementById('customEmployeeFieldPanel').style.display = 'none';
     document.getElementById('prevEmployeeIdRow').style.display = 'none';
+    document.getElementById('prevCustomFieldRow').style.display = 'none';
     populateSelect('course', COLLEGE_COURSES[institute] || COLLEGE_COURSES['Govt. Medical College, Jhunjhunu'], 'Select Course');
     populateSelect('designation', TEACHER_DESIGNATIONS[institute] || TEACHER_DESIGNATIONS['Govt. Medical College, Jhunjhunu'], 'Select Designation');
   } else {
@@ -1612,6 +1677,7 @@ function handleInstituteChange() {
     document.getElementById('trainingYearGroup').style.display = 'none';
     document.getElementById('bloodGroupGroup').style.display = 'none';
     document.getElementById('employeeIdGroup').style.display = '';
+    document.getElementById('customEmployeeFieldToggleWrap').style.display = '';
     document.getElementById('prevEmployeeIdRow').style.display = '';
     populateSelect('designation', EMPLOYEE_DESIGNATIONS[institute] || EMPLOYEE_DESIGNATIONS['Other'], 'Select Designation');
   }
@@ -1626,13 +1692,23 @@ function handleInstituteChange() {
 function setType(type) {
   currentType = type;
   const anmMode = isAnmMode();
-  const effectiveType = anmMode ? 'student' : (isCollegeMode() ? type : 'employee');
+  const collegeMode = isCollegeMode();
+  const effectiveType = anmMode ? 'student' : (collegeMode ? type : 'employee');
   document.getElementById('btnStudent').classList.toggle('active', effectiveType === 'student' || effectiveType === 'employee');
   document.getElementById('btnLecturer').classList.toggle('active', effectiveType === 'lecturer');
   document.querySelectorAll('.student-field').forEach(el => el.style.display = effectiveType === 'student' ? '' : 'none');
   document.querySelectorAll('.lecturer-field').forEach(el => el.style.display = effectiveType === 'lecturer' || effectiveType === 'employee' ? '' : 'none');
   document.querySelectorAll('.anm-field').forEach(el => el.style.display = anmMode ? '' : 'none');
   document.querySelectorAll('.anm-preview-row').forEach(el => el.style.display = anmMode ? '' : 'none');
+  const employeeMode = !anmMode && !collegeMode;
+  document.getElementById('employeeIdGroup').style.display = employeeMode ? '' : 'none';
+  document.getElementById('customEmployeeFieldToggleWrap').style.display = employeeMode ? '' : 'none';
+  if (!employeeMode) {
+    document.getElementById('customEmployeeFieldPanel').classList.remove('open');
+    document.getElementById('customEmployeeFieldPanel').style.display = 'none';
+    document.getElementById('prevEmployeeIdRow').style.display = 'none';
+    document.getElementById('prevCustomFieldRow').style.display = 'none';
+  }
   if (anmMode) {
     document.getElementById('courseGroup').style.display = 'none';
     document.getElementById('validUptoGroup').style.display = 'none';
@@ -1640,6 +1716,19 @@ function setType(type) {
   }
   updatePreview();
   refreshInstituteLock();
+}
+
+function toggleEmployeeCustomField(forceOpen = null) {
+  const panel = document.getElementById('customEmployeeFieldPanel');
+  const trigger = document.getElementById('customEmployeeFieldToggle');
+  const shouldOpen = forceOpen === null ? !panel.classList.contains('open') : !!forceOpen;
+  panel.classList.toggle('open', shouldOpen);
+  panel.style.display = shouldOpen ? '' : 'none';
+  trigger.classList.toggle('active', shouldOpen);
+  trigger.textContent = shouldOpen ? 'Custom field added' : 'Add custom field';
+  if (shouldOpen) {
+    document.getElementById('customEmployeeFieldLabel').focus();
+  }
 }
 
 function showLoading(text) {
@@ -1772,7 +1861,7 @@ async function handleBulkPhotoUpload(input) {
 
 async function loadBatchSummary() {
   const draftRecords = getDraftRecords(getInstituteValue());
-  setInstituteLocked(batchInstituteLocked || hasEntryData());
+  setInstituteLocked(shouldLockInstitute());
   document.getElementById('savedCardsCount').textContent = draftRecords.length;
   document.getElementById('batchStateLabel').textContent = draftRecords.length > 0 ? 'Draft Active' : 'Ready';
   document.getElementById('batchHelperNote').textContent = draftRecords.length > 0
@@ -1947,7 +2036,10 @@ function updatePreview() {
   const name = document.getElementById('name').value || 'Full Name';
   const institute = getInstituteValue() || 'Institute Name';
   const facilityLocation = document.getElementById('facilityLocation').value;
-  const previewInstitute = facilityLocation && isFacilityLocationInstitute() ? `${institute} - ${facilityLocation}` : institute;
+  const facilitySubLocation = document.getElementById('facilitySubLocation').value;
+  const previewInstitute = facilityLocation && isFacilityLocationInstitute()
+    ? `${institute} - ${facilityLocation}${facilitySubLocation ? ` / ${facilitySubLocation}` : ''}`
+    : institute;
   const dob = document.getElementById('dob').value;
   const contact = document.getElementById('contact').value;
   const validUpto = document.getElementById('validUpto').value;
@@ -1974,6 +2066,7 @@ function updatePreview() {
     document.getElementById('prevEmployeeId').textContent = '—';
     document.getElementById('prevBadge').textContent = 'ANM Student Identity Card';
     document.getElementById('prevTypeBadge').textContent = 'ANM';
+    document.getElementById('prevCustomFieldRow').style.display = 'none';
   } else if (effectiveType === 'student') {
     const course = document.getElementById('course').value;
     const blood = document.getElementById('bloodGroup').value;
@@ -1986,6 +2079,7 @@ function updatePreview() {
     document.getElementById('prevEmployeeId').textContent = '—';
     document.getElementById('prevBadge').textContent = 'Student Identity Card';
     document.getElementById('prevTypeBadge').textContent = 'STUDENT';
+    document.getElementById('prevCustomFieldRow').style.display = 'none';
   } else if (effectiveType === 'lecturer') {
     const desig = document.getElementById('designation').value;
     const dept = facilityLocation || '—';
@@ -1998,9 +2092,12 @@ function updatePreview() {
     document.getElementById('prevEmployeeId').textContent = '—';
     document.getElementById('prevBadge').textContent = 'Teacher Identity Card';
     document.getElementById('prevTypeBadge').textContent = 'TEACHER';
+    document.getElementById('prevCustomFieldRow').style.display = 'none';
   } else {
     const desig = document.getElementById('designation').value;
     const dept = facilityLocation || '—';
+    const customFieldLabel = document.getElementById('customEmployeeFieldLabel').value.trim();
+    const customFieldValue = document.getElementById('customEmployeeFieldValue').value.trim();
     document.getElementById('prevRole').textContent = desig || 'Employee Designation';
     document.getElementById('prevBlood').textContent = '—';
     document.getElementById('prevBatch').textContent = '—';
@@ -2010,6 +2107,9 @@ function updatePreview() {
     document.getElementById('prevEmployeeId').textContent = document.getElementById('employeeId').value || '—';
     document.getElementById('prevBadge').textContent = 'Employee Identity Card';
     document.getElementById('prevTypeBadge').textContent = 'EMPLOYEE';
+    document.getElementById('prevCustomFieldLabel').textContent = customFieldLabel || 'Extra';
+    document.getElementById('prevCustomFieldValue').textContent = customFieldValue || '—';
+    document.getElementById('prevCustomFieldRow').style.display = customFieldLabel || customFieldValue ? '' : 'none';
   }
   refreshInstituteLock();
 }
@@ -2099,8 +2199,11 @@ async function legacySaveCurrentCard() {
   } else {
     payload.designation = document.getElementById('designation').value;
     payload.facility_location = document.getElementById('facilityLocation').value;
+    payload.facility_sub_location = document.getElementById('facilitySubLocation').value;
     payload.department = '';
     payload.employee_id = document.getElementById('employeeId').value;
+    payload.custom_field_label = document.getElementById('customEmployeeFieldLabel').value;
+    payload.custom_field_value = document.getElementById('customEmployeeFieldValue').value;
   }
 
   try {
@@ -2177,7 +2280,11 @@ function legacyResetForm() {
     document.getElementById('course').value = '';
     document.getElementById('designation').value = '';
     document.getElementById('facilityLocation').value = '';
+    document.getElementById('facilitySubLocation').value = '';
     document.getElementById('employeeId').value = '';
+    document.getElementById('customEmployeeFieldLabel').value = '';
+    document.getElementById('customEmployeeFieldValue').value = '';
+    toggleEmployeeCustomField(false);
   }
   document.getElementById('instituteName').value = institute;
   handleInstituteChange();
@@ -2289,7 +2396,11 @@ async function populateFormFromRecord(record) {
   document.getElementById('aadhaarNo').value = record.aadhaar_no || '';
   document.getElementById('designation').value = record.designation || '';
   document.getElementById('facilityLocation').value = record.facility_location || record.department || '';
+  document.getElementById('facilitySubLocation').value = record.facility_sub_location || '';
   document.getElementById('employeeId').value = record.employee_id || '';
+  document.getElementById('customEmployeeFieldLabel').value = record.custom_field_label || '';
+  document.getElementById('customEmployeeFieldValue').value = record.custom_field_value || '';
+  toggleEmployeeCustomField(!!(record.custom_field_label || record.custom_field_value));
 
   if (record.photo_url) {
     currentPhotoMeta = {
@@ -2353,8 +2464,11 @@ async function saveCurrentCard() {
   } else {
     payload.designation = document.getElementById('designation').value;
     payload.facility_location = document.getElementById('facilityLocation').value;
+    payload.facility_sub_location = document.getElementById('facilitySubLocation').value;
     payload.department = '';
     payload.employee_id = document.getElementById('employeeId').value;
+    payload.custom_field_label = document.getElementById('customEmployeeFieldLabel').value;
+    payload.custom_field_value = document.getElementById('customEmployeeFieldValue').value;
   }
 
   try {
@@ -2485,7 +2599,11 @@ function resetForm() {
     document.getElementById('course').value = '';
     document.getElementById('designation').value = '';
     document.getElementById('facilityLocation').value = '';
+    document.getElementById('facilitySubLocation').value = '';
     document.getElementById('employeeId').value = '';
+    document.getElementById('customEmployeeFieldLabel').value = '';
+    document.getElementById('customEmployeeFieldValue').value = '';
+    toggleEmployeeCustomField(false);
   }
 
   document.getElementById('instituteName').value = institute;
@@ -2513,6 +2631,9 @@ if (typeof persistedUiState.selectedBatchSerial === 'string') {
 handleInstituteChange();
 if (typeof persistedUiState.facilityLocation === 'string') {
   document.getElementById('facilityLocation').value = persistedUiState.facilityLocation;
+}
+if (typeof persistedUiState.facilitySubLocation === 'string') {
+  document.getElementById('facilitySubLocation').value = persistedUiState.facilitySubLocation;
 }
 batchInstituteLocked = false;
 setInstituteLocked(false);
