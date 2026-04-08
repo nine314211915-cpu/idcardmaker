@@ -823,7 +823,7 @@
   </div>
   <div class="brand-block">
     <h1>ID Card Data Collection System</h1>
-    <p>Institute and Department Identity Card Entry</p>
+    <p>Department of Medical, Health & Family Welfare</p>
   </div>
   <div class="right-brand">
     <div class="brand-top">
@@ -851,6 +851,7 @@
           <div class="form-group compact-field">
             <label>Institute Name <span class="req">*</span></label>
             <select id="instituteName" onchange="handleInstituteChange()">
+              <option value="">Select Institute</option>
               <option value="Govt. Medical College, Jhunjhunu">Govt. Medical College, Jhunjhunu</option>
               <option value="Dist. Collector, Jhunjhunu">Dist. Collector, Jhunjhunu</option>
               <option value="PHED Water Works Jhunjhunu">PHED Water Works Jhunjhunu</option>
@@ -865,6 +866,12 @@
           <div class="form-group compact-field" id="otherInstituteWrap" style="display:none">
             <label>Other Institute / Office <span class="req">*</span></label>
             <input type="text" id="otherInstituteName" placeholder="Enter institute or office name" oninput="updatePreview(); loadSettings()">
+          </div>
+          <div class="form-group compact-field" id="facilityLocationWrap" style="display:none">
+            <label>Town / Village <span class="req">*</span></label>
+            <select id="facilityLocation" onchange="updatePreview(); saveUiState()">
+              <option value="">Select Town / Village</option>
+            </select>
           </div>
           <input type="file" id="signatureInput" accept="image/*" style="display:none" onchange="handleSignatureUpload(this)">
         </div>
@@ -969,11 +976,6 @@
             <label id="designationLabel">Designation <span class="req">*</span></label>
             <select id="designation" onchange="updatePreview()"></select>
           </div>
-          <div class="form-group lecturer-field" style="display:none">
-            <label id="departmentLabel">Department</label>
-            <select id="department" onchange="updatePreview()"></select>
-          </div>
-
           <div class="form-group lecturer-field" style="display:none" id="employeeIdGroup">
             <label>Employee ID <span class="req">*</span></label>
             <input type="text" id="employeeId" placeholder="Enter employee ID" oninput="updatePreview()">
@@ -1116,6 +1118,11 @@
 <script>
 const COLLEGE_INSTITUTES = ['Govt. Medical College, Jhunjhunu', 'Govt. Nursing College, Jhunjhunu'];
 const ANM_INSTITUTE = 'Govt. ANM Training Center, Jhunjhunu';
+const FACILITY_LOCATION_INSTITUTES = [
+  'Govt. Community Health Centre (CHC), Jhunjhunu',
+  'Govt. Primary Health Centre (PHC), Jhunjhunu',
+  'Govt. Health Sub Centre, Jhunjhunu'
+];
 const COLLEGE_COURSES = {
   'Govt. Medical College, Jhunjhunu': ['MBBS 1st Year', 'MBBS 2nd Year', 'MBBS 3rd Year', 'MBBS Final Year', 'Intern (House Surgeon)', 'BDS 1st Year', 'BDS 2nd Year', 'BDS 3rd Year', 'BDS Final Year', 'MD/MS (PG)'],
   'Govt. Nursing College, Jhunjhunu': ['B.Sc Nursing 1st Year', 'B.Sc Nursing 2nd Year', 'B.Sc Nursing 3rd Year', 'B.Sc Nursing 4th Year', 'GNM 1st Year', 'GNM 2nd Year', 'GNM 3rd Year', 'Post Basic Nursing', 'Intern']
@@ -1124,15 +1131,10 @@ const TEACHER_DESIGNATIONS = {
   'Govt. Medical College, Jhunjhunu': ['Professor & HOD', 'Professor', 'Associate Professor', 'Assistant Professor', 'Senior Lecturer', 'Lecturer', 'Tutor / Demonstrator', 'Senior Resident', 'Junior Resident'],
   'Govt. Nursing College, Jhunjhunu': ['Principal', 'Vice Principal', 'Professor', 'Associate Professor', 'Assistant Professor', 'Tutor', 'Clinical Instructor', 'Lecturer']
 };
-const DEPARTMENTS = {
-  'Govt. Medical College, Jhunjhunu': ['Anatomy', 'Physiology', 'Biochemistry', 'Pathology', 'Pharmacology', 'Microbiology', 'Forensic Medicine', 'Community Medicine', 'General Medicine', 'General Surgery', 'Obstetrics & Gynaecology', 'Paediatrics', 'Orthopaedics', 'ENT', 'Ophthalmology', 'Dermatology', 'Psychiatry', 'Radiology', 'Anaesthesiology', 'Administration'],
-  'Govt. Nursing College, Jhunjhunu': ['Academic Section', 'Community Health Nursing', 'Mental Health Nursing', 'Medical Surgical Nursing', 'Child Health Nursing', 'Obstetric Nursing', 'Administration'],
-  'Dist. Collector, Jhunjhunu': ['Administration', 'Revenue', 'Accounts', 'Establishment', 'Public Grievance', 'Record Room'],
-  'PHED Water Works Jhunjhunu': ['Water Supply', 'Maintenance', 'Accounts', 'Field Operations', 'Store', 'Administration'],
-  'Govt. Community Health Centre (CHC), Jhunjhunu': ['Block Jhunjhunu', 'Block Chirawa', 'Block Buhana', 'Block Khetri', 'Block Nawalgarh', 'Block Udaipurwati', 'Block Pilani', 'Block Surajgarh', 'Block Mandawa'],
-  'Govt. Primary Health Centre (PHC), Jhunjhunu': ['Block Jhunjhunu', 'Block Chirawa', 'Block Buhana', 'Block Khetri', 'Block Nawalgarh', 'Block Udaipurwati', 'Block Pilani', 'Block Surajgarh', 'Block Mandawa'],
-  'Govt. Health Sub Centre, Jhunjhunu': ['Block Jhunjhunu', 'Block Chirawa', 'Block Buhana', 'Block Khetri', 'Block Nawalgarh', 'Block Udaipurwati', 'Block Pilani', 'Block Surajgarh', 'Block Mandawa'],
-  'Other': ['Administration', 'Office', 'Field Work', 'Accounts', 'Technical', 'Support']
+const FACILITY_LOCATIONS = {
+  'Govt. Community Health Centre (CHC), Jhunjhunu': ['Jhunjhunu', 'Chirawa', 'Buhana', 'Khetri', 'Nawalgarh', 'Udaipurwati', 'Pilani', 'Surajgarh', 'Mandawa'],
+  'Govt. Primary Health Centre (PHC), Jhunjhunu': ['Jhunjhunu', 'Chirawa', 'Buhana', 'Khetri', 'Nawalgarh', 'Udaipurwati', 'Pilani', 'Surajgarh', 'Mandawa'],
+  'Govt. Health Sub Centre, Jhunjhunu': ['Jhunjhunu', 'Chirawa', 'Buhana', 'Khetri', 'Nawalgarh', 'Udaipurwati', 'Pilani', 'Surajgarh', 'Mandawa']
 };
 const EMPLOYEE_DESIGNATIONS = {
   'Dist. Collector, Jhunjhunu': [
@@ -1234,6 +1236,7 @@ function saveUiState() {
   const payload = {
     instituteName: document.getElementById('instituteName').value,
     otherInstituteName: document.getElementById('otherInstituteName').value,
+    facilityLocation: document.getElementById('facilityLocation').value,
     selectedBatchSerial,
   };
   try {
@@ -1453,7 +1456,7 @@ function hasEntryData() {
   const valueIds = [
     'name', 'dob', 'contact', 'address', 'fatherName', 'aadhaarNo',
     'batchSession', 'trainingYear', 'course', 'validUpto',
-    'designation', 'department', 'employeeId', 'bloodGroup'
+    'designation', 'facilityLocation', 'employeeId', 'bloodGroup'
   ];
   if (currentPhotoMeta.url) return true;
   return valueIds.some((id) => {
@@ -1514,6 +1517,10 @@ function isAnmMode() {
   return document.getElementById('instituteName').value === ANM_INSTITUTE;
 }
 
+function isFacilityLocationInstitute() {
+  return FACILITY_LOCATION_INSTITUTES.includes(document.getElementById('instituteName').value);
+}
+
 function populateSelect(selectId, items, placeholder) {
   const select = document.getElementById(selectId);
   const currentValue = select.value;
@@ -1527,7 +1534,15 @@ function handleInstituteChange() {
   const serialInput = document.getElementById('serialNo');
   const collegeMode = isCollegeMode();
   const anmMode = isAnmMode();
+  const facilityLocationMode = isFacilityLocationInstitute();
   document.getElementById('otherInstituteWrap').style.display = institute === 'Other' ? '' : 'none';
+  document.getElementById('facilityLocationWrap').style.display = facilityLocationMode ? '' : 'none';
+  if (facilityLocationMode) {
+    populateSelect('facilityLocation', FACILITY_LOCATIONS[institute] || [], 'Select Town / Village');
+  } else {
+    document.getElementById('facilityLocation').innerHTML = '<option value="">Select Town / Village</option>';
+    document.getElementById('facilityLocation').value = '';
+  }
 
   if (!editingSerialNo && isAutoSerial(serialInput.value)) {
     const serial = generateSerialLocal();
@@ -1567,7 +1582,6 @@ function handleInstituteChange() {
     document.getElementById('courseLabel').innerHTML = 'Course <span class="req">*</span>';
     document.getElementById('dobLabel').innerHTML = 'Date of Birth <span class="req">*</span>';
     document.getElementById('designationLabel').innerHTML = 'Designation <span class="req">*</span>';
-    document.getElementById('departmentLabel').textContent = 'Department';
     document.getElementById('signatureLabel').textContent = 'Head of Department';
     document.getElementById('signatureStrip').style.display = appSettings.signature_url ? 'flex' : 'none';
     document.querySelectorAll('.signature-admin-box').forEach(el => el.classList.remove('hidden-block'));
@@ -1590,7 +1604,6 @@ function handleInstituteChange() {
     document.getElementById('modeHelper').textContent = 'Department offices use employee details only.';
     document.getElementById('dobLabel').innerHTML = 'Date of Birth <span class="req">*</span>';
     document.getElementById('designationLabel').innerHTML = 'Designation <span class="req">*</span>';
-    document.getElementById('departmentLabel').textContent = 'Section / Branch';
     document.querySelectorAll('.signature-admin-box').forEach(el => el.classList.add('hidden-block'));
     document.getElementById('signatureStrip').style.display = 'none';
     document.getElementById('courseGroup').style.display = 'none';
@@ -1603,9 +1616,6 @@ function handleInstituteChange() {
     populateSelect('designation', EMPLOYEE_DESIGNATIONS[institute] || EMPLOYEE_DESIGNATIONS['Other'], 'Select Designation');
   }
 
-  if (!anmMode) {
-    populateSelect('department', DEPARTMENTS[institute] || DEPARTMENTS['Other'], collegeMode ? 'Select Department' : 'Select Section / Branch');
-  }
   setType(anmMode ? 'student' : (collegeMode ? (currentType === 'employee' ? 'student' : currentType) : 'employee'));
   loadSettings();
   loadBatchSummary();
@@ -1936,12 +1946,14 @@ function updatePreview() {
   const effectiveType = anmMode ? 'student' : (isCollegeMode() ? currentType : 'employee');
   const name = document.getElementById('name').value || 'Full Name';
   const institute = getInstituteValue() || 'Institute Name';
+  const facilityLocation = document.getElementById('facilityLocation').value;
+  const previewInstitute = facilityLocation && isFacilityLocationInstitute() ? `${institute} - ${facilityLocation}` : institute;
   const dob = document.getElementById('dob').value;
   const contact = document.getElementById('contact').value;
   const validUpto = document.getElementById('validUpto').value;
   const insertedDate = document.getElementById('insertedDate').value;
 
-  document.getElementById('prevInstitute').textContent = institute;
+  document.getElementById('prevInstitute').textContent = previewInstitute;
   document.getElementById('prevName').textContent = name;
   document.getElementById('prevDob').textContent = dob ? formatDate(dob) : '—';
   document.getElementById('prevContact').textContent = contact || '—';
@@ -1976,7 +1988,7 @@ function updatePreview() {
     document.getElementById('prevTypeBadge').textContent = 'STUDENT';
   } else if (effectiveType === 'lecturer') {
     const desig = document.getElementById('designation').value;
-    const dept = document.getElementById('department').value;
+    const dept = facilityLocation || '—';
     document.getElementById('prevRole').textContent = desig || 'Designation';
     document.getElementById('prevBlood').textContent = '—';
     document.getElementById('prevBatch').textContent = '—';
@@ -1988,7 +2000,7 @@ function updatePreview() {
     document.getElementById('prevTypeBadge').textContent = 'TEACHER';
   } else {
     const desig = document.getElementById('designation').value;
-    const dept = document.getElementById('department').value;
+    const dept = facilityLocation || '—';
     document.getElementById('prevRole').textContent = desig || 'Employee Designation';
     document.getElementById('prevBlood').textContent = '—';
     document.getElementById('prevBatch').textContent = '—';
@@ -2086,7 +2098,8 @@ async function legacySaveCurrentCard() {
     payload.aadhaar_no = document.getElementById('aadhaarNo').value;
   } else {
     payload.designation = document.getElementById('designation').value;
-    payload.department = document.getElementById('department').value;
+    payload.facility_location = document.getElementById('facilityLocation').value;
+    payload.department = '';
     payload.employee_id = document.getElementById('employeeId').value;
   }
 
@@ -2163,7 +2176,7 @@ function legacyResetForm() {
   } else {
     document.getElementById('course').value = '';
     document.getElementById('designation').value = '';
-    document.getElementById('department').value = '';
+    document.getElementById('facilityLocation').value = '';
     document.getElementById('employeeId').value = '';
   }
   document.getElementById('instituteName').value = institute;
@@ -2275,7 +2288,7 @@ async function populateFormFromRecord(record) {
   document.getElementById('fatherName').value = record.father_name || '';
   document.getElementById('aadhaarNo').value = record.aadhaar_no || '';
   document.getElementById('designation').value = record.designation || '';
-  document.getElementById('department').value = record.department || '';
+  document.getElementById('facilityLocation').value = record.facility_location || record.department || '';
   document.getElementById('employeeId').value = record.employee_id || '';
 
   if (record.photo_url) {
@@ -2339,7 +2352,8 @@ async function saveCurrentCard() {
     payload.aadhaar_no = document.getElementById('aadhaarNo').value;
   } else {
     payload.designation = document.getElementById('designation').value;
-    payload.department = document.getElementById('department').value;
+    payload.facility_location = document.getElementById('facilityLocation').value;
+    payload.department = '';
     payload.employee_id = document.getElementById('employeeId').value;
   }
 
@@ -2470,7 +2484,7 @@ function resetForm() {
   } else {
     document.getElementById('course').value = '';
     document.getElementById('designation').value = '';
-    document.getElementById('department').value = '';
+    document.getElementById('facilityLocation').value = '';
     document.getElementById('employeeId').value = '';
   }
 
@@ -2497,6 +2511,9 @@ if (typeof persistedUiState.selectedBatchSerial === 'string') {
   selectedBatchSerial = persistedUiState.selectedBatchSerial;
 }
 handleInstituteChange();
+if (typeof persistedUiState.facilityLocation === 'string') {
+  document.getElementById('facilityLocation').value = persistedUiState.facilityLocation;
+}
 batchInstituteLocked = false;
 setInstituteLocked(false);
 updatePreview();
