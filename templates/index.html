@@ -1081,7 +1081,7 @@
               <input type="text" id="retrieveSerialInput" placeholder="Enter ID card no." onkeydown="if(event.key==='Enter'){event.preventDefault(); retrieveCardBySerial();}">
               <button class="btn-submit secondary" type="button" onclick="retrieveCardBySerial()">Retrieve</button>
             </div>
-            <div class="batch-note">Load a saved card by ID card number for correction.</div>
+            <div class="batch-note">Load a saved card by ID card number for correction. Retrieved cards may not be available after 30 days.</div>
           </div>
           <div class="section-title" style="margin-bottom:8px">Batch Submission</div>
           <div class="batch-meta">
@@ -1089,7 +1089,7 @@
             <div class="batch-pill">Pending Drafts<strong id="savedCardsCount">0</strong></div>
           </div>
           <button class="btn-submit" type="button" onclick="submitWholeBatch()">Submit Whole Data</button>
-          <div class="batch-note" id="batchHelperNote">Saved cards stay attached to this institute even after refresh. Status stays Pending Submission until you click Submit Whole Data.</div>
+          <div class="batch-note" id="batchHelperNote">While you are entering data, this page stays locked to the current institute and card flow so details do not mix accidentally. It unlocks after you save and reset the form, or after Submit Whole Data finishes for that batch.</div>
           <div class="batch-toolbar">
             <select id="savedCardPicker" onchange="jumpToSelectedCard()">
               <option value="">Select an entered card</option>
