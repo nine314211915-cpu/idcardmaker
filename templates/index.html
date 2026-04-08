@@ -222,6 +222,31 @@
   .compact-field {
     max-width: 340px;
   }
+  .field-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .field-tab {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--cream2);
+    color: var(--red);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .institute-lock-note {
+    min-height: 14px;
+    margin-top: 5px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--red);
+  }
   .form-group { display: flex; flex-direction: column; gap: 4px; }
   .form-group.full { grid-column: 1 / -1; }
   label {
@@ -328,19 +353,8 @@
   .serial-meta {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    justify-content: center;
     margin-top: 4px;
-  }
-  .lock-note {
-    font-size: 10px;
-    color: var(--muted);
-    text-align: right;
-    min-height: 12px;
-  }
-  .lock-note.locked {
-    color: var(--red);
-    font-weight: 700;
   }
     #photoInput { display: none; }
 
@@ -902,19 +916,23 @@
         <!-- Institute Name -->
         <div class="compact-grid institute-row">
           <div class="form-group compact-field">
-            <label>Institute Name <span class="req">*</span></label>
+            <div class="field-label-row">
+              <label>Institute Name <span class="req">*</span></label>
+              <span class="field-tab">Entry</span>
+            </div>
             <select id="instituteName" onchange="handleInstituteChange()">
               <option value="">Select Institute</option>
-              <option value="Govt. Medical College, Jhunjhunu">Govt. Medical College, Jhunjhunu</option>
-              <option value="Dist. Collector, Jhunjhunu">Dist. Collector, Jhunjhunu</option>
-              <option value="PHED Water Works Jhunjhunu">PHED Water Works Jhunjhunu</option>
-              <option value="Govt. Nursing College, Jhunjhunu">Govt. Nursing College, Jhunjhunu</option>
-              <option value="Govt. Community Health Centre (CHC), Jhunjhunu">Govt. Community Health Centre (CHC), Jhunjhunu</option>
-              <option value="Govt. Primary Health Centre (PHC), Jhunjhunu">Govt. Primary Health Centre (PHC), Jhunjhunu</option>
-              <option value="Govt. Health Sub Centre, Jhunjhunu">Govt. Health Sub Centre, Jhunjhunu</option>
-              <option value="Govt. ANM Training Center, Jhunjhunu">Govt. ANM Training Center, Jhunjhunu</option>
+              <option value="Govt. Medical College, Jhunjhunu">Govt. Medical College</option>
+              <option value="Dist. Collector, Jhunjhunu">Dist. Collector</option>
+              <option value="PHED Water Works Jhunjhunu">PHED Water Works</option>
+              <option value="Govt. Nursing College, Jhunjhunu">Govt. Nursing College</option>
+              <option value="Govt. Community Health Centre (CHC), Jhunjhunu">Govt. Community Health Centre (CHC)</option>
+              <option value="Govt. Primary Health Centre (PHC), Jhunjhunu">Govt. Primary Health Centre (PHC)</option>
+              <option value="Govt. Health Sub Centre, Jhunjhunu">Govt. Health Sub Centre</option>
+              <option value="Govt. ANM Training Center, Jhunjhunu">Govt. ANM Training Center</option>
               <option value="Other">Other</option>
             </select>
+            <div class="institute-lock-note" id="instituteLockNote"></div>
           </div>
           <div class="form-group compact-field" id="otherInstituteWrap" style="display:none">
             <label>Other Institute / Office <span class="req">*</span></label>
@@ -978,7 +996,6 @@
               <input type="text" id="shortSerialNo" readonly placeholder="Card Id">
               <div class="serial-meta">
                 <span class="type-block-title">Card Id</span>
-                <span class="lock-note" id="lockStatusNote"></span>
               </div>
             </div>
             <div class="helper-text" id="modeHelper"></div>
@@ -1556,10 +1573,9 @@ function shouldLockInstitute() {
 
 function refreshInstituteLock() {
   setInstituteLocked(shouldLockInstitute());
-  const lockNote = document.getElementById('lockStatusNote');
+  const lockNote = document.getElementById('instituteLockNote');
   const locked = shouldLockInstitute();
-  lockNote.textContent = locked ? 'Page locked to this institute' : '';
-  lockNote.classList.toggle('locked', locked);
+  lockNote.textContent = locked ? 'Institute Locked for This Entry' : '';
   saveUiState();
 }
 
