@@ -216,6 +216,9 @@
     align-items: start;
     margin-bottom: 12px;
   }
+  .institute-row #facilitySubLocationWrap {
+    grid-column: 2;
+  }
   .compact-field {
     max-width: 340px;
   }
@@ -852,6 +855,7 @@
     .card-preview-wrap { position: static; }
     .form-grid { grid-template-columns: 1fr; }
     .compact-grid, .triple-grid { grid-template-columns: 1fr; }
+    .institute-row #facilitySubLocationWrap { grid-column: auto; }
     .photo-upload-area, .compact-field, .type-selector { max-width: none; }
     header { padding: 14px 16px; }
     header .right-brand { margin-left: 0; width: 100%; justify-content: space-between; }
@@ -971,9 +975,9 @@
             </div>
             <div class="form-group serial-box">
               <input type="hidden" id="serialNo">
-              <input type="text" id="shortSerialNo" readonly placeholder="0000">
+              <input type="text" id="shortSerialNo" readonly placeholder="Card Id">
               <div class="serial-meta">
-                <span class="type-block-title">ID No.</span>
+                <span class="type-block-title">Card Id</span>
                 <span class="lock-note" id="lockStatusNote"></span>
               </div>
             </div>
@@ -1206,15 +1210,15 @@ const FACILITY_LOCATIONS = {
   'Govt. Health Sub Centre, Jhunjhunu': ['Jhunjhunu', 'Chirawa', 'Buhana', 'Khetri', 'Nawalgarh', 'Udaipurwati', 'Pilani', 'Surajgarh', 'Mandawa']
 };
 const FACILITY_SUB_LOCATIONS = {
-  'Jhunjhunu': ['Jhunjhunu Town', 'Badalwas', 'Dundlod', 'Sultana', 'Add by yourself'],
-  'Chirawa': ['Chirawa Town', 'Mandrela', 'Pilod', 'Arnia', 'Add by yourself'],
-  'Buhana': ['Buhana Town', 'Pacheri Kalan', 'Sohli', 'Singhana', 'Add by yourself'],
-  'Khetri': ['Khetri Town', 'Kolihan Nagar', 'Banwas', 'Ravla', 'Add by yourself'],
-  'Nawalgarh': ['Nawalgarh Town', 'Mukasundgarh', 'Parsurampura', 'Nayi Basti', 'Add by yourself'],
-  'Udaipurwati': ['Udaipurwati Town', 'Gudha Gorji', 'Posana', 'Chhapoli', 'Add by yourself'],
-  'Pilani': ['Pilani Town', 'Chidawa Road', 'Hanutpura', 'Basant Vihar', 'Add by yourself'],
-  'Surajgarh': ['Surajgarh Town', 'Kajra', 'Loharu Road', 'Malsisar', 'Add by yourself'],
-  'Mandawa': ['Mandawa Town', 'Alsisar', 'Baloda', 'Bissau', 'Add by yourself']
+  'Jhunjhunu': ['Jhunjhunu Town', 'Badalwas', 'Dundlod', 'Sultana', 'Mandrella', 'Nua', 'Khudana', 'Add New'],
+  'Chirawa': ['Chirawa Town', 'Mandrela', 'Pilod', 'Arnia', 'Kithana', 'Bajawa', 'Gidania', 'Add New'],
+  'Buhana': ['Buhana Town', 'Pacheri Kalan', 'Sohli', 'Singhana', 'Bhirr', 'Kuharwas', 'Bhukana', 'Add New'],
+  'Khetri': ['Khetri Town', 'Kolihan Nagar', 'Banwas', 'Ravla', 'Papurna', 'Ajeetpura', 'Shimla', 'Add New'],
+  'Nawalgarh': ['Nawalgarh Town', 'Mukasundgarh', 'Parsurampura', 'Nayi Basti', 'Jakhora', 'Barwasi', 'Basawa', 'Add New'],
+  'Udaipurwati': ['Udaipurwati Town', 'Gudha Gorji', 'Posana', 'Chhapoli', 'Bagora', 'Mankwas', 'Morda', 'Add New'],
+  'Pilani': ['Pilani Town', 'Chidawa Road', 'Hanutpura', 'Basant Vihar', 'Dulania', 'Morwa', 'Khedla', 'Add New'],
+  'Surajgarh': ['Surajgarh Town', 'Kajra', 'Loharu Road', 'Malsisar', 'Bhojasar', 'Kakoda', 'Jakhod', 'Add New'],
+  'Mandawa': ['Mandawa Town', 'Alsisar', 'Baloda', 'Bissau', 'Tain', 'Sehkalon Ki Dhani', 'Hanumanpura', 'Add New']
 };
 const EMPLOYEE_DESIGNATIONS = {
   'Dist. Collector, Jhunjhunu': [
@@ -1596,7 +1600,7 @@ function isAutoSerial(value) {
 
 function ensureSerialGenerated(force = false) {
   const serialInput = document.getElementById('serialNo');
-  if (!serialInput.value.trim() && (force || hasEntryData())) {
+  if (!serialInput.value.trim() && (force || shouldLockInstitute())) {
     const serial = generateSerialLocal();
     setSerialValue(serial);
   }
@@ -1630,6 +1634,9 @@ function setFacilitySubLocationValue(value) {
 }
 
 function handleFacilitySubLocationChange() {
+  if (document.getElementById('facilitySubLocation').value === 'Add New') {
+    document.getElementById('facilitySubLocation').value = '';
+  }
   updatePreview();
   saveUiState();
 }
