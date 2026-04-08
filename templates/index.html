@@ -882,6 +882,21 @@
     font-weight: 600;
   }
   .btn-mini:hover { background: var(--red-light); }
+  .btn-mini.file-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+  }
+  .visually-hidden-file {
+    position: fixed;
+    left: -9999px;
+    top: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
 
   .loading-overlay {
     display: none;
@@ -1019,11 +1034,11 @@
               </div>
             </div>
             <input type="file" id="photoInput" accept="image/*" onchange="handlePhotoUpload(this)">
-            <input type="file" id="photoCameraInput" accept="image/*" capture="environment" style="display:none" onchange="handlePhotoUpload(this)">
+            <input type="file" id="photoCameraInput" class="visually-hidden-file" accept="image/*" capture="environment" onclick="this.value=''" onchange="handlePhotoUpload(this)">
             <input type="file" id="bulkPhotoInput" accept="image/*" multiple style="display:none" onchange="handleBulkPhotoUpload(this)">
             <div class="bulk-photo-tools">
               <div class="bulk-photo-row">
-                <button class="btn-mini" type="button" onclick="openCameraPicker()">Use Camera</button>
+                <label class="btn-mini file-trigger" for="photoCameraInput">Use Camera</label>
                 <button class="btn-mini" type="button" onclick="openGalleryPicker()">Choose Photo</button>
                 <button class="btn-mini" type="button" onclick="openBulkPhotoPicker()">Upload Bulk Photos</button>
               </div>
@@ -1917,16 +1932,6 @@ function hideLoading() { document.getElementById('loadingOverlay').classList.rem
 function openGalleryPicker() {
   const input = document.getElementById('photoInput');
   input.value = '';
-  input.click();
-}
-
-function openCameraPicker() {
-  const input = document.getElementById('photoCameraInput');
-  input.value = '';
-  if (typeof input.showPicker === 'function') {
-    input.showPicker();
-    return;
-  }
   input.click();
 }
 
