@@ -472,11 +472,6 @@
     border-radius: 3px;
     border: 1px solid var(--border);
   }
-  .photo-cell-wrap {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
   .photo-cell-button {
     display: inline-flex;
     align-items: center;
@@ -523,24 +518,6 @@
   .photo-thumb {
     object-fit: cover;
     cursor: pointer;
-  }
-  .photo-upload-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px 7px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: #fff7ef;
-    color: var(--red);
-    font-size: 10px;
-    font-weight: 700;
-    text-decoration: none;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-  .photo-upload-link:hover {
-    background: var(--red-soft);
   }
   .photo-placeholder-thumb {
     background: var(--cream2);
@@ -1825,19 +1802,16 @@ function renderTable(records) {
     const safeName = escapeHtml(r.name || 'Photo');
     const inputId = `photo-cell-input-${i}`;
     const photoHtml = `
-      <div class="photo-cell-wrap">
-        <label
-          for="${inputId}"
-          class="photo-cell-button"
-          data-label="${escapeHtml(photoLabel)}"
-          title="${escapeHtml(photoLabel)}"
-        >
-          ${photoUrl
-            ? `<img class="photo-thumb" src="${photoUrl}?t=${Date.now()}" alt="${safeName}">`
-            : `<div class="photo-placeholder-thumb">+</div>`
-          }
-        </label>
-        <label for="${inputId}" class="photo-upload-link">${photoUrl ? 'Upload' : 'Add'}</label>
+      <label
+        for="${inputId}"
+        class="photo-cell-button"
+        data-label="${escapeHtml(photoLabel)}"
+        title="${escapeHtml(photoLabel)}"
+      >
+        ${photoUrl
+          ? `<img class="photo-thumb" src="${photoUrl}?t=${Date.now()}" alt="${safeName}">`
+          : `<div class="photo-placeholder-thumb">+</div>`
+        }
         <input
           id="${inputId}"
           class="photo-cell-input"
@@ -1846,7 +1820,7 @@ function renderTable(records) {
           data-serial="${encodedSerial}"
           data-institute="${encodedInstitute}"
         >
-      </div>
+      </label>
     `;
     const typeClass = r.profile_type === 'student' ? 'badge-student' : (r.profile_type === 'employee' ? 'badge-employee' : 'badge-lecturer');
     const typeLabel = r.profile_type === 'student' ? 'Student' : (r.profile_type === 'employee' ? 'Employee' : 'Teacher');
