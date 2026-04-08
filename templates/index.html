@@ -243,9 +243,9 @@
   .institute-lock-note {
     min-height: 14px;
     margin-top: 5px;
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--red);
+  }
+  .institute-lock-note .field-tab {
+    background: var(--red-soft);
   }
   .form-group { display: flex; flex-direction: column; gap: 4px; }
   .form-group.full { grid-column: 1 / -1; }
@@ -1575,7 +1575,7 @@ function refreshInstituteLock() {
   setInstituteLocked(shouldLockInstitute());
   const lockNote = document.getElementById('instituteLockNote');
   const locked = shouldLockInstitute();
-  lockNote.textContent = locked ? 'Institute Locked for This Entry' : '';
+  lockNote.innerHTML = locked ? '<span class="field-tab">Institute Locked for This Entry</span>' : '';
   saveUiState();
 }
 
