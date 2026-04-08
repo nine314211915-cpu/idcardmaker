@@ -2195,7 +2195,7 @@ async function loadSubmittedCards() {
   const picker = document.getElementById('savedCardPicker');
   const selectedCard = document.getElementById('selectedBatchCard');
   const instituteRecords = getDraftRecords(getInstituteValue());
-  currentBatchRecords = instituteRecords.slice().reverse();
+  currentBatchRecords = instituteRecords.slice();
   if (!instituteRecords.length) {
     currentBatchRecords = [];
     selectedBatchSerial = '';

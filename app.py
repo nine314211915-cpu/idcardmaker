@@ -700,7 +700,7 @@ def list_all_supabase_batches():
 def list_supabase_records(institute=None, batch_id=None):
     query = {
         "select": "id,batch_id,institute_name,serial_no,name,profile_type,saved_at,submitted_at,payload",
-        "order": "saved_at.desc",
+        "order": "saved_at.asc",
     }
     institute = canonicalize_institute_name(institute)
     if institute:
