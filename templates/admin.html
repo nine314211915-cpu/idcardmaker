@@ -252,6 +252,45 @@
     flex-wrap: wrap;
     color: var(--muted);
   }
+  .usage-battery {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+  }
+  .usage-battery-shell {
+    width: 62px;
+    height: 18px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 2px;
+    background: #fff;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .usage-battery-shell::after {
+    content: "";
+    width: 3px;
+    height: 8px;
+    border-radius: 0 2px 2px 0;
+    background: var(--border);
+    position: absolute;
+    right: -4px;
+    top: 4px;
+  }
+  .usage-battery-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 3px;
+    background: #1a7f37;
+    transition: width 0.2s ease, background 0.2s ease;
+  }
+  .usage-battery-label {
+    font-weight: 700;
+    color: var(--text);
+    min-width: 42px;
+  }
   .status-mini-input, .status-mini-select {
     border: 1px solid var(--border);
     border-radius: 6px;
@@ -736,7 +775,10 @@
     <span class="status-dot yellow" id="supabaseStatusDot"></span>
     <strong>Supabase</strong>
     <span id="supabaseStatusSummary">Checking storage status...</span>
-    <span class="status-meta" id="supabaseUsageMeta">Usage: checking...</span>
+    <span class="usage-battery" id="supabaseUsageMeta">
+      <span class="usage-battery-shell"><span class="usage-battery-fill" id="supabaseUsageFill"></span></span>
+      <span class="usage-battery-label" id="supabaseUsageLabel">--%</span>
+    </span>
     <label class="status-toggle"><input type="checkbox" id="autoDeleteToggle"> Auto Delete</label>
     <select class="status-mini-select" id="autoDeleteDays">
       <option value="7">7 days</option>
@@ -1105,6 +1147,8 @@ function renderSupabaseStatus() {
   const summary = document.getElementById('supabaseStatusSummary');
   const dot = document.getElementById('supabaseStatusDot');
   const usage = document.getElementById('supabaseUsageMeta');
+  const usageFill = document.getElementById('supabaseUsageFill');
+  const usageLabel = document.getElementById('supabaseUsageLabel');
   const quotaInput = document.getElementById('storageQuotaMb');
   const autoToggle = document.getElementById('autoDeleteToggle');
   const autoDays = document.getElementById('autoDeleteDays');
@@ -1113,7 +1157,10 @@ function renderSupabaseStatus() {
   if (!supabaseStatus) {
     dot.className = 'status-dot yellow';
     summary.textContent = 'Checking storage status...';
-    usage.textContent = 'Usage: checking...';
+    usage.title = 'Usage: checking...';
+    usageFill.style.width = '14%';
+    usageFill.style.background = '#c78a00';
+    usageLabel.textContent = '--%';
     autoInfo.textContent = '';
     return;
   }
@@ -1127,18 +1174,28 @@ function renderSupabaseStatus() {
   if (!supabaseStatus.enabled) {
     dot.className = 'status-dot red';
     summary.textContent = supabaseStatus.bucket_error || 'Supabase is not configured';
-    usage.textContent = 'Usage: unavailable';
+    usage.title = 'Usage: unavailable';
+    usageFill.style.width = '100%';
+    usageFill.style.background = '#c0392b';
+    usageLabel.textContent = 'N/A';
     return;
   }
 
   if (supabaseStatus.bucket_ready) {
+    const usagePercent = Math.max(0, Math.min(100, Number(supabaseStatus.usage_percent || 0)));
     dot.className = 'status-dot green';
     summary.textContent = 'Storage connected and ready';
-    usage.textContent = `Usage: ${supabaseStatus.usage_summary || 'Not available'}`;
+    usage.title = `Usage: ${supabaseStatus.usage_summary || 'Not available'}`;
+    usageFill.style.width = `${usagePercent}%`;
+    usageFill.style.background = usagePercent >= 85 ? '#c0392b' : (usagePercent >= 60 ? '#c78a00' : '#1a7f37');
+    usageLabel.textContent = `${usagePercent.toFixed(0)}%`;
   } else {
     dot.className = 'status-dot red';
     summary.textContent = supabaseStatus.bucket_error || 'Storage check failed';
-    usage.textContent = 'Usage: unavailable';
+    usage.title = 'Usage: unavailable';
+    usageFill.style.width = '100%';
+    usageFill.style.background = '#c0392b';
+    usageLabel.textContent = 'ERR';
   }
 }
 
