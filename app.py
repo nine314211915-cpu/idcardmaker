@@ -731,6 +731,20 @@ def get_supabase_record_by_serial(institute, serial):
     return None
 
 
+def find_records_by_serial_lookup(records, lookup):
+    lookup_text = str(lookup or "").strip()
+    if not lookup_text:
+        return []
+    exact_matches = [record for record in (records or []) if str(record.get("serial_no", "")).strip() == lookup_text]
+    if exact_matches:
+        return exact_matches
+    return [
+        record
+        for record in (records or [])
+        if str(record.get("serial_no", "")).strip().endswith(lookup_text)
+    ]
+
+
 def get_supabase_batch(institute, batch_id):
     institute = canonicalize_institute_name(institute)
     batch_id = (batch_id or "").strip()
@@ -2383,19 +2397,22 @@ def submit_batch():
 @app.route("/api/retrieve-card")
 def retrieve_card():
     institute = canonicalize_institute_name(request.args.get("institute"))
-    serial = (request.args.get("serial_no") or "").strip()
+    serial_lookup = (request.args.get("serial_no") or "").strip()
     if not institute:
         return jsonify({"error": "Institute is required"}), 400
-    if not serial:
+    if not serial_lookup:
         return jsonify({"error": "ID card number is required"}), 400
 
     if is_supabase_enabled():
-        record = get_supabase_record_by_serial(institute, serial)
+        matches = find_records_by_serial_lookup(list_supabase_records(institute), serial_lookup)
     else:
-        record = next((rec for rec in load_records(institute) if rec.get("serial_no") == serial), None)
+        matches = find_records_by_serial_lookup(load_records(institute), serial_lookup)
+    if len(matches) > 1:
+        return jsonify({"error": "More than one card matches this short ID. Please enter the full ID card number."}), 409
+    record = matches[0] if matches else None
     if not record:
         return jsonify({"error": "Card not found"}), 404
-    return jsonify({"record": record, "institute": institute, "serial_no": serial})
+    return jsonify({"record": record, "institute": institute, "serial_no": record.get("serial_no", serial_lookup)})
 
 
 @app.route("/api/update-card", methods=["POST"])

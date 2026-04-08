@@ -916,13 +916,16 @@
           </div>
           <div class="form-group compact-field" id="facilityLocationWrap" style="display:none">
             <label>Block <span class="req">*</span></label>
-            <select id="facilityLocation" onchange="updatePreview(); saveUiState()">
+            <select id="facilityLocation" onchange="handleFacilityLocationChange()">
               <option value="">Select Block</option>
             </select>
           </div>
           <div class="form-group compact-field" id="facilitySubLocationWrap" style="display:none">
             <label>Village / Town</label>
-            <input type="text" id="facilitySubLocation" placeholder="Enter village or town" oninput="updatePreview(); saveUiState()">
+            <select id="facilitySubLocation" onchange="handleFacilitySubLocationChange()">
+              <option value="">Select Village / Town</option>
+            </select>
+            <input type="text" id="facilitySubLocationCustom" placeholder="Add by yourself" style="display:none; margin-top:6px;" oninput="updatePreview(); saveUiState()">
           </div>
           <input type="file" id="signatureInput" accept="image/*" style="display:none" onchange="handleSignatureUpload(this)">
         </div>
@@ -1146,10 +1149,10 @@
           <div class="retrieve-box">
             <div class="section-title" style="margin-bottom:8px">Retrieve Saved Card</div>
             <div class="retrieve-row">
-              <input type="text" id="retrieveSerialInput" placeholder="Enter ID card no." onkeydown="if(event.key==='Enter'){event.preventDefault(); retrieveCardBySerial();}">
+              <input type="text" id="retrieveSerialInput" placeholder="Enter full or short ID no." onkeydown="if(event.key==='Enter'){event.preventDefault(); retrieveCardBySerial();}">
               <button class="btn-submit secondary" type="button" onclick="retrieveCardBySerial()">Retrieve</button>
             </div>
-            <div class="batch-note">Load a saved card by ID card number for correction. Retrieved cards may not be available after 30 days.</div>
+            <div class="batch-note">Load a saved card by full ID card number or short ID no. for correction. Retrieved cards may not be available after 30 days.</div>
           </div>
           <div class="section-title" style="margin-bottom:8px">Batch Submission</div>
           <div class="batch-meta">
@@ -1201,6 +1204,17 @@ const FACILITY_LOCATIONS = {
   'Govt. Community Health Centre (CHC), Jhunjhunu': ['Jhunjhunu', 'Chirawa', 'Buhana', 'Khetri', 'Nawalgarh', 'Udaipurwati', 'Pilani', 'Surajgarh', 'Mandawa'],
   'Govt. Primary Health Centre (PHC), Jhunjhunu': ['Jhunjhunu', 'Chirawa', 'Buhana', 'Khetri', 'Nawalgarh', 'Udaipurwati', 'Pilani', 'Surajgarh', 'Mandawa'],
   'Govt. Health Sub Centre, Jhunjhunu': ['Jhunjhunu', 'Chirawa', 'Buhana', 'Khetri', 'Nawalgarh', 'Udaipurwati', 'Pilani', 'Surajgarh', 'Mandawa']
+};
+const FACILITY_SUB_LOCATIONS = {
+  'Jhunjhunu': ['Jhunjhunu Town', 'Badalwas', 'Dundlod', 'Sultana', 'Add by yourself'],
+  'Chirawa': ['Chirawa Town', 'Mandrela', 'Pilod', 'Arnia', 'Add by yourself'],
+  'Buhana': ['Buhana Town', 'Pacheri Kalan', 'Sohli', 'Singhana', 'Add by yourself'],
+  'Khetri': ['Khetri Town', 'Kolihan Nagar', 'Banwas', 'Ravla', 'Add by yourself'],
+  'Nawalgarh': ['Nawalgarh Town', 'Mukasundgarh', 'Parsurampura', 'Nayi Basti', 'Add by yourself'],
+  'Udaipurwati': ['Udaipurwati Town', 'Gudha Gorji', 'Posana', 'Chhapoli', 'Add by yourself'],
+  'Pilani': ['Pilani Town', 'Chidawa Road', 'Hanutpura', 'Basant Vihar', 'Add by yourself'],
+  'Surajgarh': ['Surajgarh Town', 'Kajra', 'Loharu Road', 'Malsisar', 'Add by yourself'],
+  'Mandawa': ['Mandawa Town', 'Alsisar', 'Baloda', 'Bissau', 'Add by yourself']
 };
 const EMPLOYEE_DESIGNATIONS = {
   'Dist. Collector, Jhunjhunu': [
@@ -1303,7 +1317,7 @@ function saveUiState() {
     instituteName: document.getElementById('instituteName').value,
     otherInstituteName: document.getElementById('otherInstituteName').value,
     facilityLocation: document.getElementById('facilityLocation').value,
-    facilitySubLocation: document.getElementById('facilitySubLocation').value,
+    facilitySubLocation: getFacilitySubLocationValue(),
     selectedBatchSerial,
   };
   try {
@@ -1607,6 +1621,55 @@ function isFacilityLocationInstitute() {
   return FACILITY_LOCATION_INSTITUTES.includes(document.getElementById('instituteName').value);
 }
 
+function getFacilitySubLocationValue() {
+  const selected = document.getElementById('facilitySubLocation').value;
+  if (selected === 'Add by yourself') {
+    return document.getElementById('facilitySubLocationCustom').value.trim();
+  }
+  return selected;
+}
+
+function setFacilitySubLocationValue(value) {
+  const normalized = String(value || '').trim();
+  const select = document.getElementById('facilitySubLocation');
+  const customInput = document.getElementById('facilitySubLocationCustom');
+  const options = Array.from(select.options).map((option) => option.value);
+  if (normalized && options.includes(normalized)) {
+    select.value = normalized;
+    customInput.value = '';
+    customInput.style.display = 'none';
+  } else if (normalized) {
+    select.value = 'Add by yourself';
+    customInput.style.display = '';
+    customInput.value = normalized;
+  } else {
+    select.value = '';
+    customInput.value = '';
+    customInput.style.display = 'none';
+  }
+}
+
+function handleFacilitySubLocationChange() {
+  const customInput = document.getElementById('facilitySubLocationCustom');
+  if (document.getElementById('facilitySubLocation').value === 'Add by yourself') {
+    customInput.style.display = '';
+    customInput.focus();
+  } else {
+    customInput.style.display = 'none';
+    customInput.value = '';
+  }
+  updatePreview();
+  saveUiState();
+}
+
+function handleFacilityLocationChange() {
+  const block = document.getElementById('facilityLocation').value;
+  populateSelect('facilitySubLocation', FACILITY_SUB_LOCATIONS[block] || [], 'Select Village / Town');
+  setFacilitySubLocationValue('');
+  updatePreview();
+  saveUiState();
+}
+
 function populateSelect(selectId, items, placeholder) {
   const select = document.getElementById(selectId);
   const currentValue = select.value;
@@ -1626,10 +1689,14 @@ function handleInstituteChange() {
   document.getElementById('facilitySubLocationWrap').style.display = facilityLocationMode ? '' : 'none';
   if (facilityLocationMode) {
     populateSelect('facilityLocation', FACILITY_LOCATIONS[institute] || [], 'Select Block');
+    populateSelect('facilitySubLocation', [], 'Select Village / Town');
   } else {
     document.getElementById('facilityLocation').innerHTML = '<option value="">Select Block</option>';
     document.getElementById('facilityLocation').value = '';
+    document.getElementById('facilitySubLocation').innerHTML = '<option value="">Select Village / Town</option>';
     document.getElementById('facilitySubLocation').value = '';
+    document.getElementById('facilitySubLocationCustom').value = '';
+    document.getElementById('facilitySubLocationCustom').style.display = 'none';
   }
 
   if (!editingSerialNo && isAutoSerial(serialInput.value)) {
@@ -1962,6 +2029,14 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function findMatchingRecordsBySerialLookup(records, lookup) {
+  const query = String(lookup || '').trim();
+  if (!query) return [];
+  const exactMatches = (records || []).filter((record) => String(record.serial_no || '').trim() === query);
+  if (exactMatches.length) return exactMatches;
+  return (records || []).filter((record) => String(record.serial_no || '').trim().endsWith(query));
+}
+
 async function loadSettings() {
   try {
     const institute = encodeURIComponent(getInstituteValue());
@@ -2065,7 +2140,7 @@ function updatePreview() {
   const name = document.getElementById('name').value || 'Full Name';
   const institute = getInstituteValue() || 'Institute Name';
   const facilityLocation = document.getElementById('facilityLocation').value;
-  const facilitySubLocation = document.getElementById('facilitySubLocation').value;
+  const facilitySubLocation = getFacilitySubLocationValue();
   const previewInstitute = facilityLocation && isFacilityLocationInstitute()
     ? `${institute} - ${facilityLocation}${facilitySubLocation ? ` / ${facilitySubLocation}` : ''}`
     : institute;
@@ -2229,7 +2304,7 @@ async function legacySaveCurrentCard() {
   } else {
     payload.designation = document.getElementById('designation').value;
     payload.facility_location = document.getElementById('facilityLocation').value;
-    payload.facility_sub_location = document.getElementById('facilitySubLocation').value;
+    payload.facility_sub_location = getFacilitySubLocationValue();
     payload.department = '';
     payload.employee_id = document.getElementById('employeeId').value;
     payload.custom_field_label = document.getElementById('customEmployeeFieldLabel').value;
@@ -2311,7 +2386,7 @@ function legacyResetForm() {
     document.getElementById('course').value = '';
     document.getElementById('designation').value = '';
     document.getElementById('facilityLocation').value = '';
-    document.getElementById('facilitySubLocation').value = '';
+    setFacilitySubLocationValue('');
     document.getElementById('employeeId').value = '';
     document.getElementById('customEmployeeFieldLabel').value = '';
     document.getElementById('customEmployeeFieldValue').value = '';
@@ -2350,35 +2425,41 @@ async function editSubmittedCard(serial) {
 
 async function retrieveCardBySerial() {
   const institute = getInstituteValue();
-  const serial = document.getElementById('retrieveSerialInput').value.trim();
+  const serialLookup = document.getElementById('retrieveSerialInput').value.trim();
   if (!institute || institute === 'Other') {
     alert('Please select or enter the institute first.');
     return;
   }
-  if (!serial) {
+  if (!serialLookup) {
     alert('Please enter the ID card number.');
     return;
   }
 
-  const localRecord = getDraftRecords(institute).find((record) => (record.serial_no || '').trim() === serial);
+  const localMatches = findMatchingRecordsBySerialLookup(getDraftRecords(institute), serialLookup);
+  if (localMatches.length > 1) {
+    alert('More than one card matches this short ID. Please enter the full ID card number.');
+    return;
+  }
+  const localRecord = localMatches[0] || null;
   showLoading('Retrieving saved card...');
   try {
     if (localRecord) {
       await populateFormFromRecord(localRecord);
       activeRetrievedSerial = '';
       activeRetrievedSource = 'draft';
-      selectedBatchSerial = serial;
+      selectedBatchSerial = localRecord.serial_no || '';
       saveUiState();
-      showToast('Loaded draft card: ' + serial);
+      document.getElementById('retrieveSerialInput').value = localRecord.serial_no || serialLookup;
+      showToast('Loaded draft card: ' + (localRecord.serial_no || serialLookup));
     } else {
-      const res = await fetch(`/api/retrieve-card?institute=${encodeURIComponent(institute)}&serial_no=${encodeURIComponent(serial)}`);
+      const res = await fetch(`/api/retrieve-card?institute=${encodeURIComponent(institute)}&serial_no=${encodeURIComponent(serialLookup)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Unable to retrieve card.');
       await populateFormFromRecord(data.record || {});
-      activeRetrievedSerial = serial;
+      activeRetrievedSerial = (data.record && data.record.serial_no) || serialLookup;
       activeRetrievedSource = 'submitted';
-      document.getElementById('retrieveSerialInput').value = serial;
-      showToast('Loaded saved card: ' + serial);
+      document.getElementById('retrieveSerialInput').value = (data.record && data.record.serial_no) || serialLookup;
+      showToast('Loaded saved card: ' + ((data.record && data.record.serial_no) || serialLookup));
     }
   } catch (e) {
     alert(e.message || 'Unable to retrieve card.');
@@ -2426,7 +2507,8 @@ async function populateFormFromRecord(record) {
   document.getElementById('aadhaarNo').value = record.aadhaar_no || '';
   document.getElementById('designation').value = record.designation || '';
   document.getElementById('facilityLocation').value = record.facility_location || record.department || '';
-  document.getElementById('facilitySubLocation').value = record.facility_sub_location || '';
+  handleFacilityLocationChange();
+  setFacilitySubLocationValue(record.facility_sub_location || '');
   document.getElementById('employeeId').value = record.employee_id || '';
   document.getElementById('customEmployeeFieldLabel').value = record.custom_field_label || '';
   document.getElementById('customEmployeeFieldValue').value = record.custom_field_value || '';
@@ -2494,7 +2576,7 @@ async function saveCurrentCard() {
   } else {
     payload.designation = document.getElementById('designation').value;
     payload.facility_location = document.getElementById('facilityLocation').value;
-    payload.facility_sub_location = document.getElementById('facilitySubLocation').value;
+    payload.facility_sub_location = getFacilitySubLocationValue();
     payload.department = '';
     payload.employee_id = document.getElementById('employeeId').value;
     payload.custom_field_label = document.getElementById('customEmployeeFieldLabel').value;
@@ -2630,7 +2712,7 @@ function resetForm() {
     document.getElementById('course').value = '';
     document.getElementById('designation').value = '';
     document.getElementById('facilityLocation').value = '';
-    document.getElementById('facilitySubLocation').value = '';
+    setFacilitySubLocationValue('');
     document.getElementById('employeeId').value = '';
     document.getElementById('customEmployeeFieldLabel').value = '';
     document.getElementById('customEmployeeFieldValue').value = '';
@@ -2664,7 +2746,8 @@ if (typeof persistedUiState.facilityLocation === 'string') {
   document.getElementById('facilityLocation').value = persistedUiState.facilityLocation;
 }
 if (typeof persistedUiState.facilitySubLocation === 'string') {
-  document.getElementById('facilitySubLocation').value = persistedUiState.facilitySubLocation;
+  handleFacilityLocationChange();
+  setFacilitySubLocationValue(persistedUiState.facilitySubLocation);
 }
 batchInstituteLocked = false;
 setInstituteLocked(false);
