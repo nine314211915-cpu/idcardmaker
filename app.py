@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from collections import deque
 from functools import wraps
 from urllib import request as urllib_request, parse as urllib_parse, error as urllib_error
-from PIL import Image, ImageOps, ImageEnhance, ImageFilter, UnidentifiedImageError
+from PIL import Image, ImageOps, ImageEnhance, ImageFilter, ImageDraw, UnidentifiedImageError
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -1850,6 +1850,37 @@ def save_signature_image(file_storage, institute_name):
             drive_id, drive_url = upload_bytes_to_drive(f.read(), filename, "image/png", "signatures")
     return drive_url or f"/generated-assets/{filename}", drive_id
 
+
+def build_placeholder_avatar_bytes(record=None, sequence_no=None):
+    width, height = 300, 400
+    image = Image.new("RGB", (width, height), "#f3efe7")
+    draw = ImageDraw.Draw(image)
+
+    draw.rounded_rectangle((18, 18, width - 18, height - 18), radius=24, fill="#fbf8f2", outline="#d8cfc1", width=3)
+    draw.ellipse((92, 62, 208, 178), fill="#cfb08c")
+    draw.ellipse((74, 172, 226, 340), fill="#4c6a92")
+    draw.rectangle((74, 246, 226, 340), fill="#4c6a92")
+    draw.ellipse((126, 162, 174, 214), fill="#cfb08c")
+
+    approx_char_width = 7
+    if sequence_no is not None:
+        seq_text = f"S.No {sequence_no}"
+        seq_x = max(24, (width - len(seq_text) * approx_char_width) // 2)
+        draw.text((seq_x, 326), seq_text, fill="#8b0000")
+
+    label = "PHOTO NOT UPLOADED"
+    label_x = max(24, (width - len(label) * approx_char_width) // 2)
+    draw.text((label_x, 352), label, fill="#7a4d24")
+
+    if record and str(record.get("name", "")).strip():
+        name_text = str(record.get("name", "")).strip()[:24]
+        name_x = max(24, (width - len(name_text) * approx_char_width) // 2)
+        draw.text((name_x, 28), name_text, fill="#2c1810")
+
+    output = io.BytesIO()
+    image.save(output, "JPEG", quality=92)
+    return output.getvalue()
+
 @app.route("/")
 def home():
     return render_template("home.html")
@@ -2762,7 +2793,7 @@ def export_excel():
     wb = Workbook()
     ws = wb.active
     ws.title = "ID Card Records"
-    headers = ["Serial No", "Profile Type", "Name", "Course/Designation", "Batch", "Father Name", "Aadhaar No.",
+    headers = ["S.No", "Serial No", "Profile Type", "Name", "Course/Designation", "Batch", "Father Name", "Aadhaar No.",
                "Employee ID", "Department", "Date of Birth", "Contact No", "Blood Group", "Address", "Valid Upto",
                "Institute", "Photo File", "Saved At"]
     header_fill = PatternFill(start_color="8B0000", end_color="8B0000", fill_type="solid")
@@ -2772,23 +2803,25 @@ def export_excel():
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal="center")
     for row, rec in enumerate(records, 2):
-        ws.cell(row=row, column=1, value=rec.get("serial_no", ""))
-        ws.cell(row=row, column=2, value=rec.get("profile_type", ""))
-        ws.cell(row=row, column=3, value=rec.get("name", ""))
-        ws.cell(row=row, column=4, value=rec.get("training_year") or rec.get("course") or rec.get("designation", ""))
-        ws.cell(row=row, column=5, value=rec.get("batch_session", ""))
-        ws.cell(row=row, column=6, value=rec.get("father_name", ""))
-        ws.cell(row=row, column=7, value=rec.get("aadhaar_no", ""))
-        ws.cell(row=row, column=8, value=rec.get("employee_id", ""))
-        ws.cell(row=row, column=9, value=rec.get("department", ""))
-        ws.cell(row=row, column=10, value=rec.get("dob", ""))
-        ws.cell(row=row, column=11, value=rec.get("contact", ""))
-        ws.cell(row=row, column=12, value=rec.get("blood_group", ""))
-        ws.cell(row=row, column=13, value=rec.get("address", ""))
-        ws.cell(row=row, column=14, value=rec.get("valid_upto", ""))
-        ws.cell(row=row, column=15, value=rec.get("institute_name", ""))
-        ws.cell(row=row, column=16, value=f"{rec.get('serial_no', '')}.jpg")
-        ws.cell(row=row, column=17, value=rec.get("saved_at", ""))
+        sequence_no = row - 1
+        ws.cell(row=row, column=1, value=sequence_no)
+        ws.cell(row=row, column=2, value=rec.get("serial_no", ""))
+        ws.cell(row=row, column=3, value=rec.get("profile_type", ""))
+        ws.cell(row=row, column=4, value=rec.get("name", ""))
+        ws.cell(row=row, column=5, value=rec.get("training_year") or rec.get("course") or rec.get("designation", ""))
+        ws.cell(row=row, column=6, value=rec.get("batch_session", ""))
+        ws.cell(row=row, column=7, value=rec.get("father_name", ""))
+        ws.cell(row=row, column=8, value=rec.get("aadhaar_no", ""))
+        ws.cell(row=row, column=9, value=rec.get("employee_id", ""))
+        ws.cell(row=row, column=10, value=rec.get("department", ""))
+        ws.cell(row=row, column=11, value=rec.get("dob", ""))
+        ws.cell(row=row, column=12, value=rec.get("contact", ""))
+        ws.cell(row=row, column=13, value=rec.get("blood_group", ""))
+        ws.cell(row=row, column=14, value=rec.get("address", ""))
+        ws.cell(row=row, column=15, value=rec.get("valid_upto", ""))
+        ws.cell(row=row, column=16, value=rec.get("institute_name", ""))
+        ws.cell(row=row, column=17, value=f"{sequence_no}.jpg")
+        ws.cell(row=row, column=18, value=rec.get("saved_at", ""))
     for col in ws.columns:
         max_len = max((len(str(c.value or "")) for c in col), default=10)
         ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 40)
@@ -2817,6 +2850,7 @@ def export_zip():
         for index, rec in enumerate(records, 1):
             serial = rec.get("serial_no", "")
             photo_filename = f"{index}.jpg"
+            photo_written = False
             writer.writerow([
                 index,
                 rec.get("serial_no", ""),
@@ -2834,7 +2868,7 @@ def export_zip():
                 rec.get("address", ""),
                 rec.get("valid_upto", ""),
                 rec.get("institute_name", ""),
-                photo_filename if serial else "",
+                photo_filename,
                 rec.get("photo_url", ""),
                 rec.get("saved_at", ""),
                 rec.get("submitted_at", ""),
@@ -2842,14 +2876,19 @@ def export_zip():
             photo_path = os.path.join(UPLOAD_DIR, f"{serial}.jpg")
             if os.path.exists(photo_path):
                 zf.write(photo_path, f"photos/{photo_filename}")
+                photo_written = True
             elif rec.get("photo_drive_id"):
                 photo_bytes = download_drive_file(rec.get("photo_drive_id"))
                 if photo_bytes:
                     zf.writestr(f"photos/{photo_filename}", photo_bytes)
+                    photo_written = True
             elif rec.get("photo_url"):
                 photo_bytes = download_file_from_url(rec.get("photo_url"))
                 if photo_bytes:
                     zf.writestr(f"photos/{photo_filename}", photo_bytes)
+                    photo_written = True
+            if not photo_written:
+                zf.writestr(f"photos/{photo_filename}", build_placeholder_avatar_bytes(rec, index))
         zf.writestr("records.csv", csv_buf.getvalue())
     buf.seek(0)
     institute = institute_filter or (records[0].get("institute_name", "IDCardRecords") if records else "IDCardRecords")
