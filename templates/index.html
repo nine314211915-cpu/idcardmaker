@@ -1380,19 +1380,23 @@ const TEACHER_DESIGNATIONS = {
   'Govt. Nursing College, Jhunjhunu': ['Principal', 'Vice Principal', 'Professor', 'Associate Professor', 'Assistant Professor', 'Tutor', 'Clinical Instructor', 'Lecturer']
 };
 const FACILITY_LOCATIONS = {
-  'Govt. Community Health Centre (CHC), Jhunjhunu': ['Jhunjhunu', 'Chirawa', 'Buhana', 'Khetri', 'Nawalgarh', 'Udaipurwati', 'Malsisar'],
+  'Govt. Community Health Centre (CHC), Jhunjhunu': ['Alsisar', 'Buhana', 'Chirawa', 'Jhunjhunu', 'Khetri', 'Mandawa', 'Nawalgarh', 'Pilani', 'Surajgarh', 'Singhana', 'Udaipurwati'],
   'Govt. Primary Health Centre (PHC), Jhunjhunu': ['All PHCs', 'Jhunjhunu', 'Chirawa', 'Surajgarh', 'Khetri', 'Buhana', 'Nawalgarh', 'Udaipurwati', 'Malsisar'],
   'Govt. Health Sub Centre, Jhunjhunu': ['All Sub Centres', 'Jhunjhunu', 'Chirawa', 'Buhana', 'Khetri', 'Nawalgarh', 'Udaipurwati', 'Pilani', 'Surajgarh', 'Mandawa']
 };
 const FACILITY_SUB_LOCATIONS = {
   'Govt. Community Health Centre (CHC), Jhunjhunu': {
+    'Alsisar': ['Malsisar', 'Add New'],
+    'Buhana': ['Buhana', 'Add New'],
+    'Chirawa': ['Chirawa', 'Add New'],
     'Jhunjhunu': ['Baggad', 'Add New'],
-    'Chirawa': ['Chirawa', 'Mandrela', 'Add New'],
-    'Buhana': ['Buhana', 'Chirana', 'Add New'],
     'Khetri': ['Khetri', 'Add New'],
-    'Nawalgarh': ['Nawalgarh', 'Bissau', 'Mandawa', 'Add New'],
-    'Udaipurwati': ['Udaipurwati', 'Gudha Gorji', 'Add New'],
-    'Malsisar': ['Malsisar', 'Surajgarh', 'Add New']
+    'Mandawa': ['Mandawa', 'Add New'],
+    'Nawalgarh': ['Nawalgarh', 'Bissau', 'Chirana', 'Add New'],
+    'Pilani': ['Mandrela', 'Add New'],
+    'Surajgarh': ['Surajgarh', 'Add New'],
+    'Singhana': ['Singhana', 'Add New'],
+    'Udaipurwati': ['Udaipurwati', 'Gudha Gorji', 'Add New']
   },
   'Govt. Primary Health Centre (PHC), Jhunjhunu': {
     'All PHCs': [
@@ -1445,26 +1449,22 @@ function getFacilitySubLocations(institute, block) {
 }
 
 function getFacilityLocationLabel(institute) {
-  if (FACILITY_LOCATION_INSTITUTES.includes(institute)) return 'Block / Panchayat Samiti';
+  if (FACILITY_LOCATION_INSTITUTES.includes(institute)) return 'Block';
   return 'Block';
 }
 
 function getFacilitySubLocationLabel(institute) {
-  if (institute === 'Govt. Community Health Centre (CHC), Jhunjhunu') return 'CHC Name';
-  if (institute === 'Govt. Primary Health Centre (PHC), Jhunjhunu') return 'PHC Name';
-  if (institute === 'Govt. Health Sub Centre, Jhunjhunu') return 'Sub Centre / Gram Panchayat';
+  if (FACILITY_LOCATION_INSTITUTES.includes(institute)) return 'Panchayat Samiti / Village';
   return 'Village / Town';
 }
 
 function getFacilityLocationPlaceholder(institute) {
-  if (FACILITY_LOCATION_INSTITUTES.includes(institute)) return 'Select Block / Panchayat Samiti';
+  if (FACILITY_LOCATION_INSTITUTES.includes(institute)) return 'Select Block';
   return 'Select Block';
 }
 
 function getFacilitySubLocationPlaceholder(institute) {
-  if (institute === 'Govt. Community Health Centre (CHC), Jhunjhunu') return 'Select CHC';
-  if (institute === 'Govt. Primary Health Centre (PHC), Jhunjhunu') return 'Select PHC';
-  if (institute === 'Govt. Health Sub Centre, Jhunjhunu') return 'Select Sub Centre / Gram Panchayat';
+  if (FACILITY_LOCATION_INSTITUTES.includes(institute)) return 'Select Panchayat Samiti / Village';
   return 'Select Village / Town';
 }
 
