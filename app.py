@@ -1881,6 +1881,84 @@ def build_placeholder_avatar_bytes(record=None, sequence_no=None):
     image.save(output, "JPEG", quality=92)
     return output.getvalue()
 
+
+def build_export_csv_text(records):
+    csv_buf = io.StringIO()
+    writer = csv.writer(csv_buf)
+    writer.writerow([
+        "S.No", "Serial No", "Profile Type", "Name", "Course/Designation", "Batch", "Father Name", "Aadhaar No.",
+        "Employee ID", "Department", "Date of Birth", "Contact No", "Blood Group", "Address", "Valid Upto",
+        "Institute", "Photo File", "Photo URL", "Saved At", "Submitted At"
+    ])
+    for index, rec in enumerate(records, 1):
+        writer.writerow([
+            index,
+            rec.get("serial_no", ""),
+            rec.get("profile_type", ""),
+            rec.get("name", ""),
+            rec.get("training_year") or rec.get("course") or rec.get("designation", ""),
+            rec.get("batch_session", ""),
+            rec.get("father_name", ""),
+            rec.get("aadhaar_no", ""),
+            rec.get("employee_id", ""),
+            rec.get("department", ""),
+            rec.get("dob", ""),
+            rec.get("contact", ""),
+            rec.get("blood_group", ""),
+            rec.get("address", ""),
+            rec.get("valid_upto", ""),
+            rec.get("institute_name", ""),
+            f"{index}.jpg",
+            rec.get("photo_url", ""),
+            rec.get("saved_at", ""),
+            rec.get("submitted_at", ""),
+        ])
+    return csv_buf.getvalue()
+
+
+def build_export_excel_bytes(records):
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "ID Card Records"
+    headers = ["S.No", "Serial No", "Profile Type", "Name", "Course/Designation", "Batch", "Father Name", "Aadhaar No.",
+               "Employee ID", "Department", "Date of Birth", "Contact No", "Blood Group", "Address", "Valid Upto",
+               "Institute", "Photo File", "Saved At"]
+    header_fill = PatternFill(start_color="8B0000", end_color="8B0000", fill_type="solid")
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+    for row, rec in enumerate(records, 2):
+        sequence_no = row - 1
+        ws.cell(row=row, column=1, value=sequence_no)
+        ws.cell(row=row, column=2, value=rec.get("serial_no", ""))
+        ws.cell(row=row, column=3, value=rec.get("profile_type", ""))
+        ws.cell(row=row, column=4, value=rec.get("name", ""))
+        ws.cell(row=row, column=5, value=rec.get("training_year") or rec.get("course") or rec.get("designation", ""))
+        ws.cell(row=row, column=6, value=rec.get("batch_session", ""))
+        ws.cell(row=row, column=7, value=rec.get("father_name", ""))
+        ws.cell(row=row, column=8, value=rec.get("aadhaar_no", ""))
+        ws.cell(row=row, column=9, value=rec.get("employee_id", ""))
+        ws.cell(row=row, column=10, value=rec.get("department", ""))
+        ws.cell(row=row, column=11, value=rec.get("dob", ""))
+        ws.cell(row=row, column=12, value=rec.get("contact", ""))
+        ws.cell(row=row, column=13, value=rec.get("blood_group", ""))
+        ws.cell(row=row, column=14, value=rec.get("address", ""))
+        ws.cell(row=row, column=15, value=rec.get("valid_upto", ""))
+        ws.cell(row=row, column=16, value=rec.get("institute_name", ""))
+        ws.cell(row=row, column=17, value=f"{sequence_no}.jpg")
+        ws.cell(row=row, column=18, value=rec.get("saved_at", ""))
+    for col in ws.columns:
+        max_len = max((len(str(c.value or "")) for c in col), default=10)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 40)
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
 @app.route("/")
 def home():
     return render_template("home.html")
@@ -2787,46 +2865,8 @@ def delete_record(serial_no):
 @app.route("/api/export-excel")
 @admin_required
 def export_excel():
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
     records, institute_filter = get_filtered_records()
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "ID Card Records"
-    headers = ["S.No", "Serial No", "Profile Type", "Name", "Course/Designation", "Batch", "Father Name", "Aadhaar No.",
-               "Employee ID", "Department", "Date of Birth", "Contact No", "Blood Group", "Address", "Valid Upto",
-               "Institute", "Photo File", "Saved At"]
-    header_fill = PatternFill(start_color="8B0000", end_color="8B0000", fill_type="solid")
-    for col, h in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=h)
-        cell.font = Font(bold=True, color="FFFFFF")
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center")
-    for row, rec in enumerate(records, 2):
-        sequence_no = row - 1
-        ws.cell(row=row, column=1, value=sequence_no)
-        ws.cell(row=row, column=2, value=rec.get("serial_no", ""))
-        ws.cell(row=row, column=3, value=rec.get("profile_type", ""))
-        ws.cell(row=row, column=4, value=rec.get("name", ""))
-        ws.cell(row=row, column=5, value=rec.get("training_year") or rec.get("course") or rec.get("designation", ""))
-        ws.cell(row=row, column=6, value=rec.get("batch_session", ""))
-        ws.cell(row=row, column=7, value=rec.get("father_name", ""))
-        ws.cell(row=row, column=8, value=rec.get("aadhaar_no", ""))
-        ws.cell(row=row, column=9, value=rec.get("employee_id", ""))
-        ws.cell(row=row, column=10, value=rec.get("department", ""))
-        ws.cell(row=row, column=11, value=rec.get("dob", ""))
-        ws.cell(row=row, column=12, value=rec.get("contact", ""))
-        ws.cell(row=row, column=13, value=rec.get("blood_group", ""))
-        ws.cell(row=row, column=14, value=rec.get("address", ""))
-        ws.cell(row=row, column=15, value=rec.get("valid_upto", ""))
-        ws.cell(row=row, column=16, value=rec.get("institute_name", ""))
-        ws.cell(row=row, column=17, value=f"{sequence_no}.jpg")
-        ws.cell(row=row, column=18, value=rec.get("saved_at", ""))
-    for col in ws.columns:
-        max_len = max((len(str(c.value or "")) for c in col), default=10)
-        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 40)
-    buf = io.BytesIO()
-    wb.save(buf)
+    buf = io.BytesIO(build_export_excel_bytes(records))
     buf.seek(0)
     institute = institute_filter or (records[0].get("institute_name", "IDCardRecords") if records else "IDCardRecords")
     institute_safe = "".join(c for c in institute if c.isalnum() or c in "_ -")
@@ -2839,40 +2879,13 @@ def export_excel():
 def export_zip():
     records, institute_filter = get_filtered_records()
     buf = io.BytesIO()
+    csv_text = build_export_csv_text(records)
+    excel_bytes = build_export_excel_bytes(records)
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        csv_buf = io.StringIO()
-        writer = csv.writer(csv_buf)
-        writer.writerow([
-            "S.No", "Serial No", "Profile Type", "Name", "Course/Designation", "Batch", "Father Name", "Aadhaar No.",
-            "Employee ID", "Department", "Date of Birth", "Contact No", "Blood Group", "Address", "Valid Upto",
-            "Institute", "Photo File", "Photo URL", "Saved At", "Submitted At"
-        ])
         for index, rec in enumerate(records, 1):
             serial = rec.get("serial_no", "")
             photo_filename = f"{index}.jpg"
             photo_written = False
-            writer.writerow([
-                index,
-                rec.get("serial_no", ""),
-                rec.get("profile_type", ""),
-                rec.get("name", ""),
-                rec.get("training_year") or rec.get("course") or rec.get("designation", ""),
-                rec.get("batch_session", ""),
-                rec.get("father_name", ""),
-                rec.get("aadhaar_no", ""),
-                rec.get("employee_id", ""),
-                rec.get("department", ""),
-                rec.get("dob", ""),
-                rec.get("contact", ""),
-                rec.get("blood_group", ""),
-                rec.get("address", ""),
-                rec.get("valid_upto", ""),
-                rec.get("institute_name", ""),
-                photo_filename,
-                rec.get("photo_url", ""),
-                rec.get("saved_at", ""),
-                rec.get("submitted_at", ""),
-            ])
             photo_path = os.path.join(UPLOAD_DIR, f"{serial}.jpg")
             if os.path.exists(photo_path):
                 zf.write(photo_path, f"photos/{photo_filename}")
@@ -2889,7 +2902,8 @@ def export_zip():
                     photo_written = True
             if not photo_written:
                 zf.writestr(f"photos/{photo_filename}", build_placeholder_avatar_bytes(rec, index))
-        zf.writestr("records.csv", csv_buf.getvalue())
+        zf.writestr("records.csv", csv_text)
+        zf.writestr("records.xlsx", excel_bytes)
     buf.seek(0)
     institute = institute_filter or (records[0].get("institute_name", "IDCardRecords") if records else "IDCardRecords")
     institute_safe = "".join(c for c in institute if c.isalnum() or c in "_ -")

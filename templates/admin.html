@@ -809,8 +809,7 @@
     <button class="btn btn-outline" type="button" onclick="document.getElementById('csvImportInput').click()">CSV Import</button>
     <button class="btn btn-outline" type="button" onclick="openPrintLab()">Print Design Lab</button>
     <button class="btn btn-outline" type="button" onclick="openPrintCards()">Open Print Preview</button>
-    <button class="btn btn-green" onclick="exportExcel()">Export Excel</button>
-    <button class="btn btn-red" onclick="exportZip()">Download ZIP</button>
+    <button class="btn btn-red" onclick="exportZip()">Download Export</button>
     <button class="btn btn-outline" onclick="loadRecords()">Refresh</button>
   </div>
 </div>
@@ -1989,12 +1988,6 @@ async function doDelete() {
   closeConfirm();
   await fetch(`/api/delete/${deleteTarget}`, { method: 'DELETE' });
   loadRecords();
-}
-
-function exportExcel() {
-  const institute = encodeURIComponent(getSelectedInstitute());
-  const batch = encodeURIComponent(getSelectedBatch());
-  window.open(`/api/export-excel?institute=${institute}&batch_id=${batch}`, '_blank');
 }
 
 function exportZip() {
