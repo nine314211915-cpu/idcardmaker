@@ -2810,13 +2810,15 @@ def export_zip():
         csv_buf = io.StringIO()
         writer = csv.writer(csv_buf)
         writer.writerow([
-            "Serial No", "Profile Type", "Name", "Course/Designation", "Batch", "Father Name", "Aadhaar No.",
+            "S.No", "Serial No", "Profile Type", "Name", "Course/Designation", "Batch", "Father Name", "Aadhaar No.",
             "Employee ID", "Department", "Date of Birth", "Contact No", "Blood Group", "Address", "Valid Upto",
             "Institute", "Photo File", "Photo URL", "Saved At", "Submitted At"
         ])
-        for rec in records:
+        for index, rec in enumerate(records, 1):
             serial = rec.get("serial_no", "")
+            photo_filename = f"{index}.jpg"
             writer.writerow([
+                index,
                 rec.get("serial_no", ""),
                 rec.get("profile_type", ""),
                 rec.get("name", ""),
@@ -2832,22 +2834,22 @@ def export_zip():
                 rec.get("address", ""),
                 rec.get("valid_upto", ""),
                 rec.get("institute_name", ""),
-                f"{serial}.jpg" if serial else "",
+                photo_filename if serial else "",
                 rec.get("photo_url", ""),
                 rec.get("saved_at", ""),
                 rec.get("submitted_at", ""),
             ])
             photo_path = os.path.join(UPLOAD_DIR, f"{serial}.jpg")
             if os.path.exists(photo_path):
-                zf.write(photo_path, f"photos/{serial}.jpg")
+                zf.write(photo_path, f"photos/{photo_filename}")
             elif rec.get("photo_drive_id"):
                 photo_bytes = download_drive_file(rec.get("photo_drive_id"))
                 if photo_bytes:
-                    zf.writestr(f"photos/{serial}.jpg", photo_bytes)
+                    zf.writestr(f"photos/{photo_filename}", photo_bytes)
             elif rec.get("photo_url"):
                 photo_bytes = download_file_from_url(rec.get("photo_url"))
                 if photo_bytes:
-                    zf.writestr(f"photos/{serial}.jpg", photo_bytes)
+                    zf.writestr(f"photos/{photo_filename}", photo_bytes)
         zf.writestr("records.csv", csv_buf.getvalue())
     buf.seek(0)
     institute = institute_filter or (records[0].get("institute_name", "IDCardRecords") if records else "IDCardRecords")
