@@ -1069,13 +1069,13 @@
           </div>
           <div class="compact-field stacked-compact-group" id="facilityLocationWrap" style="display:none">
             <div class="form-group">
-              <label>Block <span class="req">*</span></label>
+              <label id="facilityLocationLabel">Block <span class="req">*</span></label>
               <select id="facilityLocation" onchange="handleFacilityLocationChange()">
                 <option value="">Select Block</option>
               </select>
             </div>
             <div class="form-group" id="facilitySubLocationWrap" style="display:none">
-              <label>Village / Town</label>
+              <label id="facilitySubLocationLabel">Village / Town</label>
               <select id="facilitySubLocation" onchange="handleFacilitySubLocationChange()">
                 <option value="">Select Village / Town</option>
               </select>
@@ -1442,6 +1442,41 @@ const FACILITY_SUB_LOCATIONS = {
 
 function getFacilitySubLocations(institute, block) {
   return ((FACILITY_SUB_LOCATIONS[institute] || {})[block] || []).slice();
+}
+
+function getFacilityLocationLabel(institute) {
+  if (FACILITY_LOCATION_INSTITUTES.includes(institute)) return 'Block / Panchayat Samiti';
+  return 'Block';
+}
+
+function getFacilitySubLocationLabel(institute) {
+  if (institute === 'Govt. Community Health Centre (CHC), Jhunjhunu') return 'CHC Name';
+  if (institute === 'Govt. Primary Health Centre (PHC), Jhunjhunu') return 'PHC Name';
+  if (institute === 'Govt. Health Sub Centre, Jhunjhunu') return 'Sub Centre / Gram Panchayat';
+  return 'Village / Town';
+}
+
+function getFacilityLocationPlaceholder(institute) {
+  if (FACILITY_LOCATION_INSTITUTES.includes(institute)) return 'Select Block / Panchayat Samiti';
+  return 'Select Block';
+}
+
+function getFacilitySubLocationPlaceholder(institute) {
+  if (institute === 'Govt. Community Health Centre (CHC), Jhunjhunu') return 'Select CHC';
+  if (institute === 'Govt. Primary Health Centre (PHC), Jhunjhunu') return 'Select PHC';
+  if (institute === 'Govt. Health Sub Centre, Jhunjhunu') return 'Select Sub Centre / Gram Panchayat';
+  return 'Select Village / Town';
+}
+
+function updateFacilityFieldLabels(institute) {
+  const locationLabel = document.getElementById('facilityLocationLabel');
+  const subLocationLabel = document.getElementById('facilitySubLocationLabel');
+  const subLocationCustom = document.getElementById('facilitySubLocationCustom');
+  const locationText = getFacilityLocationLabel(institute);
+  const subLocationText = getFacilitySubLocationLabel(institute);
+  if (locationLabel) locationLabel.innerHTML = `${locationText} <span class="req">*</span>`;
+  if (subLocationLabel) subLocationLabel.textContent = subLocationText;
+  if (subLocationCustom) subLocationCustom.placeholder = `Enter ${subLocationText.toLowerCase()}`;
 }
 const EMPLOYEE_DESIGNATIONS = {
   'Dist. Collector, Jhunjhunu': [
@@ -1898,7 +1933,7 @@ function handleFacilityLocationChange() {
   const block = document.getElementById('facilityLocation').value;
   const subLocationSelect = document.getElementById('facilitySubLocation');
   const items = getFacilitySubLocations(institute, block);
-  subLocationSelect.innerHTML = `<option value="">Select Village / Town</option>` + items.map((item) => `<option value="${item}">${item}</option>`).join('');
+  subLocationSelect.innerHTML = `<option value="">${getFacilitySubLocationPlaceholder(institute)}</option>` + items.map((item) => `<option value="${item}">${item}</option>`).join('');
   setFacilitySubLocationValue('');
   updatePreview();
   saveUiState();
@@ -1918,12 +1953,13 @@ function handleInstituteChange() {
   const collegeMode = isCollegeMode();
   const anmMode = isAnmMode();
   const facilityLocationMode = isFacilityLocationInstitute();
+  updateFacilityFieldLabels(institute);
   document.getElementById('otherInstituteWrap').style.display = institute === 'Other' ? '' : 'none';
   document.getElementById('facilityLocationWrap').style.display = facilityLocationMode ? '' : 'none';
   document.getElementById('facilitySubLocationWrap').style.display = facilityLocationMode ? '' : 'none';
   if (facilityLocationMode) {
-    populateSelect('facilityLocation', FACILITY_LOCATIONS[institute] || [], 'Select Block');
-    document.getElementById('facilitySubLocation').innerHTML = '<option value="">Select Village / Town</option>';
+    populateSelect('facilityLocation', FACILITY_LOCATIONS[institute] || [], getFacilityLocationPlaceholder(institute));
+    document.getElementById('facilitySubLocation').innerHTML = `<option value="">${getFacilitySubLocationPlaceholder(institute)}</option>`;
     document.getElementById('facilitySubLocationCustom').value = '';
     document.getElementById('facilitySubLocationCustom').style.display = 'none';
   } else {
