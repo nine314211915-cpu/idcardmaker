@@ -1380,21 +1380,63 @@ const TEACHER_DESIGNATIONS = {
   'Govt. Nursing College, Jhunjhunu': ['Principal', 'Vice Principal', 'Professor', 'Associate Professor', 'Assistant Professor', 'Tutor', 'Clinical Instructor', 'Lecturer']
 };
 const FACILITY_LOCATIONS = {
-  'Govt. Community Health Centre (CHC), Jhunjhunu': ['Jhunjhunu', 'Chirawa', 'Buhana', 'Khetri', 'Nawalgarh', 'Udaipurwati', 'Pilani', 'Surajgarh', 'Mandawa'],
-  'Govt. Primary Health Centre (PHC), Jhunjhunu': ['Jhunjhunu', 'Chirawa', 'Buhana', 'Khetri', 'Nawalgarh', 'Udaipurwati', 'Pilani', 'Surajgarh', 'Mandawa'],
-  'Govt. Health Sub Centre, Jhunjhunu': ['Jhunjhunu', 'Chirawa', 'Buhana', 'Khetri', 'Nawalgarh', 'Udaipurwati', 'Pilani', 'Surajgarh', 'Mandawa']
+  'Govt. Community Health Centre (CHC), Jhunjhunu': ['All CHCs'],
+  'Govt. Primary Health Centre (PHC), Jhunjhunu': ['All PHCs', 'Jhunjhunu', 'Chirawa', 'Surajgarh', 'Khetri', 'Buhana', 'Nawalgarh', 'Udaipurwati', 'Malsisar'],
+  'Govt. Health Sub Centre, Jhunjhunu': ['All Sub Centres', 'Jhunjhunu', 'Chirawa', 'Buhana', 'Khetri', 'Nawalgarh', 'Udaipurwati', 'Pilani', 'Surajgarh', 'Mandawa']
 };
 const FACILITY_SUB_LOCATIONS = {
-  'Jhunjhunu': ['Jhunjhunu Town', 'Badalwas', 'Dundlod', 'Sultana', 'Mandrella', 'Nua', 'Khudana', 'Add New'],
-  'Chirawa': ['Chirawa Town', 'Mandrela', 'Pilod', 'Arnia', 'Kithana', 'Bajawa', 'Gidania', 'Add New'],
-  'Buhana': ['Buhana Town', 'Pacheri Kalan', 'Sohli', 'Singhana', 'Bhirr', 'Kuharwas', 'Bhukana', 'Add New'],
-  'Khetri': ['Khetri Town', 'Kolihan Nagar', 'Banwas', 'Ravla', 'Papurna', 'Ajeetpura', 'Shimla', 'Add New'],
-  'Nawalgarh': ['Nawalgarh Town', 'Mukasundgarh', 'Parsurampura', 'Nayi Basti', 'Jakhora', 'Barwasi', 'Basawa', 'Add New'],
-  'Udaipurwati': ['Udaipurwati Town', 'Gudha Gorji', 'Posana', 'Chhapoli', 'Bagora', 'Mankwas', 'Morda', 'Add New'],
-  'Pilani': ['Pilani Town', 'Chidawa Road', 'Hanutpura', 'Basant Vihar', 'Dulania', 'Morwa', 'Khedla', 'Add New'],
-  'Surajgarh': ['Surajgarh Town', 'Kajra', 'Loharu Road', 'Malsisar', 'Bhojasar', 'Kakoda', 'Jakhod', 'Add New'],
-  'Mandawa': ['Mandawa Town', 'Alsisar', 'Baloda', 'Bissau', 'Tain', 'Sehkalon Ki Dhani', 'Hanumanpura', 'Add New']
+  'Govt. Community Health Centre (CHC), Jhunjhunu': {
+    'All CHCs': ['Bissau', 'Mandawa', 'Baggad', 'Malsisar', 'Surajgarh', 'Khetri', 'Nawalgarh', 'Chirawa', 'Udaipurwati', 'Buhana', 'Chirana', 'Mandrela', 'Gudha Gorji', 'Add New']
+  },
+  'Govt. Primary Health Centre (PHC), Jhunjhunu': {
+    'All PHCs': [
+      'Islampur', 'Kali Pahari', 'Binjusar', 'Hetamsar', 'Bharu', 'Bhadarwas', 'Bharunda Kalan', 'Patusari', 'Churi', 'Nua',
+      'Bakhtawarpura', 'Padampura', 'Solana', 'Sultana', 'Chanana', 'Jakhora', 'Ardawata', 'Bhadunda Kalan',
+      'Bangothri Kalan', 'Kakoda', 'Kajara', 'Kidwana', 'Pipli', 'Chhapara', 'Devroad', 'Jakhod',
+      'Babai', 'Shimla', 'Sihod', 'Papurana', 'Rasulpur', 'Tyonda', 'Tatija', 'Jasarapur', 'Tibba Basai',
+      'Udamandi', 'Kuhadwas', 'Singhana', 'Hirwa', 'Pacheri Kalan', 'Sawlod', 'Sohali', 'Churina',
+      'Jhajhar', 'Basawa', 'Mandasi', 'Khirod', 'Dhigal', 'Bhagera', 'Parasrampura', 'Jakhal', 'Jejusar', 'Gothara',
+      'Baragaun', 'Mandawara', 'Bhorki', 'Ponkh', 'Pachlangi', 'Chhapoli', 'Chanwara', 'Titanwad', 'Gudha Gorji',
+      'Alsisar', 'Birmi', 'Gangiyasar', 'Kaant', 'Kaliyasar', 'Ladusar', 'Mahansar', 'Niradhanu', 'Tumkor',
+      'Add New'
+    ],
+    'Jhunjhunu': ['Islampur', 'Kali Pahari', 'Binjusar', 'Hetamsar', 'Bharu', 'Bhadarwas', 'Bharunda Kalan', 'Patusari', 'Churi', 'Nua', 'Add New'],
+    'Chirawa': ['Bakhtawarpura', 'Padampura', 'Solana', 'Sultana', 'Chanana', 'Jakhora', 'Ardawata', 'Bhadunda Kalan', 'Add New'],
+    'Surajgarh': ['Bangothri Kalan', 'Kakoda', 'Kajara', 'Kidwana', 'Pipli', 'Chhapara', 'Devroad', 'Jakhod', 'Add New'],
+    'Khetri': ['Babai', 'Shimla', 'Sihod', 'Papurana', 'Rasulpur', 'Tyonda', 'Tatija', 'Jasarapur', 'Tibba Basai', 'Add New'],
+    'Buhana': ['Udamandi', 'Kuhadwas', 'Singhana', 'Hirwa', 'Pacheri Kalan', 'Sawlod', 'Sohali', 'Churina', 'Add New'],
+    'Nawalgarh': ['Jhajhar', 'Basawa', 'Mandasi', 'Khirod', 'Dhigal', 'Bhagera', 'Parasrampura', 'Jakhal', 'Jejusar', 'Gothara', 'Add New'],
+    'Udaipurwati': ['Baragaun', 'Mandawara', 'Bhorki', 'Ponkh', 'Pachlangi', 'Chhapoli', 'Chanwara', 'Titanwad', 'Gudha Gorji', 'Add New'],
+    'Malsisar': ['Alsisar', 'Birmi', 'Gangiyasar', 'Kaant', 'Kaliyasar', 'Ladusar', 'Mahansar', 'Niradhanu', 'Tumkor', 'Add New']
+  },
+  'Govt. Health Sub Centre, Jhunjhunu': {
+    'All Sub Centres': [
+      'Jhunjhunu Town', 'Badalwas', 'Dundlod', 'Sultana', 'Mandrella', 'Nua', 'Khudana',
+      'Chirawa Town', 'Mandrela', 'Pilod', 'Arnia', 'Kithana', 'Bajawa', 'Gidania',
+      'Buhana Town', 'Pacheri Kalan', 'Sohli', 'Singhana', 'Bhirr', 'Kuharwas', 'Bhukana',
+      'Khetri Town', 'Kolihan Nagar', 'Banwas', 'Ravla', 'Papurna', 'Ajeetpura', 'Shimla',
+      'Nawalgarh Town', 'Mukasundgarh', 'Parsurampura', 'Nayi Basti', 'Jakhora', 'Barwasi', 'Basawa',
+      'Udaipurwati Town', 'Gudha Gorji', 'Posana', 'Chhapoli', 'Bagora', 'Mankwas', 'Morda',
+      'Pilani Town', 'Chidawa Road', 'Hanutpura', 'Basant Vihar', 'Dulania', 'Morwa', 'Khedla',
+      'Surajgarh Town', 'Kajra', 'Loharu Road', 'Malsisar', 'Bhojasar', 'Kakoda', 'Jakhod',
+      'Mandawa Town', 'Alsisar', 'Baloda', 'Bissau', 'Tain', 'Sehkalon Ki Dhani', 'Hanumanpura',
+      'Add New'
+    ],
+    'Jhunjhunu': ['Jhunjhunu Town', 'Badalwas', 'Dundlod', 'Sultana', 'Mandrella', 'Nua', 'Khudana', 'Add New'],
+    'Chirawa': ['Chirawa Town', 'Mandrela', 'Pilod', 'Arnia', 'Kithana', 'Bajawa', 'Gidania', 'Add New'],
+    'Buhana': ['Buhana Town', 'Pacheri Kalan', 'Sohli', 'Singhana', 'Bhirr', 'Kuharwas', 'Bhukana', 'Add New'],
+    'Khetri': ['Khetri Town', 'Kolihan Nagar', 'Banwas', 'Ravla', 'Papurna', 'Ajeetpura', 'Shimla', 'Add New'],
+    'Nawalgarh': ['Nawalgarh Town', 'Mukasundgarh', 'Parsurampura', 'Nayi Basti', 'Jakhora', 'Barwasi', 'Basawa', 'Add New'],
+    'Udaipurwati': ['Udaipurwati Town', 'Gudha Gorji', 'Posana', 'Chhapoli', 'Bagora', 'Mankwas', 'Morda', 'Add New'],
+    'Pilani': ['Pilani Town', 'Chidawa Road', 'Hanutpura', 'Basant Vihar', 'Dulania', 'Morwa', 'Khedla', 'Add New'],
+    'Surajgarh': ['Surajgarh Town', 'Kajra', 'Loharu Road', 'Malsisar', 'Bhojasar', 'Kakoda', 'Jakhod', 'Add New'],
+    'Mandawa': ['Mandawa Town', 'Alsisar', 'Baloda', 'Bissau', 'Tain', 'Sehkalon Ki Dhani', 'Hanumanpura', 'Add New']
+  }
 };
+
+function getFacilitySubLocations(institute, block) {
+  return ((FACILITY_SUB_LOCATIONS[institute] || {})[block] || []).slice();
+}
 const EMPLOYEE_DESIGNATIONS = {
   'Dist. Collector, Jhunjhunu': [
     'District Collector and District Magistrate',
@@ -1846,9 +1888,10 @@ function handleFacilitySubLocationChange() {
 }
 
 function handleFacilityLocationChange() {
+  const institute = document.getElementById('instituteName').value;
   const block = document.getElementById('facilityLocation').value;
   const subLocationSelect = document.getElementById('facilitySubLocation');
-  const items = FACILITY_SUB_LOCATIONS[block] || [];
+  const items = getFacilitySubLocations(institute, block);
   subLocationSelect.innerHTML = `<option value="">Select Village / Town</option>` + items.map((item) => `<option value="${item}">${item}</option>`).join('');
   setFacilitySubLocationValue('');
   updatePreview();
