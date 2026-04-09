@@ -29,6 +29,7 @@
       linear-gradient(180deg, #fbf5ec 0%, var(--cream) 100%);
     color: var(--text);
     min-height: 100vh;
+    overflow-x: hidden;
   }
   header {
     background: var(--red);
@@ -326,7 +327,7 @@
     border: none;
     border-radius: 7px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 14px;
     font-family: 'Source Sans 3', sans-serif;
     font-weight: 600;
     display: inline-flex;
@@ -342,7 +343,7 @@
     border: 1px solid var(--border);
     border-radius: 7px;
     padding: 8px 10px;
-    font-size: 12px;
+    font-size: 16px;
     font-family: 'Source Sans 3', sans-serif;
     outline: none;
   }
@@ -748,6 +749,62 @@
     .asset-grid { grid-template-columns: 1fr; }
     header { padding: 14px 16px; }
     header .right-brand { margin-left: 0; width: 100%; justify-content: space-between; }
+  }
+  @media (max-width: 640px) {
+    body { font-size: 14px; }
+    header { padding: 12px; gap: 10px; }
+    header .logo-icon { width: 42px; height: 42px; border-radius: 12px; }
+    header h1 { font-size: 16px; }
+    header p, header .credit-line { font-size: 10px; }
+    header .right-brand {
+      width: 100%;
+      margin-left: 0;
+      padding: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+    header .brand-top {
+      width: 100%;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    header .nav-link {
+      width: 100%;
+      text-align: center;
+      padding: 10px 12px;
+    }
+    .toolbar, .asset-panel, .table-wrap, .overview-panel, .status-strip {
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+    .toolbar { gap: 8px; }
+    .stats-bar, .toolbar-actions { width: 100%; margin: 0; }
+    .toolbar-actions { justify-content: stretch; }
+    .filter-select,
+    .toolbar-actions .btn,
+    .status-strip-card .btn,
+    .status-mini-input,
+    .status-mini-select { width: 100%; }
+    .status-strip-card { padding: 12px; }
+    .overview-card, .panel, .asset-box { border-radius: 10px; }
+    .overview-card, .status-strip-card, .panel-header, .modal-body { padding-left: 12px; padding-right: 12px; }
+    .table-wrap { margin-bottom: 18px; }
+    table { font-size: 11px; }
+    th, td { padding: 8px 6px; }
+    .modal {
+      width: calc(100vw - 16px);
+      max-width: none;
+      max-height: calc(100vh - 16px);
+      border-radius: 10px;
+    }
+    .modal-actions { flex-direction: column; }
+    .modal-actions .btn { width: 100%; }
+    .confirm-box { width: calc(100vw - 20px); }
   }
 </style>
 </head>

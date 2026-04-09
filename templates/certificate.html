@@ -8,7 +8,7 @@
 <style>
   :root { --cream:#fdf8f0; --red:#8b0000; --red-soft:#f9e8e8; --gold:#b5860d; --text:#2c1810; --muted:#7a6a60; --border:#ddd0c0; --shadow:0 12px 28px rgba(139,0,0,.08); }
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { min-height:100vh; font-family:'Source Sans 3',sans-serif; background:linear-gradient(180deg,#fbf5ec 0%, var(--cream) 100%); color:var(--text); }
+  body { min-height:100vh; font-family:'Source Sans 3',sans-serif; background:linear-gradient(180deg,#fbf5ec 0%, var(--cream) 100%); color:var(--text); overflow-x:hidden; }
   header { background:var(--red); color:#fff; padding:14px 24px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; box-shadow:0 3px 10px rgba(0,0,0,.25); }
   .logo-icon { width:48px; height:48px; background:#fff; border-radius:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .logo-icon svg { width:28px; height:28px; }
@@ -26,7 +26,7 @@
   .form-group { display:flex; flex-direction:column; gap:5px; }
   .form-group.full { grid-column:1 / -1; }
   label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.45px; color:var(--muted); }
-  input, select, textarea { width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:8px; font-size:13px; font-family:inherit; outline:none; }
+  input, select, textarea { width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:8px; font-size:16px; font-family:inherit; outline:none; }
   textarea { resize:vertical; min-height:92px; line-height:1.45; }
   .inline-actions, .inline-field-row { display:flex; gap:8px; flex-wrap:wrap; }
   .field-actions { display:flex; justify-content:flex-end; margin-top:6px; }
@@ -84,6 +84,34 @@
   .hidden { display:none !important; }
   @media (max-width:1024px) { .page { grid-template-columns:1fr; } .preview-wrap { position:static; } }
   @media (max-width:768px) { header { padding:14px 16px; } .page { padding-top:16px; } .form-grid, .certificate-inner { grid-template-columns:1fr; } .certificate-footer { flex-direction:column; align-items:stretch; } }
+  @media (max-width:640px) {
+    body { font-size:14px; }
+    header { padding:12px; gap:10px; }
+    .logo-icon { width:42px; height:42px; border-radius:12px; }
+    .brand-block h1 { font-size:17px; }
+    .brand-block p { font-size:11px; }
+    .right-brand { width:100%; margin-left:0; }
+    .nav-link { width:100%; text-align:center; padding:10px 12px; }
+    .page { padding:12px 10px 20px; gap:12px; }
+    .panel-head { padding:10px 12px; font-size:14px; }
+    .panel-body { padding:12px; }
+    .helper, .mini-helper { font-size:12px; }
+    .inline-actions { flex-direction:column; }
+    .inline-actions .btn, .inline-field-row > *, .field-actions .btn { width:100%; }
+    .certificate-sheet { border-width:6px; border-radius:12px; }
+    .certificate-inner { padding:16px 14px; gap:12px; }
+    .certificate-title { font-size:22px; text-align:center; align-self:center; }
+    .certificate-name { font-size:22px; min-width:100%; }
+    .certificate-body, .certificate-subtext { font-size:12px; line-height:1.55; text-align:left; }
+    .certificate-photo-panel { justify-content:center; }
+  }
+  @media (max-width:420px) {
+    .page { padding-left:8px; padding-right:8px; }
+    .panel-body { padding:10px; }
+    .certificate-inner { padding:14px 12px; }
+    .certificate-title { font-size:20px; }
+    .certificate-name { font-size:20px; }
+  }
 </style>
 </head>
 <body>

@@ -28,6 +28,7 @@
       linear-gradient(180deg, #fbf5ec 0%, var(--cream) 100%);
     color: var(--text);
     min-height: 100vh;
+    overflow-x: hidden;
   }
 
   /* HEADER */
@@ -264,7 +265,7 @@
     padding: 8px 10px;
     border: 1px solid var(--border);
     border-radius: 7px;
-    font-size: 12px;
+    font-size: 16px;
     font-family: 'Source Sans 3', sans-serif;
     background: white;
     color: var(--text);
@@ -1004,6 +1005,54 @@
     header { padding: 14px 16px; }
     header .right-brand { margin-left: 0; width: 100%; justify-content: space-between; }
     .action-grid, .batch-meta { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    body { font-size: 14px; }
+    header { padding: 12px; gap: 10px; }
+    header .logo-icon { width: 42px; height: 42px; border-radius: 12px; }
+    header h1 { font-size: 16px; }
+    header p, header .credit-line { font-size: 10px; }
+    header .right-brand {
+      margin-left: 0;
+      width: 100%;
+      padding: 0;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+    }
+    header .brand-top {
+      width: 100%;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    header .nav-link {
+      width: 100%;
+      text-align: center;
+      padding: 10px 12px;
+    }
+    .container { padding: 12px 10px 20px; gap: 12px; }
+    .panel-header { padding: 10px 12px; font-size: 14px; }
+    .panel-body { padding: 12px; }
+    .field-label-row { flex-direction: column; align-items: flex-start; }
+    .triple-grid, .compact-grid, .form-grid, .action-grid, .batch-meta { gap: 10px; }
+    .type-btn { min-height: 52px; font-size: 14px; }
+    .photo-upload-area, .compact-field, .type-selector, .card-preview-wrap { width: 100%; max-width: none; }
+    .photo-upload-area { min-height: 168px; }
+    .id-card { width: 100%; max-width: 360px; margin: 0 auto; }
+    .action-grid .btn,
+    .inline-actions .btn,
+    .camera-actions .btn { width: 100%; justify-content: center; }
+  }
+  @media (max-width: 420px) {
+    .container { padding-left: 8px; padding-right: 8px; }
+    .panel-body { padding: 10px; }
+    input, select, textarea { padding: 10px; }
+    .photo-upload-area { min-height: 150px; }
+    .helper-text { text-align: left; }
   }
 </style>
 </head>
