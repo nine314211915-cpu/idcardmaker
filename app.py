@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, render_template, send_file, send_from_directory, session, redirect, url_for
 import json, os, random, string, zipfile, io, tempfile, csv, re
+from html import escape
 from datetime import datetime, timedelta
 from collections import deque
 from functools import wraps
@@ -1959,6 +1960,55 @@ def build_export_excel_bytes(records):
     wb.save(buf)
     return buf.getvalue()
 
+
+def build_export_xls_bytes(records):
+    headers = ["S.No", "Serial No", "Profile Type", "Name", "Course/Designation", "Batch", "Father Name", "Aadhaar No.",
+               "Employee ID", "Department", "Date of Birth", "Contact No", "Blood Group", "Address", "Valid Upto",
+               "Institute", "Photo File", "Saved At"]
+    rows = []
+    for index, rec in enumerate(records, 1):
+        rows.append([
+            index,
+            rec.get("serial_no", ""),
+            rec.get("profile_type", ""),
+            rec.get("name", ""),
+            rec.get("training_year") or rec.get("course") or rec.get("designation", ""),
+            rec.get("batch_session", ""),
+            rec.get("father_name", ""),
+            rec.get("aadhaar_no", ""),
+            rec.get("employee_id", ""),
+            rec.get("department", ""),
+            rec.get("dob", ""),
+            rec.get("contact", ""),
+            rec.get("blood_group", ""),
+            rec.get("address", ""),
+            rec.get("valid_upto", ""),
+            rec.get("institute_name", ""),
+            f"{index}.jpg",
+            rec.get("saved_at", ""),
+        ])
+
+    def html_cell(tag, value):
+        return f"<{tag}>{escape(str(value or ''))}</{tag}>"
+
+    html = [
+        "<html>",
+        "<head>",
+        '<meta http-equiv="Content-Type" content="text/html; charset=utf-8">',
+        "</head>",
+        "<body>",
+        "<table border='1'>",
+        "<tr>",
+    ]
+    html.extend(html_cell("th", header) for header in headers)
+    html.append("</tr>")
+    for row in rows:
+        html.append("<tr>")
+        html.extend(html_cell("td", value) for value in row)
+        html.append("</tr>")
+    html.extend(["</table>", "</body>", "</html>"])
+    return "".join(html).encode("utf-8")
+
 @app.route("/")
 def home():
     return render_template("home.html")
@@ -2866,13 +2916,13 @@ def delete_record(serial_no):
 @admin_required
 def export_excel():
     records, institute_filter = get_filtered_records()
-    buf = io.BytesIO(build_export_excel_bytes(records))
+    buf = io.BytesIO(build_export_xls_bytes(records))
     buf.seek(0)
     institute = institute_filter or (records[0].get("institute_name", "IDCardRecords") if records else "IDCardRecords")
     institute_safe = "".join(c for c in institute if c.isalnum() or c in "_ -")
     return send_file(buf, as_attachment=True,
-                     download_name=f"{institute_safe}_IDCards_{datetime.now().strftime('%Y%m%d')}.xlsx",
-                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                     download_name=f"{institute_safe}_IDCards_{datetime.now().strftime('%Y%m%d')}.xls",
+                     mimetype="application/vnd.ms-excel")
 
 @app.route("/api/export-zip")
 @admin_required
@@ -2880,7 +2930,7 @@ def export_zip():
     records, institute_filter = get_filtered_records()
     buf = io.BytesIO()
     csv_text = build_export_csv_text(records)
-    excel_bytes = build_export_excel_bytes(records)
+    excel_bytes = build_export_xls_bytes(records)
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for index, rec in enumerate(records, 1):
             serial = rec.get("serial_no", "")
@@ -2903,7 +2953,7 @@ def export_zip():
             if not photo_written:
                 zf.writestr(f"photos/{photo_filename}", build_placeholder_avatar_bytes(rec, index))
         zf.writestr("records.csv", csv_text)
-        zf.writestr("records.xlsx", excel_bytes)
+        zf.writestr("records.xls", excel_bytes)
     buf.seek(0)
     institute = institute_filter or (records[0].get("institute_name", "IDCardRecords") if records else "IDCardRecords")
     institute_safe = "".join(c for c in institute if c.isalnum() or c in "_ -")

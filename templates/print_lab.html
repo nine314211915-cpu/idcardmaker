@@ -3,75 +3,444 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Print Design Lab</title>
+<title>Print Studio</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { --cream:#f7efe4; --panel:#fffdf8; --red:#8b0000; --text:#2c1810; --muted:#74685d; --line:#e4d7c7; --shadow:0 18px 40px rgba(63,24,8,0.08); }
+  :root {
+    --cream:#f7efe4;
+    --panel:#fffdf8;
+    --red:#8b0000;
+    --red-deep:#5d0000;
+    --text:#2c1810;
+    --muted:#74685d;
+    --line:#e4d7c7;
+    --shadow:0 18px 40px rgba(63,24,8,0.08);
+  }
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { min-height:100vh; font-family:'Source Sans 3',sans-serif; background:radial-gradient(circle at top left, rgba(139,0,0,0.08), transparent 28%), linear-gradient(180deg, #fbf7f1 0%, var(--cream) 100%); color:var(--text); padding:28px 18px 48px; }
-  .shell { max-width:1180px; margin:0 auto; }
-  .hero { background:var(--panel); border:1px solid var(--line); border-radius:28px; padding:28px; box-shadow:var(--shadow); }
-  h1 { font-family:'Playfair Display',serif; font-size:40px; line-height:1.05; }
-  .hero p { margin-top:12px; color:var(--muted); font-size:17px; max-width:760px; line-height:1.55; }
-  .meta { margin-top:16px; display:flex; gap:10px; flex-wrap:wrap; }
-  .meta span { background:#fff; border:1px solid var(--line); border-radius:999px; padding:7px 12px; font-size:13px; color:var(--muted); }
-  .grid { margin-top:22px; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:18px; }
-  .card { background:var(--panel); border:1px solid var(--line); border-radius:24px; padding:22px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:14px; }
-  .eyebrow { color:var(--red); text-transform:uppercase; letter-spacing:1.4px; font-weight:700; font-size:11px; }
-  .card h2 { font-family:'Playfair Display',serif; font-size:28px; line-height:1.1; }
-  .card p { color:var(--muted); line-height:1.55; font-size:15px; }
-  .list { display:grid; gap:8px; color:#4d433a; font-size:14px; }
-  .action { margin-top:auto; display:inline-flex; align-self:flex-start; text-decoration:none; background:var(--red); color:#fff; border-radius:14px; padding:11px 16px; font-weight:700; }
-  .back { display:inline-flex; margin-top:18px; text-decoration:none; color:var(--red); font-weight:700; }
-  @media (max-width: 980px) { .grid { grid-template-columns:1fr; } h1 { font-size:32px; } }
+  body {
+    min-height:100vh;
+    font-family:'Source Sans 3',sans-serif;
+    background:
+      radial-gradient(circle at top left, rgba(139,0,0,0.08), transparent 28%),
+      linear-gradient(180deg, #fbf7f1 0%, var(--cream) 100%);
+    color:var(--text);
+    padding:28px 18px 48px;
+    overflow-x:hidden;
+  }
+  .shell { max-width:1220px; margin:0 auto; }
+  .hero {
+    background:linear-gradient(135deg, rgba(255,255,255,0.96), rgba(252,246,239,0.94));
+    border:1px solid var(--line);
+    border-radius:28px;
+    padding:30px;
+    box-shadow:var(--shadow);
+  }
+  .hero-top {
+    display:flex;
+    justify-content:space-between;
+    gap:18px;
+    align-items:flex-end;
+    flex-wrap:wrap;
+  }
+  h1 {
+    font-family:'Playfair Display',serif;
+    font-size:42px;
+    line-height:1.02;
+  }
+  .hero-copy {
+    margin-top:12px;
+    color:var(--muted);
+    font-size:17px;
+    line-height:1.6;
+    max-width:780px;
+  }
+  .hero-actions {
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .hero-actions a {
+    text-decoration:none;
+    border-radius:14px;
+    padding:11px 16px;
+    font-weight:700;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .hero-actions .primary {
+    background:var(--red);
+    color:#fff;
+  }
+  .hero-actions .soft {
+    background:#fff;
+    border:1px solid var(--line);
+    color:var(--text);
+  }
+  .meta {
+    margin-top:18px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .meta span {
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:999px;
+    padding:8px 12px;
+    font-size:13px;
+    color:var(--muted);
+  }
+  .studio-grid {
+    margin-top:20px;
+    display:grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 430px);
+    gap:18px;
+    align-items:start;
+  }
+  .panel {
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:24px;
+    box-shadow:var(--shadow);
+    padding:22px;
+  }
+  .panel h2 {
+    font-family:'Playfair Display',serif;
+    font-size:28px;
+    line-height:1.1;
+  }
+  .panel-copy {
+    margin-top:10px;
+    color:var(--muted);
+    line-height:1.6;
+    font-size:15px;
+  }
+  .workflow {
+    margin-top:16px;
+    display:grid;
+    gap:12px;
+  }
+  .workflow-step {
+    display:grid;
+    grid-template-columns: 42px 1fr;
+    gap:12px;
+    align-items:start;
+    padding:14px;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:18px;
+  }
+  .step-no {
+    width:42px;
+    height:42px;
+    border-radius:14px;
+    background:linear-gradient(135deg, var(--red), var(--red-deep));
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+    font-size:15px;
+  }
+  .workflow-step strong {
+    display:block;
+    font-size:16px;
+    color:var(--text);
+  }
+  .workflow-step span {
+    display:block;
+    margin-top:4px;
+    color:var(--muted);
+    line-height:1.55;
+    font-size:14px;
+  }
+  .tool-grid {
+    margin-top:16px;
+    display:grid;
+    gap:12px;
+  }
+  .tool-card {
+    padding:16px;
+    border-radius:18px;
+    background:#fff;
+    border:1px solid var(--line);
+    display:grid;
+    gap:10px;
+  }
+  .tool-card .eyebrow {
+    color:var(--red);
+    text-transform:uppercase;
+    letter-spacing:1.3px;
+    font-weight:700;
+    font-size:11px;
+  }
+  .tool-card h3 {
+    font-size:22px;
+    line-height:1.1;
+    font-family:'Playfair Display',serif;
+  }
+  .tool-card p {
+    color:var(--muted);
+    line-height:1.55;
+    font-size:14px;
+  }
+  .tool-card a {
+    margin-top:4px;
+    display:inline-flex;
+    align-self:flex-start;
+    text-decoration:none;
+    background:var(--red);
+    color:#fff;
+    border-radius:12px;
+    padding:10px 14px;
+    font-weight:700;
+  }
+  .preview-shell {
+    min-height:100%;
+    display:grid;
+    gap:14px;
+  }
+  .preview-card {
+    width:min(100%, 390px);
+    aspect-ratio:1.58 / 1;
+    margin:0 auto;
+    border-radius:24px;
+    overflow:hidden;
+    border:1px solid #d8c9bd;
+    box-shadow:0 22px 44px rgba(41,24,12,0.14);
+    background:linear-gradient(140deg, rgba(255,255,255,0.92), rgba(250,243,236,0.92)), {% if settings.get('background_url') %}url('{{ settings.get("background_url") }}'){% else %}linear-gradient(140deg, #f6efe8, #ede0cf){% endif %};
+    background-size:cover;
+    background-position:center;
+    display:grid;
+    grid-template-rows:auto 1fr auto;
+  }
+  .preview-head {
+    padding:14px 16px 12px;
+    background:linear-gradient(90deg, rgba(139,0,0,0.96), rgba(89,0,0,0.88));
+    color:#fff;
+  }
+  .preview-head .tiny {
+    text-transform:uppercase;
+    letter-spacing:1.4px;
+    font-size:10px;
+    opacity:0.86;
+  }
+  .preview-head .name {
+    margin-top:4px;
+    font-family:'Playfair Display',serif;
+    font-size:21px;
+    line-height:1.08;
+  }
+  .preview-body {
+    display:grid;
+    grid-template-columns:96px 1fr;
+    gap:12px;
+    padding:14px 16px;
+  }
+  .preview-photo {
+    border-radius:14px;
+    overflow:hidden;
+    background:#f7efe6;
+    border:1px solid rgba(0,0,0,0.08);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--muted);
+    min-height:118px;
+  }
+  .preview-photo img {
+    width:100%;
+    height:100%;
+    object-fit:cover;
+  }
+  .preview-content h3 {
+    color:var(--red);
+    font-size:22px;
+    line-height:1.05;
+  }
+  .preview-role {
+    margin-top:4px;
+    color:#9a6a18;
+    font-weight:700;
+    font-size:14px;
+  }
+  .preview-meta {
+    margin-top:10px;
+    display:grid;
+    gap:6px;
+    font-size:13px;
+  }
+  .preview-foot {
+    padding:10px 16px;
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    align-items:center;
+    background:rgba(255,248,239,0.92);
+    border-top:1px solid rgba(0,0,0,0.06);
+    font-size:12px;
+  }
+  .badge {
+    background:var(--red);
+    color:#fff;
+    border-radius:999px;
+    padding:5px 10px;
+    font-size:11px;
+    font-weight:700;
+  }
+  .sheet-preview {
+    padding:16px;
+    border-radius:18px;
+    border:1px dashed #ccb9a6;
+    background:linear-gradient(180deg, #fff 0%, #fffaf4 100%);
+  }
+  .sheet-preview strong {
+    display:block;
+    color:var(--red);
+    margin-bottom:8px;
+  }
+  .sheet-preview p {
+    color:var(--muted);
+    line-height:1.55;
+    font-size:14px;
+  }
+  @media (max-width: 980px) {
+    .studio-grid { grid-template-columns:1fr; }
+    h1 { font-size:34px; }
+  }
+  @media (max-width: 640px) {
+    body { padding:14px 10px 24px; }
+    .hero { border-radius:18px; padding:18px 14px; }
+    h1 { font-size:28px; }
+    .hero-copy { font-size:15px; }
+    .hero-actions { width:100%; }
+    .hero-actions a { width:100%; }
+    .meta { gap:8px; }
+    .meta span { width:100%; text-align:center; }
+    .studio-grid { margin-top:16px; gap:12px; }
+    .panel { border-radius:18px; padding:16px 14px; }
+    .panel h2 { font-size:22px; }
+    .workflow-step { grid-template-columns:38px 1fr; padding:12px; }
+    .step-no { width:38px; height:38px; border-radius:12px; }
+    .tool-card { border-radius:16px; padding:14px; }
+    .tool-card h3 { font-size:20px; }
+    .tool-card a { width:100%; justify-content:center; }
+    .preview-card { width:100%; max-width:380px; border-radius:20px; }
+    .preview-head .name { font-size:19px; }
+    .preview-body { grid-template-columns:86px 1fr; gap:10px; padding:12px 14px; }
+    .preview-content h3 { font-size:20px; }
+    .preview-foot { flex-direction:column; align-items:flex-start; gap:8px; }
+  }
 </style>
 </head>
 <body>
   <main class="shell">
     <section class="hero">
-      <h1>Print Design Lab</h1>
-      <p>Three separate pages are ready so you can compare different print-design approaches before we commit to one final workflow.</p>
+      <div class="hero-top">
+        <div>
+          <h1>Print Studio</h1>
+          <p class="hero-copy">A production-focused workspace for selecting templates, refining layout behavior, and preparing print-ready ID card output. This replaces the idea-board feel with a more professional workflow built around reliable preview and final print control.</p>
+        </div>
+        <div class="hero-actions">
+          <a class="primary" href="/admin/print-cards?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Open Print Preview</a>
+          <a class="soft" href="/admin">Back to Admin</a>
+        </div>
+      </div>
       <div class="meta">
         <span>Institute: {{ institute or sample_record.get('institute_name') }}</span>
         <span>Batch: {{ batch_id or 'Demo Preview' }}</span>
         <span>Records available: {{ records|length }}</span>
       </div>
-      <div class="grid">
-        <article class="card">
-          <div class="eyebrow">Idea 1</div>
-          <h2>Canva Workflow</h2>
-          <p>Best when you want a polished visual layout designed outside the app, then merged with live card data here.</p>
-          <div class="list">
-            <div>Use exported Canva background artwork.</div>
-            <div>Preview dynamic text and photo over the design.</div>
-            <div>Good for fast iteration with non-technical staff.</div>
+
+      <div class="studio-grid">
+        <section class="panel">
+          <h2>Professional Workflow</h2>
+          <p class="panel-copy">Use a single, structured flow similar to commercial print platforms: choose the template style, review the live card output, confirm sheet layout, and print with confidence.</p>
+
+          <div class="workflow">
+            <div class="workflow-step">
+              <div class="step-no">1</div>
+              <div>
+                <strong>Select Template</strong>
+                <span>Choose the visual direction for the institute card, then keep the design stable for repeatable printing.</span>
+              </div>
+            </div>
+            <div class="workflow-step">
+              <div class="step-no">2</div>
+              <div>
+                <strong>Customize Layout</strong>
+                <span>Adjust spacing, field positions, card rhythm, and visual treatment so the output stays professional and consistent.</span>
+              </div>
+            </div>
+            <div class="workflow-step">
+              <div class="step-no">3</div>
+              <div>
+                <strong>Review Print Sheet</strong>
+                <span>Check how multiple cards sit on the A4 page, confirm margins and density, then proceed to print-ready output.</span>
+              </div>
+            </div>
           </div>
-          <a class="action" href="/admin/print-lab/canva?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Open Idea 1</a>
-        </article>
-        <article class="card">
-          <div class="eyebrow">Idea 2</div>
-          <h2>In-App Designer</h2>
-          <p>Best when you want a layout editor inside your own system with field positioning, spacing, and print control.</p>
-          <div class="list">
-            <div>Adjust field blocks directly in the browser.</div>
-            <div>Control grids, margins, and print modes.</div>
-            <div>Strong option for repeatable institute templates.</div>
+
+          <div class="tool-grid">
+            <article class="tool-card">
+              <div class="eyebrow">Template Source</div>
+              <h3>Canva Template Intake</h3>
+              <p>Best when your final background or branding is designed externally and then merged here with live records for production printing.</p>
+              <a href="/admin/print-lab/canva?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Open Template Intake</a>
+            </article>
+            <article class="tool-card">
+              <div class="eyebrow">Layout Controls</div>
+              <h3>In-App Layout Editor</h3>
+              <p>Use controlled spacing and positioning adjustments to stabilize the card design before using it for institute-level printing.</p>
+              <a href="/admin/print-lab/designer?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Open Layout Editor</a>
+            </article>
+            <article class="tool-card">
+              <div class="eyebrow">Style Validation</div>
+              <h3>Style Review Panel</h3>
+              <p>Test alternate color systems and hierarchy directions before locking the final print language for a professional output.</p>
+              <a href="/admin/print-lab/ai?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Open Style Review</a>
+            </article>
           </div>
-          <a class="action" href="/admin/print-lab/designer?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Open Idea 2</a>
-        </article>
-        <article class="card">
-          <div class="eyebrow">Idea 3</div>
-          <h2>AI Style Lab</h2>
-          <p>Best when you want AI-assisted directions for color, tone, and composition before locking the final print design.</p>
-          <div class="list">
-            <div>Test multiple visual themes quickly.</div>
-            <div>Generate prompt directions for future AI assets.</div>
-            <div>Helpful for deciding the design language first.</div>
+        </section>
+
+        <aside class="preview-shell">
+          <div class="preview-card">
+            <div class="preview-head">
+              <div class="tiny">Live Print Card Preview</div>
+              <div class="name">{{ sample_record.get('institute_name') }}</div>
+            </div>
+            <div class="preview-body">
+              <div class="preview-photo">
+                {% if sample_record.get('photo_url') %}
+                <img src="{{ sample_record.get('photo_url') }}" alt="Preview photo">
+                {% else %}
+                <span>Photo</span>
+                {% endif %}
+              </div>
+              <div class="preview-content">
+                <h3>{{ sample_record.get('name') }}</h3>
+                <div class="preview-role">{{ sample_record.get('training_year') or sample_record.get('course') or sample_record.get('designation') or sample_record.get('department') }}</div>
+                <div class="preview-meta">
+                  <div><strong>DOB:</strong> {{ sample_record.get('dob') or '-' }}</div>
+                  <div><strong>Contact:</strong> {{ sample_record.get('contact') or '-' }}</div>
+                  <div><strong>Batch:</strong> {{ sample_record.get('batch_session') or '-' }}</div>
+                  <div><strong>Valid:</strong> {{ sample_record.get('valid_upto') or '-' }}</div>
+                </div>
+              </div>
+            </div>
+            <div class="preview-foot">
+              <span>{{ sample_record.get('serial_no') }}</span>
+              <span class="badge">{{ (sample_record.get('profile_type') or 'student').upper() }}</span>
+            </div>
           </div>
-          <a class="action" href="/admin/print-lab/ai?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Open Idea 3</a>
-        </article>
+
+          <div class="sheet-preview">
+            <strong>A4 Output Focus</strong>
+            <p>Use this studio as the preparation layer before opening the full print sheet. The goal is not concept exploration alone, but a reliable institute template that can be printed repeatedly with correct spacing, density, and hierarchy.</p>
+          </div>
+        </aside>
       </div>
-      <a class="back" href="/admin">Back to Admin</a>
     </section>
   </main>
 </body>
