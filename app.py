@@ -1989,7 +1989,10 @@ def build_export_xls_bytes(records):
         ])
 
     def html_cell(tag, value):
-        return f"<{tag}>{escape(str(value or ''))}</{tag}>"
+        text_value = escape(str(value or ""))
+        if tag == "th":
+            return f"<{tag} style=\"mso-number-format:'\\@';\">{text_value}</{tag}>"
+        return f"<{tag} style=\"mso-number-format:'\\@'; white-space:nowrap;\">{text_value}</{tag}>"
 
     html = [
         "<html>",
@@ -1997,7 +2000,7 @@ def build_export_xls_bytes(records):
         '<meta http-equiv="Content-Type" content="text/html; charset=utf-8">',
         "</head>",
         "<body>",
-        "<table border='1'>",
+        "<table border='1' style=\"border-collapse:collapse;\">",
         "<tr>",
     ]
     html.extend(html_cell("th", header) for header in headers)
