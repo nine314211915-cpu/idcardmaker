@@ -2329,6 +2329,22 @@ def admin_print_lab():
     return response
 
 
+@app.route("/api/build-info")
+def build_info():
+    template_path = os.path.join(BASE_DIR, "templates", "print_lab.html")
+    template_mtime = ""
+    if os.path.isfile(template_path):
+        template_mtime = datetime.utcfromtimestamp(os.path.getmtime(template_path)).isoformat() + "Z"
+    return jsonify({
+        "build_tag": app.config.get("APP_BUILD_TAG", ""),
+        "cwd": BASE_DIR,
+        "runtime_dir": RUNTIME_DIR,
+        "print_lab_template": template_path,
+        "print_lab_template_mtime_utc": template_mtime,
+        "now_utc": datetime.utcnow().isoformat() + "Z",
+    })
+
+
 @app.route("/admin/login", methods=["POST"])
 def admin_login():
     password = request.form.get("password", "")
