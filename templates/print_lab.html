@@ -113,9 +113,9 @@
       repeating-linear-gradient(0deg,transparent,transparent 22px,rgba(139,0,0,.03) 22px,rgba(139,0,0,.03) 23px),
       repeating-linear-gradient(90deg,transparent,transparent 22px,rgba(139,0,0,.03) 22px,rgba(139,0,0,.03) 23px);
     padding:10px;
-    min-height:690px;
+    min-height:560px;
     display:grid;
-    place-items:center;
+    place-items:start center;
   }
   #konvaRoot{
     border:1px solid #c8b7a5;
@@ -387,6 +387,7 @@
   const csvInputEl = document.getElementById('csvInput');
 
   const stageRoot = document.getElementById('konvaRoot');
+  const stageWrapEl = document.getElementById('stageWrap');
   let stage = null;
   let layer = null;
   let guideLayer = null;
@@ -403,6 +404,7 @@
     defaults: {},
     layerMeta: {},
     guideSettings: { show: true, bleed: 12, safe: 30, snap: true },
+    viewScale: 1,
   };
 
   const templates = {
@@ -464,6 +466,21 @@
     guideLayer = new Konva.Layer({ listening: false });
     stage.add(layer);
     stage.add(guideLayer);
+  }
+
+  function fitStageToViewport() {
+    if (!stage || !stageWrapEl) return;
+    const cfg = templates[state.templateType];
+    const rect = stageWrapEl.getBoundingClientRect();
+    const availableW = Math.max(320, rect.width - 28);
+    const availableH = Math.max(320, window.innerHeight - 230);
+    const rawScale = Math.min(1, availableW / cfg.w, availableH / cfg.h);
+    const scale = Number.isFinite(rawScale) && rawScale > 0 ? rawScale : 1;
+    state.viewScale = scale;
+    stage.width(Math.round(cfg.w * scale));
+    stage.height(Math.round(cfg.h * scale));
+    stage.scale({ x: scale, y: scale });
+    stage.batchDraw();
   }
 
   function imageFromUrl(url) {
@@ -799,6 +816,7 @@
     applyLayerOrdering(snapshot);
     layer.draw();
     drawGuides();
+    fitStageToViewport();
     rebuildLayerSelect();
     rebuildLayerList();
     const targetSelection = keepSelected && state.nodes[keepSelected]
@@ -969,7 +987,8 @@
 
   function exportPng(scale = 3) {
     if (!stage) return;
-    const dataUrl = stage.toDataURL({ pixelRatio: scale, mimeType: 'image/png' });
+    const pixelRatio = Math.max(1, scale / (state.viewScale || 1));
+    const dataUrl = stage.toDataURL({ pixelRatio, mimeType: 'image/png' });
     const link = document.createElement('a');
     link.href = dataUrl;
     link.download = `id-card-${selectedEmployee.employee_id || selectedEmployee.key}.png`;
@@ -994,7 +1013,8 @@
       qrInputEl.value = selectedEmployee.employee_id || '';
       barcodeInputEl.value = selectedEmployee.employee_id || '';
       await drawCard(snapshot, keepSelected);
-      const base64 = stage.toDataURL({ pixelRatio: 3 }).split(',')[1];
+      const pixelRatio = Math.max(1, 3 / (state.viewScale || 1));
+      const base64 = stage.toDataURL({ pixelRatio }).split(',')[1];
       const fileName = `${parsedCsvRows[i].employee_id || parsedCsvRows[i].key || `row-${i + 1}`}.png`;
       zip.file(fileName, base64, { base64: true });
     }
@@ -1188,6 +1208,7 @@
     state.guideSettings.snap = !!snapCheckEl.checked;
     await drawCard();
     wireEvents();
+    window.addEventListener('resize', fitStageToViewport);
     setStatus('Designer ready. Drag layers or use dropdown controls.');
   }
 
