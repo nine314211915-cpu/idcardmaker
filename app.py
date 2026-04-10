@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, send_file, send_from_directory, session, redirect, url_for
+from flask import Flask, request, jsonify, render_template, send_file, send_from_directory, session, redirect, url_for, make_response
 import json, os, random, string, zipfile, io, tempfile, csv, re
 from html import escape
 from datetime import datetime, timedelta
@@ -31,6 +31,8 @@ app.config["ADMIN_PANEL_PASSWORD"] = os.environ.get("ADMIN_PANEL_PASSWORD", "adm
 app.config["SUPABASE_URL"] = os.environ.get("SUPABASE_URL", "").strip()
 app.config["SUPABASE_SERVICE_ROLE_KEY"] = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 app.config["SUPABASE_PHOTOS_BUCKET"] = os.environ.get("SUPABASE_PHOTOS_BUCKET", "id-card-photos").strip() or "id-card-photos"
+app.config["APP_BUILD_TAG"] = os.environ.get("APP_BUILD_TAG", "").strip() or datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "medical-id-card-secret")
 HEX_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
 
@@ -2312,13 +2314,19 @@ def build_print_preview_context():
         "batch_id": batch_id,
         "settings": settings,
         "sample_record": sample_record,
+        "build_tag": app.config.get("APP_BUILD_TAG", ""),
     }
 
 
 @app.route("/admin/print-lab")
 @admin_required
 def admin_print_lab():
-    return render_template("print_lab.html", **build_print_preview_context())
+    response = make_response(render_template("print_lab.html", **build_print_preview_context()))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["X-App-Build"] = app.config.get("APP_BUILD_TAG", "")
+    return response
 
 
 @app.route("/admin/login", methods=["POST"])
