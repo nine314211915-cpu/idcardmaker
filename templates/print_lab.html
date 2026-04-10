@@ -207,8 +207,8 @@
         <label>Preview Zoom</label>
         <select id="previewScale">
           <option value="fit">Fit</option>
-          <option value="45">45%</option>
-          <option value="55" selected>55%</option>
+          <option value="45" selected>45%</option>
+          <option value="55">55%</option>
           <option value="65">65%</option>
           <option value="75">75%</option>
         </select>
@@ -436,7 +436,7 @@
     mini: { w: 620, h: 420 },
   };
   const SNAP_THRESHOLD = 8;
-  const MAX_PREVIEW_SCALE = 0.62;
+  const MAX_PREVIEW_SCALE = 0.50;
 
   function setStatus(text, kind = 'info') {
     topStatusEl.textContent = text;
