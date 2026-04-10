@@ -62,6 +62,8 @@ def default_institute_settings(institute=None):
         "institute_name": institute or "",
         "background_url": "",
         "background_drive_id": "",
+        "print_background_active_id": "",
+        "print_backgrounds": [],
         "certificate_background_url": "",
         "certificate_background_drive_id": "",
         "signature_url": "",
@@ -269,6 +271,7 @@ def load_settings(institute=None):
     if isinstance(loaded, dict):
         defaults.update(loaded)
     defaults["institute_name"] = institute
+    ensure_print_background_state(defaults)
     return defaults
 
 
@@ -280,6 +283,7 @@ def save_settings(settings, institute):
     if isinstance(settings, dict):
         payload.update(settings)
     payload["institute_name"] = institute
+    ensure_print_background_state(payload)
     save_json_store(make_storage_path("settings", institute), make_storage_filename("settings", institute), payload)
 
 
@@ -357,6 +361,66 @@ def sanitize_print_templates_list(items):
             "updated_at": str(item.get("updated_at") or ""),
         })
     return sanitized[:60]
+
+
+def sanitize_print_backgrounds_list(items):
+    if not isinstance(items, list):
+        return []
+    sanitized = []
+    seen_ids = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        background_id = str(item.get("id") or "").strip()
+        name = str(item.get("name") or "").strip()
+        url = str(item.get("url") or "").strip()
+        if not background_id or not url or background_id in seen_ids:
+            continue
+        seen_ids.add(background_id)
+        sanitized.append({
+            "id": background_id,
+            "name": name[:80] if name else "Background",
+            "url": url,
+            "created_at": str(item.get("created_at") or ""),
+            "updated_at": str(item.get("updated_at") or ""),
+        })
+    return sanitized[:80]
+
+
+def build_print_background_filename(institute_name, background_id):
+    return f"print_bg_{make_asset_slug(institute_name)}_{secure_filename(background_id)}.jpg"
+
+
+def ensure_print_background_state(settings):
+    backgrounds = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
+    active_id = str(settings.get("print_background_active_id") or "").strip()
+    active_item = next((item for item in backgrounds if item.get("id") == active_id), None)
+
+    if not active_item and settings.get("background_url"):
+        fallback_id = f"legacy-{make_storage_slug(settings.get('institute_name'))}"
+        fallback_item = {
+            "id": fallback_id,
+            "name": "Primary Background",
+            "url": settings.get("background_url"),
+            "created_at": "",
+            "updated_at": "",
+        }
+        backgrounds.insert(0, fallback_item)
+        active_item = fallback_item
+        active_id = fallback_id
+
+    if active_item:
+        settings["background_url"] = active_item.get("url", "")
+    elif backgrounds:
+        settings["background_url"] = backgrounds[0].get("url", "")
+        active_id = backgrounds[0].get("id", "")
+    else:
+        settings["background_url"] = ""
+        active_id = ""
+
+    settings["print_backgrounds"] = backgrounds
+    settings["print_background_active_id"] = active_id
+    return settings
 
 
 def is_supabase_enabled():
@@ -1699,6 +1763,18 @@ def delete_uploaded_file_from_url(file_url):
         delete_local_file_if_exists(os.path.join(UPLOAD_DIR, filename))
 
 
+def delete_generated_asset_from_url(file_url):
+    if not file_url:
+        return
+    delete_supabase_storage_url(file_url)
+    marker = "/generated-assets/"
+    if marker not in file_url:
+        return
+    filename = file_url.split(marker, 1)[1].split("?", 1)[0].strip("/")
+    if filename:
+        delete_local_file_if_exists(os.path.join(ASSET_DIR, filename))
+
+
 def download_drive_file(file_id):
     if not file_id:
         return None
@@ -1954,6 +2030,11 @@ def save_image_asset(file_storage, filename, kind):
 
 def save_background_image(file_storage, institute_name):
     filename = f"card_background_{make_asset_slug(institute_name)}.jpg"
+    return save_image_asset(file_storage, filename, "backgrounds")
+
+
+def save_print_background_image(file_storage, institute_name, background_id):
+    filename = build_print_background_filename(institute_name, background_id)
     return save_image_asset(file_storage, filename, "backgrounds")
 
 
@@ -2388,6 +2469,123 @@ def attach_photo_to_serial(file_storage, serial, institute=None):
     return photo_url, photo_drive_id
 
 
+@app.route("/api/print-backgrounds", methods=["GET", "POST"])
+@admin_required
+def print_backgrounds_api():
+    institute = canonicalize_institute_name(request.args.get("institute") or request.form.get("institute"))
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+
+    settings = load_settings(institute)
+    ensure_print_background_state(settings)
+
+    if request.method == "GET":
+        return jsonify({
+            "institute": institute,
+            "backgrounds": settings.get("print_backgrounds", []),
+            "active_background_id": settings.get("print_background_active_id", ""),
+            "background_url": settings.get("background_url", ""),
+        })
+
+    if "background" not in request.files:
+        return jsonify({"error": "No file"}), 400
+    file_storage = request.files["background"]
+    if not secure_filename(file_storage.filename):
+        return jsonify({"error": "Invalid filename"}), 400
+
+    background_name = (request.form.get("name") or "").strip() or os.path.splitext(secure_filename(file_storage.filename))[0] or "Background"
+    background_id = "bg-" + datetime.now().strftime("%Y%m%d%H%M%S") + "-" + "".join(
+        random.choices(string.ascii_lowercase + string.digits, k=4)
+    )
+
+    try:
+        background_url, _ = save_print_background_image(file_storage, institute, background_id)
+    except Exception:
+        return jsonify({"error": "Unable to process background image"}), 400
+
+    now_text = current_timestamp_display()
+    entry = {
+        "id": background_id,
+        "name": background_name[:80],
+        "url": background_url,
+        "created_at": now_text,
+        "updated_at": now_text,
+    }
+    backgrounds = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
+    backgrounds.insert(0, entry)
+    settings["print_backgrounds"] = backgrounds[:80]
+    settings["print_background_active_id"] = background_id
+    settings["background_url"] = background_url
+    settings["background_drive_id"] = ""
+    save_settings(settings, institute)
+    return jsonify({
+        "status": "saved",
+        "institute": institute,
+        "background": entry,
+        "backgrounds": settings.get("print_backgrounds", []),
+        "active_background_id": settings.get("print_background_active_id", ""),
+        "background_url": settings.get("background_url", ""),
+    })
+
+
+@app.route("/api/print-backgrounds/<background_id>/activate", methods=["POST"])
+@admin_required
+def activate_print_background(background_id):
+    institute = canonicalize_institute_name(request.args.get("institute") or (request.json or {}).get("institute"))
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    settings = load_settings(institute)
+    backgrounds = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
+    target = next((item for item in backgrounds if item.get("id") == background_id), None)
+    if not target:
+        return jsonify({"error": "Background not found"}), 404
+    settings["print_backgrounds"] = backgrounds
+    settings["print_background_active_id"] = target.get("id", "")
+    settings["background_url"] = target.get("url", "")
+    settings["background_drive_id"] = ""
+    save_settings(settings, institute)
+    return jsonify({
+        "status": "activated",
+        "institute": institute,
+        "active_background_id": settings.get("print_background_active_id", ""),
+        "background_url": settings.get("background_url", ""),
+        "backgrounds": settings.get("print_backgrounds", []),
+    })
+
+
+@app.route("/api/print-backgrounds/<background_id>", methods=["DELETE"])
+@admin_required
+def delete_print_background(background_id):
+    institute = canonicalize_institute_name(request.args.get("institute"))
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    settings = load_settings(institute)
+    backgrounds = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
+    target = next((item for item in backgrounds if item.get("id") == background_id), None)
+    if not target:
+        return jsonify({"error": "Background not found"}), 404
+    remaining = [item for item in backgrounds if item.get("id") != background_id]
+    settings["print_backgrounds"] = remaining
+    if settings.get("print_background_active_id") == background_id:
+        if remaining:
+            settings["print_background_active_id"] = remaining[0].get("id", "")
+            settings["background_url"] = remaining[0].get("url", "")
+        else:
+            settings["print_background_active_id"] = ""
+            settings["background_url"] = ""
+            settings["background_drive_id"] = ""
+    save_settings(settings, institute)
+    delete_generated_asset_from_url(target.get("url"))
+    return jsonify({
+        "status": "deleted",
+        "institute": institute,
+        "deleted_background_id": background_id,
+        "active_background_id": settings.get("print_background_active_id", ""),
+        "background_url": settings.get("background_url", ""),
+        "backgrounds": settings.get("print_backgrounds", []),
+    })
+
+
 @app.route("/api/upload-background", methods=["POST"])
 @admin_required
 def upload_background():
@@ -2409,6 +2607,22 @@ def upload_background():
         delete_drive_file(old_drive_id)
     settings["background_url"] = background_url
     settings["background_drive_id"] = background_drive_id or ""
+    backgrounds = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
+    primary_entry = next((item for item in backgrounds if item.get("id") == "primary"), None)
+    now_text = current_timestamp_display()
+    if primary_entry:
+        primary_entry["url"] = background_url
+        primary_entry["updated_at"] = now_text
+    else:
+        backgrounds.insert(0, {
+            "id": "primary",
+            "name": "Primary Background",
+            "url": background_url,
+            "created_at": now_text,
+            "updated_at": now_text,
+        })
+    settings["print_backgrounds"] = backgrounds[:80]
+    settings["print_background_active_id"] = "primary"
     save_settings(settings, institute)
     return jsonify({"status": "saved", "background_url": background_url, "institute": institute})
 
@@ -2479,6 +2693,8 @@ def delete_background():
         delete_drive_file(old_drive_id)
     settings["background_url"] = ""
     settings["background_drive_id"] = ""
+    settings["print_background_active_id"] = ""
+    settings["print_backgrounds"] = []
     delete_local_file_if_exists(os.path.join(ASSET_DIR, f"card_background_{make_asset_slug(institute)}.jpg"))
     save_settings(settings, institute)
     return jsonify({"status": "deleted", "background_url": old_url, "institute": institute})

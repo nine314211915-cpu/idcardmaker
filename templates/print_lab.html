@@ -26,6 +26,11 @@
     --foot-bg:rgba(255,248,239,0.92);
     --badge-bg:#8b0000;
     --photo-width:108px;
+    --bg-image:linear-gradient(140deg, #f6efe8, #ede0cf);
+    --photo-scale:1;
+    --photo-x:0px;
+    --photo-y:0px;
+    --photo-fit:cover;
   }
   * { box-sizing:border-box; margin:0; padding:0; }
   body {
@@ -330,6 +335,66 @@
     padding:10px;
     background:#fff9f3;
   }
+  .asset-box {
+    margin-top:12px;
+    border:1px solid var(--line);
+    border-radius:16px;
+    background:#fff;
+    padding:12px;
+    display:grid;
+    gap:10px;
+  }
+  .asset-box h3 {
+    font-size:16px;
+    color:#3b2d21;
+  }
+  .asset-preview {
+    border:1px dashed #d4c6b6;
+    border-radius:12px;
+    min-height:96px;
+    background:#faf3ea;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    color:#7e6f61;
+    font-size:12px;
+  }
+  .asset-preview img {
+    width:100%;
+    height:100%;
+    object-fit:cover;
+  }
+  .mini-actions {
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:8px;
+  }
+  .status-note {
+    font-size:12px;
+    color:#7b6b5d;
+    min-height:16px;
+  }
+  .photo-fit-box {
+    margin-top:10px;
+    border:1px dashed #d2c2b2;
+    border-radius:14px;
+    padding:10px;
+    background:#fff9f3;
+    display:grid;
+    gap:10px;
+  }
+  .guides-overlay {
+    position:absolute;
+    inset:14px;
+    border:1px dashed rgba(0,0,0,0.25);
+    border-radius:10px;
+    pointer-events:none;
+    display:none;
+  }
+  .stage.show-guides .guides-overlay {
+    display:block;
+  }
   .btn {
     border:1px solid var(--line);
     background:#fff;
@@ -458,7 +523,7 @@
     content:"";
     position:absolute;
     inset:0;
-    background:{% if settings.get('background_url') %}url('{{ settings.get("background_url") }}'){% else %}linear-gradient(140deg, #f6efe8, #ede0cf){% endif %};
+    background:var(--bg-image);
     background-size:cover;
     background-position:center;
     opacity:var(--bg-opacity);
@@ -505,7 +570,9 @@
   .preview-photo img {
     width:100%;
     height:100%;
-    object-fit:cover;
+    object-fit:var(--photo-fit);
+    transform:translate(var(--photo-x), var(--photo-y)) scale(var(--photo-scale));
+    transform-origin:center center;
   }
   .preview-content h3 {
     color:var(--red);
@@ -625,6 +692,7 @@
     .auto-actions { grid-template-columns:1fr; }
     .free-designer-actions { grid-template-columns:1fr; }
     .saved-item-actions { grid-template-columns:1fr; }
+    .mini-actions { grid-template-columns:1fr; }
     .stage { padding:12px; border-radius:18px; }
     .preview-card { width:100%; max-width:380px; border-radius:20px; }
     .preview-head { padding:14px 14px 10px; }
@@ -643,7 +711,7 @@
       <div class="hero-top">
         <div>
           <h1>Print Studio</h1>
-          <p class="hero-copy">Build cards like a modern print platform. Choose `Auto Design` for one-click style generation or switch to `Manual Design` for full control over spacing, color, and hierarchy.</p>
+          <p class="hero-copy">Design everything here: upload Canva background, auto-generate practical layouts, fine-tune photo fit and spacing, save templates, and then print. No extra design page needed.</p>
         </div>
         <div class="hero-actions">
           <a class="primary" href="/admin/print-cards?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Open Print Preview</a>
@@ -676,6 +744,23 @@
                 <span class="free-designer-status" id="freeDesignerStatus">Prompt-based generation ready.</span>
                 <button class="btn primary" id="generateFreeBtn" type="button">Generate Free Design</button>
               </div>
+            </section>
+            <section class="asset-box">
+              <h3>Canva Background Upload</h3>
+              <p class="sub">Upload and manage multiple Canva backgrounds for this institute.</p>
+              <input id="bgNameInput" type="text" placeholder="Background name (e.g., Nursing Batch 2026)">
+              <input id="canvaBgInput" type="file" accept="image/*">
+              <div class="mini-actions">
+                <button class="btn primary" id="uploadBgBtn" type="button">Upload BG</button>
+                <button class="btn" id="refreshBgBtn" type="button">Reload List</button>
+                <button class="btn" id="removeBgBtn" type="button">Clear All</button>
+              </div>
+              <div class="status-note" id="bgStatus">Background status ready.</div>
+              <div class="asset-preview">
+                <img id="bgPreviewImage" alt="Background preview" style="display:none;">
+                <span id="bgPreviewEmpty">No background loaded</span>
+              </div>
+              <div class="saved-list" id="backgroundLibrary"></div>
             </section>
             <div class="theme-grid">
               <button class="theme-card active" type="button" data-theme="student-classic" data-accent="#8b0000" data-end="#5d0000" data-role="#9a6a18" data-gap="12" data-radius="14" data-opacity="0.14" data-name="28" data-border="#d8c9bd" data-foot="rgba(255,248,239,0.92)" data-badge="#8b0000" data-photo="106">
@@ -772,6 +857,33 @@
               <input id="showSignature" type="checkbox" {% if settings.get('signature_url') %}checked{% endif %}>
               <span>Show HOD signature block</span>
             </label>
+            <div class="photo-fit-box">
+              <div class="control">
+                <label for="photoFitMode">Photo Fit Mode</label>
+                <select id="photoFitMode">
+                  <option value="cover" selected>Cover</option>
+                  <option value="contain">Contain</option>
+                </select>
+              </div>
+              <div class="control">
+                <label for="photoZoom">Photo Zoom</label>
+                <input id="photoZoom" type="range" min="80" max="170" value="100">
+                <div class="hint">Use this when your Canva frame needs tighter or wider face crop.</div>
+              </div>
+              <div class="control">
+                <label for="photoShiftX">Photo Horizontal Shift</label>
+                <input id="photoShiftX" type="range" min="-40" max="40" value="0">
+              </div>
+              <div class="control">
+                <label for="photoShiftY">Photo Vertical Shift</label>
+                <input id="photoShiftY" type="range" min="-40" max="40" value="0">
+              </div>
+              <div class="mini-actions">
+                <button class="btn" id="resetPhotoFitBtn" type="button">Reset Photo</button>
+                <button class="btn" id="toggleGuidesBtn" type="button">Toggle Guides</button>
+                <button class="btn" id="toggleSignatureBtn" type="button">Toggle Sign</button>
+              </div>
+            </div>
           </div>
 
           <div class="summary-stack">
@@ -790,6 +902,7 @@
           <div class="panel preview-panel">
             <div class="stage">
               <div class="preview-card">
+                <div class="guides-overlay"></div>
                 <div class="preview-head">
                   <div class="tiny">Live Print Studio Preview</div>
                   <div class="name">{{ sample_record.get('institute_name') }}</div>
@@ -870,16 +983,27 @@
   <script>
     (function () {
       const currentInstitute = {{ (institute or sample_record.get('institute_name') or '')|tojson }};
+      const initialBackgroundUrl = {{ (settings.get('background_url') or '')|tojson }};
       const root = document.documentElement;
       const modeAutoBtn = document.getElementById('modeAutoBtn');
       const modeManualBtn = document.getElementById('modeManualBtn');
       const modeHint = document.getElementById('modeHint');
       const autoPanel = document.getElementById('autoPanel');
       const manualPanel = document.getElementById('manualPanel');
+      const stage = document.querySelector('.stage');
       const themeCards = Array.from(document.querySelectorAll('.theme-card'));
       const applyThemeBtn = document.getElementById('applyThemeBtn');
       const shuffleThemeBtn = document.getElementById('shuffleThemeBtn');
       const saveTemplateBtn = document.getElementById('saveTemplateBtn');
+      const bgNameInput = document.getElementById('bgNameInput');
+      const canvaBgInput = document.getElementById('canvaBgInput');
+      const uploadBgBtn = document.getElementById('uploadBgBtn');
+      const refreshBgBtn = document.getElementById('refreshBgBtn');
+      const removeBgBtn = document.getElementById('removeBgBtn');
+      const bgStatus = document.getElementById('bgStatus');
+      const bgPreviewImage = document.getElementById('bgPreviewImage');
+      const bgPreviewEmpty = document.getElementById('bgPreviewEmpty');
+      const backgroundLibrary = document.getElementById('backgroundLibrary');
       const freePromptInput = document.getElementById('freePromptInput');
       const generateFreeBtn = document.getElementById('generateFreeBtn');
       const freeDesignerStatus = document.getElementById('freeDesignerStatus');
@@ -898,9 +1022,20 @@
       const showBackground = document.getElementById('showBackground');
       const showSignature = document.getElementById('showSignature');
       const signatureBlock = document.getElementById('signatureBlock');
+      const photoFitMode = document.getElementById('photoFitMode');
+      const photoZoom = document.getElementById('photoZoom');
+      const photoShiftX = document.getElementById('photoShiftX');
+      const photoShiftY = document.getElementById('photoShiftY');
+      const resetPhotoFitBtn = document.getElementById('resetPhotoFitBtn');
+      const toggleGuidesBtn = document.getElementById('toggleGuidesBtn');
+      const toggleSignatureBtn = document.getElementById('toggleSignatureBtn');
 
       let selectedTheme = themeCards[0] || null;
       let savedTemplates = [];
+      let savedBackgrounds = [];
+      let activeBackgroundId = '';
+      let guidesVisible = false;
+      let signatureVisible = showSignature ? showSignature.checked : true;
 
       function setActiveMode(mode) {
         const auto = mode === 'auto';
@@ -986,6 +1121,192 @@
         if (!freeDesignerStatus) return;
         freeDesignerStatus.textContent = text || '';
         freeDesignerStatus.style.color = isError ? '#9f2b1f' : '#7b6b5d';
+      }
+
+      function setBgStatus(text, isError) {
+        if (!bgStatus) return;
+        bgStatus.textContent = text || '';
+        bgStatus.style.color = isError ? '#9f2b1f' : '#7b6b5d';
+      }
+
+      function setBackgroundPreview(url) {
+        const clean = (url || '').trim();
+        if (clean) {
+          root.style.setProperty('--bg-image', `url("${clean}")`);
+          if (bgPreviewImage) {
+            bgPreviewImage.src = clean;
+            bgPreviewImage.style.display = 'block';
+          }
+          if (bgPreviewEmpty) bgPreviewEmpty.style.display = 'none';
+          return;
+        }
+        root.style.setProperty('--bg-image', 'linear-gradient(140deg, #f6efe8, #ede0cf)');
+        if (bgPreviewImage) {
+          bgPreviewImage.style.display = 'none';
+          bgPreviewImage.removeAttribute('src');
+        }
+        if (bgPreviewEmpty) bgPreviewEmpty.style.display = 'block';
+      }
+
+      async function refreshBackgroundFromServer() {
+        if (!currentInstitute) {
+          setBgStatus('Institute is required. Select institute from admin first.', true);
+          return;
+        }
+        try {
+          setBgStatus('Loading background library...');
+          const res = await fetch(`/api/print-backgrounds?institute=${encodeURIComponent(currentInstitute)}`);
+          const data = await res.json();
+          if (!res.ok) throw new Error((data && data.error) || 'Unable to load backgrounds');
+          savedBackgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : [];
+          activeBackgroundId = data.active_background_id || '';
+          setBackgroundPreview(data.background_url || '');
+          renderBackgroundLibrary();
+          setBgStatus(savedBackgrounds.length ? `${savedBackgrounds.length} background(s) available.` : 'No background saved yet.');
+        } catch (error) {
+          setBgStatus(error.message || 'Unable to load backgrounds.', true);
+        }
+      }
+
+      async function uploadBackground() {
+        if (!currentInstitute) {
+          setBgStatus('Institute is required. Select institute from admin first.', true);
+          return;
+        }
+        if (!canvaBgInput || !canvaBgInput.files || !canvaBgInput.files.length) {
+          setBgStatus('Choose an image file first.', true);
+          return;
+        }
+        try {
+          const file = canvaBgInput.files[0];
+          const formData = new FormData();
+          formData.append('background', file);
+          formData.append('institute', currentInstitute);
+          if (bgNameInput && bgNameInput.value.trim()) {
+            formData.append('name', bgNameInput.value.trim());
+          }
+          setBgStatus(`Uploading "${file.name}"...`);
+          const res = await fetch('/api/print-backgrounds', { method: 'POST', body: formData });
+          const data = await res.json();
+          if (!res.ok) throw new Error((data && data.error) || 'Background upload failed');
+          setBackgroundPreview(data.background_url || '');
+          savedBackgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : [];
+          activeBackgroundId = data.active_background_id || '';
+          renderBackgroundLibrary();
+          setBgStatus('Background uploaded and applied.');
+          canvaBgInput.value = '';
+          if (bgNameInput) bgNameInput.value = '';
+        } catch (error) {
+          setBgStatus(error.message || 'Background upload failed.', true);
+        }
+      }
+
+      async function removeBackground() {
+        if (!currentInstitute) {
+          setBgStatus('Institute is required. Select institute from admin first.', true);
+          return;
+        }
+        if (!window.confirm(`Remove all backgrounds for "${currentInstitute}"?`)) return;
+        try {
+          setBgStatus('Clearing backgrounds...');
+          const targets = [...savedBackgrounds];
+          for (const background of targets) {
+            await fetch(`/api/print-backgrounds/${encodeURIComponent(background.id)}?institute=${encodeURIComponent(currentInstitute)}`, { method: 'DELETE' });
+          }
+          savedBackgrounds = [];
+          activeBackgroundId = '';
+          setBackgroundPreview('');
+          renderBackgroundLibrary();
+          setBgStatus('All backgrounds removed.');
+        } catch (error) {
+          setBgStatus(error.message || 'Unable to clear backgrounds.', true);
+        }
+      }
+
+      function renderBackgroundLibrary() {
+        if (!backgroundLibrary) return;
+        if (!savedBackgrounds.length) {
+          backgroundLibrary.innerHTML = '<div class="saved-empty">No saved backgrounds yet.</div>';
+          return;
+        }
+        backgroundLibrary.innerHTML = savedBackgrounds.map((item) => `
+          <article class="saved-item">
+            <div class="saved-item-head">
+              <span class="saved-item-name">${escapeHtml(item.name || 'Background')}</span>
+              <span class="saved-item-date">${escapeHtml(item.updated_at || item.created_at || '')}</span>
+            </div>
+            <div class="saved-item-actions">
+              <button class="saved-btn apply" type="button" data-bg-action="activate" data-bg-id="${escapeHtml(item.id)}">${item.id === activeBackgroundId ? 'Active' : 'Activate'}</button>
+              <button class="saved-btn delete" type="button" data-bg-action="delete" data-bg-id="${escapeHtml(item.id)}">Delete</button>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      async function activateBackground(backgroundId) {
+        if (!currentInstitute) return;
+        try {
+          setBgStatus('Activating background...');
+          const res = await fetch(`/api/print-backgrounds/${encodeURIComponent(backgroundId)}/activate?institute=${encodeURIComponent(currentInstitute)}`, { method: 'POST' });
+          const data = await res.json();
+          if (!res.ok) throw new Error((data && data.error) || 'Unable to activate background');
+          savedBackgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : [];
+          activeBackgroundId = data.active_background_id || '';
+          setBackgroundPreview(data.background_url || '');
+          renderBackgroundLibrary();
+          setBgStatus('Background activated.');
+        } catch (error) {
+          setBgStatus(error.message || 'Unable to activate background.', true);
+        }
+      }
+
+      async function deleteBackgroundItem(backgroundId) {
+        if (!currentInstitute) return;
+        const target = savedBackgrounds.find((item) => item.id === backgroundId);
+        if (target && !window.confirm(`Delete background "${target.name}"?`)) return;
+        try {
+          setBgStatus('Deleting background...');
+          const res = await fetch(`/api/print-backgrounds/${encodeURIComponent(backgroundId)}?institute=${encodeURIComponent(currentInstitute)}`, { method: 'DELETE' });
+          const data = await res.json();
+          if (!res.ok) throw new Error((data && data.error) || 'Unable to delete background');
+          savedBackgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : [];
+          activeBackgroundId = data.active_background_id || '';
+          setBackgroundPreview(data.background_url || '');
+          renderBackgroundLibrary();
+          setBgStatus('Background deleted.');
+        } catch (error) {
+          setBgStatus(error.message || 'Unable to delete background.', true);
+        }
+      }
+
+      function applyPhotoFitControls() {
+        if (!photoFitMode || !photoZoom || !photoShiftX || !photoShiftY) return;
+        root.style.setProperty('--photo-fit', photoFitMode.value);
+        root.style.setProperty('--photo-scale', (Number(photoZoom.value) / 100).toFixed(2));
+        root.style.setProperty('--photo-x', `${photoShiftX.value}px`);
+        root.style.setProperty('--photo-y', `${photoShiftY.value}px`);
+      }
+
+      function resetPhotoFitControls() {
+        if (!photoFitMode || !photoZoom || !photoShiftX || !photoShiftY) return;
+        photoFitMode.value = 'cover';
+        photoZoom.value = '100';
+        photoShiftX.value = '0';
+        photoShiftY.value = '0';
+        applyPhotoFitControls();
+      }
+
+      function toggleGuides() {
+        if (!stage) return;
+        guidesVisible = !guidesVisible;
+        stage.classList.toggle('show-guides', guidesVisible);
+      }
+
+      function toggleSignatureVisibility() {
+        if (!signatureBlock) return;
+        signatureVisible = !signatureVisible;
+        signatureBlock.style.display = signatureVisible ? 'flex' : 'none';
+        if (showSignature) showSignature.checked = signatureVisible;
       }
 
       function containsAny(text, keywords) {
@@ -1255,6 +1576,19 @@
         applyTheme(randomCard);
       });
       saveTemplateBtn.addEventListener('click', saveCurrentTemplate);
+      if (uploadBgBtn) uploadBgBtn.addEventListener('click', uploadBackground);
+      if (refreshBgBtn) refreshBgBtn.addEventListener('click', refreshBackgroundFromServer);
+      if (removeBgBtn) removeBgBtn.addEventListener('click', removeBackground);
+      if (backgroundLibrary) {
+        backgroundLibrary.addEventListener('click', (event) => {
+          const button = event.target.closest('button[data-bg-action][data-bg-id]');
+          if (!button) return;
+          const action = button.dataset.bgAction;
+          const backgroundId = button.dataset.bgId;
+          if (action === 'activate') activateBackground(backgroundId);
+          if (action === 'delete') deleteBackgroundItem(backgroundId);
+        });
+      }
       if (generateFreeBtn) {
         generateFreeBtn.addEventListener('click', runFreeDesigner);
       }
@@ -1289,16 +1623,27 @@
       printIntent.addEventListener('change', applyIntent);
       bgOpacity.addEventListener('input', () => setOpacity(bgOpacity.value));
       showBackground.addEventListener('input', () => setOpacity(bgOpacity.value));
+      if (photoFitMode) photoFitMode.addEventListener('change', applyPhotoFitControls);
+      if (photoZoom) photoZoom.addEventListener('input', applyPhotoFitControls);
+      if (photoShiftX) photoShiftX.addEventListener('input', applyPhotoFitControls);
+      if (photoShiftY) photoShiftY.addEventListener('input', applyPhotoFitControls);
+      if (resetPhotoFitBtn) resetPhotoFitBtn.addEventListener('click', resetPhotoFitControls);
+      if (toggleGuidesBtn) toggleGuidesBtn.addEventListener('click', toggleGuides);
+      if (toggleSignatureBtn) toggleSignatureBtn.addEventListener('click', toggleSignatureVisibility);
 
       if (showSignature && signatureBlock) {
         showSignature.addEventListener('input', () => {
-          signatureBlock.style.display = showSignature.checked ? 'flex' : 'none';
+          signatureVisible = showSignature.checked;
+          signatureBlock.style.display = signatureVisible ? 'flex' : 'none';
         });
       }
 
       setActiveMode('auto');
       applyTheme(selectedTheme);
       applyIntent();
+      setBackgroundPreview(initialBackgroundUrl);
+      applyPhotoFitControls();
+      refreshBackgroundFromServer();
       loadSavedTemplates();
 
       if (signatureBlock && showSignature) {
