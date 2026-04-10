@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Print Studio (Fabric)</title>
+  <style>
+    :root {
+      --bg: #f3efe7;
+      --panel: #fffdf9;
+      --line: #decebc;
+      --text: #2f241c;
+      --accent: #8b0000;
+      --muted: #7c6e62;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      background: linear-gradient(180deg, #faf7f2 0%, var(--bg) 100%);
+      color: var(--text);
+      padding: 12px;
+    }
+    .app { max-width: 1480px; margin: 0 auto; display: grid; gap: 10px; }
+    .banner {
+      border: 1px solid #e2b25f;
+      background: #fff1cc;
+      color: #5a3a00;
+      border-radius: 10px;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .top {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .top-grid {
+      display: grid;
+      grid-template-columns: 170px 170px 170px 1fr 160px 160px;
+      gap: 8px;
+      align-items: end;
+    }
+    .title { font-size: 30px; font-weight: 800; color: #3a2b20; }
+    .field { display: grid; gap: 4px; }
+    .field label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .6px; }
+    .field select, .field input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 9px;
+      background: #fff;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .btn-row {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .btn {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: #fff;
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: transparent;
+    }
+    .shell {
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr) 290px;
+      gap: 10px;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+    .panel-head {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      font-size: 11px;
+      color: #68584c;
+      font-weight: 800;
+      background: #fff;
+    }
+    .panel-body { padding: 9px; display: grid; gap: 10px; }
+    .group {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      padding: 8px;
+      display: grid;
+      gap: 8px;
+    }
+    .group h3 { font-size: 13px; color: #4a3629; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .canvas-wrap {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.9), rgba(255,255,255,.95)),
+        repeating-linear-gradient(0deg, transparent, transparent 24px, rgba(139,0,0,.035) 24px, rgba(139,0,0,.035) 25px),
+        repeating-linear-gradient(90deg, transparent, transparent 24px, rgba(139,0,0,.035) 24px, rgba(139,0,0,.035) 25px);
+      min-height: 620px;
+      display: grid;
+      place-items: center;
+      padding: 10px;
+    }
+    #canvasFrame {
+      border: 1px solid #cbb8a4;
+      border-radius: 10px;
+      background: #fff;
+      overflow: hidden;
+      box-shadow: 0 18px 30px rgba(59, 34, 20, 0.08);
+    }
+    .status { font-size: 12px; color: var(--muted); min-height: 16px; }
+    .layer-list {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      max-height: 280px;
+      overflow: auto;
+      background: #fff;
+      padding: 6px;
+      display: grid;
+      gap: 4px;
+    }
+    .layer-item {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      font-size: 12px;
+      padding: 6px 8px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .layer-item.active { border-color: #9b3b2d; background: #fff7f2; }
+    @media (max-width: 1320px) {
+      .top-grid { grid-template-columns: 1fr 1fr; }
+      .btn-row { grid-template-columns: 1fr 1fr; }
+      .shell { grid-template-columns: 1fr; }
+      .canvas-wrap { min-height: 500px; }
+    }
+  </style>
+</head>
+<body>
+<main class="app">
+  <div class="banner">Fabric Print Studio Build: {{ build_tag }}</div>
+  <section class="top">
+    <div class="top-grid">
+      <div class="title">Print Studio</div>
+      <div class="field">
+        <label>Template</label>
+        <select id="templateType">
+          <option value="horizontal">Horizontal</option>
+          <option value="vertical">Vertical</option>
+          <option value="badge">Badge</option>
+          <option value="mini">Mini</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Photo Shape</label>
+        <select id="photoShape">
+          <option value="rectangle">Rectangle</option>
+          <option value="rounded">Rounded</option>
+          <option value="circle">Circle</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Employee</label>
+        <select id="employeeSelect"></select>
+      </div>
+      <button class="btn primary" id="saveServerBtn" type="button">Save To Server</button>
+      <button class="btn" id="loadServerBtn" type="button">Load From Server</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="uploadBgBtn" type="button">Upload Background</button>
+      <button class="btn" id="uploadPhotoBtn" type="button">Upload Photo</button>
+      <button class="btn" id="uploadLogoBtn" type="button">Upload Logo</button>
+      <button class="btn" id="uploadSignBtn" type="button">Upload Signature</button>
+      <button class="btn" id="saveLocalBtn" type="button">Save Local</button>
+      <button class="btn primary" id="exportBtn" type="button">Export PNG (Hi-Res)</button>
+    </div>
+    <div class="status" id="statusLine">Ready.</div>
+  </section>
+
+  <section class="shell">
+    <aside class="panel">
+      <div class="panel-head">Manual Controls</div>
+      <div class="panel-body">
+        <article class="group">
+          <h3>Background</h3>
+          <div class="row2">
+            <div class="field">
+              <label>Start</label>
+              <input id="bgStart" type="color" value="#ffffff">
+            </div>
+            <div class="field">
+              <label>End</label>
+              <input id="bgEnd" type="color" value="#f1f5fb">
+            </div>
+          </div>
+          <button class="btn" id="applyBgBtn" type="button">Apply Background</button>
+        </article>
+        <article class="group">
+          <h3>Selected Layer</h3>
+          <div class="field">
+            <label>Layer</label>
+            <select id="layerSelect"></select>
+          </div>
+          <div class="row2">
+            <div class="field"><label>X</label><input id="layerX" type="number" value="0"></div>
+            <div class="field"><label>Y</label><input id="layerY" type="number" value="0"></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Scale %</label><input id="layerScale" type="number" value="100"></div>
+            <div class="field"><label>Rotate</label><input id="layerRotate" type="number" value="0"></div>
+          </div>
+          <button class="btn" id="applyLayerBtn" type="button">Apply Position</button>
+        </article>
+      </div>
+    </aside>
+
+    <section class="canvas-wrap">
+      <div id="canvasFrame">
+        <canvas id="designCanvas"></canvas>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="panel-head">Layers</div>
+      <div class="panel-body">
+        <article class="group">
+          <h3>Layer Manager</h3>
+          <div class="layer-list" id="layerList"></div>
+          <div class="row2">
+            <button class="btn" id="bringFrontBtn" type="button">Bring Front</button>
+            <button class="btn" id="sendBackBtn" type="button">Send Back</button>
+          </div>
+          <div class="row2">
+            <button class="btn" id="toggleLockBtn" type="button">Lock/Unlock</button>
+            <button class="btn" id="toggleHideBtn" type="button">Hide/Show</button>
+          </div>
+        </article>
+      </div>
+    </aside>
+  </section>
+</main>
+
+<input id="bgFileInput" type="file" accept="image/*" hidden>
+<input id="photoFileInput" type="file" accept="image/*" hidden>
+<input id="logoFileInput" type="file" accept="image/*" hidden>
+<input id="signFileInput" type="file" accept="image/*" hidden>
+
+<script src="https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js"></script>
+<script>
+(() => {
+  const records = {{ records|tojson }};
+  const fallbackRecord = {{ sample_record|tojson }};
+  const institute = {{ institute|tojson }};
+  const employees = (Array.isArray(records) && records.length ? records : [fallbackRecord]).map((row, idx) => ({
+    key: String(row.serial_no || row.employee_id || row.id || `EMP-${idx + 1}`),
+    name: row.name || "Employee",
+    designation: row.designation || row.training_year || row.course || "",
+    employee_id: row.employee_id || row.serial_no || row.id || `EMP-${idx + 1}`,
+    department: row.department || "",
+    institute_name: row.institute_name || institute || "Institute Name",
+    photo_url: row.photo_url || "",
+  }));
+
+  const templateTypeEl = document.getElementById("templateType");
+  const photoShapeEl = document.getElementById("photoShape");
+  const employeeSelectEl = document.getElementById("employeeSelect");
+  const layerSelectEl = document.getElementById("layerSelect");
+  const layerListEl = document.getElementById("layerList");
+  const statusLineEl = document.getElementById("statusLine");
+  const bgStartEl = document.getElementById("bgStart");
+  const bgEndEl = document.getElementById("bgEnd");
+  const layerXEl = document.getElementById("layerX");
+  const layerYEl = document.getElementById("layerY");
+  const layerScaleEl = document.getElementById("layerScale");
+  const layerRotateEl = document.getElementById("layerRotate");
+
+  const bgInputEl = document.getElementById("bgFileInput");
+  const photoInputEl = document.getElementById("photoFileInput");
+  const logoInputEl = document.getElementById("logoFileInput");
+  const signInputEl = document.getElementById("signFileInput");
+
+  const templates = {
+    horizontal: { w: 760, h: 460 },
+    vertical: { w: 460, h: 760 },
+    badge: { w: 560, h: 560 },
+    mini: { w: 600, h: 360 }
+  };
+
+  const canvas = new fabric.Canvas("designCanvas", {
+    preserveObjectStacking: true,
+    selection: true
+  });
+  let selectedEmployee = employees[0];
+  let nodeMap = {};
+
+  function setStatus(text, error = false) {
+    statusLineEl.textContent = text;
+    statusLineEl.style.color = error ? "#a1261a" : "#7c6e62";
+  }
+
+  function setTemplateSize(type) {
+    const cfg = templates[type] || templates.horizontal;
+    canvas.setWidth(cfg.w);
+    canvas.setHeight(cfg.h);
+    document.getElementById("canvasFrame").style.width = cfg.w + "px";
+    document.getElementById("canvasFrame").style.height = cfg.h + "px";
+  }
+
+  function makeGradientRect() {
+    const rect = new fabric.Rect({
+      left: 0,
+      top: 0,
+      width: canvas.getWidth(),
+      height: canvas.getHeight(),
+      selectable: false,
+      evented: false,
+      customId: "background"
+    });
+    rect.set("fill", new fabric.Gradient({
+      type: "linear",
+      gradientUnits: "pixels",
+      coords: { x1: 0, y1: 0, x2: canvas.getWidth(), y2: canvas.getHeight() },
+      colorStops: [
+        { offset: 0, color: bgStartEl.value },
+        { offset: 1, color: bgEndEl.value }
+      ]
+    }));
+    return rect;
+  }
+
+  function applyPhotoClip(imageObj) {
+    const shape = photoShapeEl.value;
+    if (!imageObj) return;
+    if (shape === "circle") {
+      imageObj.clipPath = new fabric.Circle({
+        radius: Math.min(imageObj.width * imageObj.scaleX, imageObj.height * imageObj.scaleY) / 2,
+        originX: "center",
+        originY: "center",
+      });
+    } else if (shape === "rounded") {
+      imageObj.clipPath = new fabric.Rect({
+        width: imageObj.width,
+        height: imageObj.height,
+        rx: 22,
+        ry: 22,
+        originX: "center",
+        originY: "center",
+      });
+    } else {
+      imageObj.clipPath = null;
+    }
+  }
+
+  function findById(id) {
+    return canvas.getObjects().find((obj) => obj.customId === id) || null;
+  }
+
+  function addText(id, text, left, top, color, size, weight = "normal") {
+    const node = new fabric.Text(text, {
+      left,
+      top,
+      fill: color,
+      fontSize: size,
+      fontWeight: weight,
+      fontFamily: "Segoe UI",
+      customId: id
+    });
+    canvas.add(node);
+    nodeMap[id] = node;
+  }
+
+  async function drawLayout() {
+    setTemplateSize(templateTypeEl.value);
+    canvas.clear();
+    nodeMap = {};
+    canvas.add(makeGradientRect());
+
+    const w = canvas.getWidth();
+    const h = canvas.getHeight();
+    const head = new fabric.Rect({
+      left: 0, top: 0, width: w, height: Math.round(h * 0.18),
+      fill: "#8b0000", selectable: true, customId: "header_bar"
+    });
+    canvas.add(head);
+    nodeMap.header_bar = head;
+
+    addText("institute", selectedEmployee.institute_name || "Institute", 18, 16, "#ffffff", 30, "bold");
+    addText("name", selectedEmployee.name || "-", Math.round(w * 0.34), Math.round(h * 0.26), "#8b0000", 34, "bold");
+    addText("designation", selectedEmployee.designation || "-", Math.round(w * 0.34), Math.round(h * 0.38), "#9a6a18", 22, "bold");
+    addText("employee_id", `ID: ${selectedEmployee.employee_id || "-"}`, Math.round(w * 0.34), Math.round(h * 0.50), "#222", 20);
+    addText("department", `Dept: ${selectedEmployee.department || "-"}`, Math.round(w * 0.34), Math.round(h * 0.58), "#222", 20);
+
+    const photoSlot = new fabric.Rect({
+      left: Math.round(w * 0.05),
+      top: Math.round(h * 0.24),
+      width: Math.round(w * 0.24),
+      height: Math.round(h * 0.44),
+      fill: "#f3ede6",
+      stroke: "#c9b7a6",
+      strokeWidth: 1,
+      customId: "photo_slot"
+    });
+    canvas.add(photoSlot);
+    nodeMap.photo_slot = photoSlot;
+
+    const logo = new fabric.Rect({
+      left: Math.round(w - 145),
+      top: 15,
+      width: 120,
+      height: 70,
+      fill: "#ffffff55",
+      stroke: "#d9cabb",
+      strokeDashArray: [4, 4],
+      customId: "logo_slot"
+    });
+    canvas.add(logo);
+    nodeMap.logo_slot = logo;
+
+    const sign = new fabric.Rect({
+      left: Math.round(w - 185),
+      top: Math.round(h - 95),
+      width: 150,
+      height: 45,
+      fill: "#ffffff55",
+      stroke: "#d9cabb",
+      strokeDashArray: [4, 4],
+      customId: "signature_slot"
+    });
+    canvas.add(sign);
+    nodeMap.signature_slot = sign;
+
+    if (selectedEmployee.photo_url) {
+      await placeImageFromUrl(selectedEmployee.photo_url, "employee_photo", photoSlot.left, photoSlot.top, photoSlot.width, photoSlot.height);
+    }
+
+    canvas.renderAll();
+    refreshLayers();
+  }
+
+  function replaceOrAddImage(id, img) {
+    const existing = findById(id);
+    if (existing) canvas.remove(existing);
+    img.customId = id;
+    canvas.add(img);
+    if (id === "background_image") {
+      img.selectable = false;
+      img.evented = false;
+      img.sendToBack();
+      const baseBg = findById("background");
+      if (baseBg) baseBg.sendToBack();
+    }
+    if (img.selectable !== false) {
+      canvas.setActiveObject(img);
+    } else {
+      canvas.discardActiveObject();
+    }
+    canvas.renderAll();
+    refreshLayers();
+  }
+
+  function placeImageFromUrl(url, id, left, top, width, height) {
+    return new Promise((resolve) => {
+      fabric.Image.fromURL(url, (img) => {
+        if (!img) {
+          resolve(null);
+          return;
+        }
+        const scale = Math.min(width / img.width, height / img.height);
+        img.set({
+          left,
+          top,
+          scaleX: scale,
+          scaleY: scale,
+          customId: id,
+        });
+        if (id === "employee_photo") {
+          applyPhotoClip(img);
+        }
+        replaceOrAddImage(id, img);
+        resolve(img);
+      }, { crossOrigin: "anonymous" });
+    });
+  }
+
+  function refreshLayers() {
+    const layers = canvas.getObjects().filter((o) => o.customId !== "background");
+    layerSelectEl.innerHTML = layers.map((obj) => `<option value="${obj.customId || obj.type}">${obj.customId || obj.type}</option>`).join("");
+    const active = canvas.getActiveObject();
+    if (active && active.customId) {
+      layerSelectEl.value = active.customId;
+    }
+    layerListEl.innerHTML = layers.slice().reverse().map((obj) => {
+      const id = obj.customId || obj.type;
+      const activeClass = active === obj ? " active" : "";
+      return `<button class="layer-item${activeClass}" data-layer="${id}" type="button">${id}</button>`;
+    }).join("");
+    layerListEl.querySelectorAll("[data-layer]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-layer");
+        const obj = findById(id);
+        if (!obj) return;
+        canvas.setActiveObject(obj);
+        canvas.requestRenderAll();
+        syncSelectedControls();
+        refreshLayers();
+      });
+    });
+  }
+
+  function syncSelectedControls() {
+    const obj = canvas.getActiveObject();
+    if (!obj) return;
+    layerXEl.value = Math.round(obj.left || 0);
+    layerYEl.value = Math.round(obj.top || 0);
+    layerScaleEl.value = Math.round((obj.scaleX || 1) * 100);
+    layerRotateEl.value = Math.round(obj.angle || 0);
+  }
+
+  function applySelectedControls() {
+    const obj = canvas.getActiveObject() || findById(layerSelectEl.value);
+    if (!obj) return;
+    obj.set({
+      left: Number(layerXEl.value || 0),
+      top: Number(layerYEl.value || 0),
+      scaleX: Number(layerScaleEl.value || 100) / 100,
+      scaleY: Number(layerScaleEl.value || 100) / 100,
+      angle: Number(layerRotateEl.value || 0),
+    });
+    canvas.requestRenderAll();
+    refreshLayers();
+  }
+
+  function saveLocal() {
+    const payload = {
+      templateType: templateTypeEl.value,
+      photoShape: photoShapeEl.value,
+      json: canvas.toJSON(["customId"])
+    };
+    localStorage.setItem("fabric_print_studio_design", JSON.stringify(payload));
+    setStatus("Saved to browser local storage.");
+  }
+
+  function loadLocal() {
+    const raw = localStorage.getItem("fabric_print_studio_design");
+    if (!raw) {
+      setStatus("No local design found.", true);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      templateTypeEl.value = parsed.templateType || "horizontal";
+      photoShapeEl.value = parsed.photoShape || "rectangle";
+      setTemplateSize(templateTypeEl.value);
+      canvas.loadFromJSON(parsed.json, () => {
+        canvas.renderAll();
+        refreshLayers();
+        setStatus("Loaded local design.");
+      });
+    } catch {
+      setStatus("Invalid local design data.", true);
+    }
+  }
+
+  async function saveServer() {
+    const payload = {
+      templateType: templateTypeEl.value,
+      photoShape: photoShapeEl.value,
+      json: canvas.toJSON(["customId"])
+    };
+    const res = await fetch(`/api/fabric-design?institute=${encodeURIComponent(institute || "")}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ institute, design: payload })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setStatus(data.error || "Server save failed.", true);
+      return;
+    }
+    setStatus("Saved to server settings.");
+  }
+
+  async function loadServer() {
+    const res = await fetch(`/api/fabric-design?institute=${encodeURIComponent(institute || "")}`);
+    const data = await res.json();
+    if (!res.ok) {
+      setStatus(data.error || "Server load failed.", true);
+      return;
+    }
+    const design = data.design || {};
+    if (!design.json) {
+      setStatus("No server design saved yet.");
+      return;
+    }
+    templateTypeEl.value = design.templateType || "horizontal";
+    photoShapeEl.value = design.photoShape || "rectangle";
+    setTemplateSize(templateTypeEl.value);
+    canvas.loadFromJSON(design.json, () => {
+      canvas.renderAll();
+      refreshLayers();
+      setStatus("Loaded server design.");
+    });
+  }
+
+  function exportPng() {
+    const data = canvas.toDataURL({
+      format: "png",
+      multiplier: 4,
+      quality: 1
+    });
+    const link = document.createElement("a");
+    link.href = data;
+    link.download = `id-card-${selectedEmployee.employee_id || selectedEmployee.key}.png`;
+    link.click();
+    setStatus("Exported high resolution PNG.");
+  }
+
+  function wireUpload(buttonId, inputEl, id, fallbackRectId) {
+    document.getElementById(buttonId).addEventListener("click", () => inputEl.click());
+    inputEl.addEventListener("change", () => {
+      const file = inputEl.files && inputEl.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      const slot = findById(fallbackRectId);
+      const left = slot ? slot.left : 10;
+      const top = slot ? slot.top : 10;
+      const width = slot ? slot.width : 180;
+      const height = slot ? slot.height : 110;
+      placeImageFromUrl(url, id, left, top, width, height).then(() => {
+        URL.revokeObjectURL(url);
+      });
+      inputEl.value = "";
+    });
+  }
+
+  function fillEmployees() {
+    employeeSelectEl.innerHTML = employees.map((e, idx) => `<option value="${idx}">${e.name} (${e.employee_id})</option>`).join("");
+    employeeSelectEl.value = "0";
+  }
+
+  function wireEvents() {
+    templateTypeEl.addEventListener("change", drawLayout);
+    photoShapeEl.addEventListener("change", () => {
+      const photo = findById("employee_photo");
+      if (photo) {
+        applyPhotoClip(photo);
+        canvas.requestRenderAll();
+      }
+    });
+    employeeSelectEl.addEventListener("change", async () => {
+      selectedEmployee = employees[Number(employeeSelectEl.value || 0)] || employees[0];
+      await drawLayout();
+    });
+    document.getElementById("applyBgBtn").addEventListener("click", () => {
+      const bg = findById("background");
+      if (!bg) return;
+      bg.set("fill", new fabric.Gradient({
+        type: "linear",
+        gradientUnits: "pixels",
+        coords: { x1: 0, y1: 0, x2: canvas.getWidth(), y2: canvas.getHeight() },
+        colorStops: [
+          { offset: 0, color: bgStartEl.value },
+          { offset: 1, color: bgEndEl.value }
+        ]
+      }));
+      canvas.requestRenderAll();
+    });
+
+    document.getElementById("applyLayerBtn").addEventListener("click", applySelectedControls);
+    layerSelectEl.addEventListener("change", () => {
+      const obj = findById(layerSelectEl.value);
+      if (!obj) return;
+      canvas.setActiveObject(obj);
+      canvas.requestRenderAll();
+      syncSelectedControls();
+      refreshLayers();
+    });
+
+    document.getElementById("bringFrontBtn").addEventListener("click", () => {
+      const obj = canvas.getActiveObject();
+      if (!obj) return;
+      obj.bringToFront();
+      canvas.requestRenderAll();
+      refreshLayers();
+    });
+    document.getElementById("sendBackBtn").addEventListener("click", () => {
+      const obj = canvas.getActiveObject();
+      if (!obj) return;
+      obj.sendBackwards();
+      canvas.requestRenderAll();
+      refreshLayers();
+    });
+    document.getElementById("toggleLockBtn").addEventListener("click", () => {
+      const obj = canvas.getActiveObject();
+      if (!obj) return;
+      const lock = !obj.lockMovementX;
+      obj.set({
+        lockMovementX: lock,
+        lockMovementY: lock,
+        lockScalingX: lock,
+        lockScalingY: lock,
+        lockRotation: lock,
+        selectable: !lock
+      });
+      canvas.discardActiveObject();
+      canvas.requestRenderAll();
+      refreshLayers();
+    });
+    document.getElementById("toggleHideBtn").addEventListener("click", () => {
+      const obj = canvas.getActiveObject();
+      if (!obj) return;
+      obj.visible = !obj.visible;
+      canvas.requestRenderAll();
+      refreshLayers();
+    });
+
+    document.getElementById("saveLocalBtn").addEventListener("click", saveLocal);
+    document.getElementById("saveServerBtn").addEventListener("click", saveServer);
+    document.getElementById("loadServerBtn").addEventListener("click", loadServer);
+    document.getElementById("exportBtn").addEventListener("click", exportPng);
+
+    wireUpload("uploadBgBtn", bgInputEl, "background_image", "background");
+    wireUpload("uploadPhotoBtn", photoInputEl, "employee_photo", "photo_slot");
+    wireUpload("uploadLogoBtn", logoInputEl, "logo_image", "logo_slot");
+    wireUpload("uploadSignBtn", signInputEl, "sign_image", "signature_slot");
+
+    canvas.on("selection:created", () => { syncSelectedControls(); refreshLayers(); });
+    canvas.on("selection:updated", () => { syncSelectedControls(); refreshLayers(); });
+    canvas.on("object:modified", () => { syncSelectedControls(); refreshLayers(); });
+  }
+
+  async function init() {
+    fillEmployees();
+    await drawLayout();
+    wireEvents();
+    setStatus("Fabric Print Studio ready.");
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

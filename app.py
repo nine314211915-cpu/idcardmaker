@@ -2321,7 +2321,18 @@ def build_print_preview_context():
 @app.route("/admin/print-lab")
 @admin_required
 def admin_print_lab():
-    response = make_response(render_template("print_lab.html", **build_print_preview_context()))
+    response = make_response(render_template("print_studio_fabric.html", **build_print_preview_context()))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["X-App-Build"] = app.config.get("APP_BUILD_TAG", "")
+    return response
+
+
+@app.route("/admin/print-studio")
+@admin_required
+def admin_print_studio():
+    response = make_response(render_template("print_studio_fabric.html", **build_print_preview_context()))
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
@@ -2331,18 +2342,54 @@ def admin_print_lab():
 
 @app.route("/api/build-info")
 def build_info():
-    template_path = os.path.join(BASE_DIR, "templates", "print_lab.html")
-    template_mtime = ""
-    if os.path.isfile(template_path):
-        template_mtime = datetime.utcfromtimestamp(os.path.getmtime(template_path)).isoformat() + "Z"
+    print_lab_path = os.path.join(BASE_DIR, "templates", "print_lab.html")
+    fabric_path = os.path.join(BASE_DIR, "templates", "print_studio_fabric.html")
+    print_lab_mtime = ""
+    fabric_mtime = ""
+    if os.path.isfile(print_lab_path):
+        print_lab_mtime = datetime.utcfromtimestamp(os.path.getmtime(print_lab_path)).isoformat() + "Z"
+    if os.path.isfile(fabric_path):
+        fabric_mtime = datetime.utcfromtimestamp(os.path.getmtime(fabric_path)).isoformat() + "Z"
     return jsonify({
         "build_tag": app.config.get("APP_BUILD_TAG", ""),
         "cwd": BASE_DIR,
         "runtime_dir": RUNTIME_DIR,
-        "print_lab_template": template_path,
-        "print_lab_template_mtime_utc": template_mtime,
+        "print_lab_template": print_lab_path,
+        "print_lab_template_mtime_utc": print_lab_mtime,
+        "print_studio_fabric_template": fabric_path,
+        "print_studio_fabric_mtime_utc": fabric_mtime,
         "now_utc": datetime.utcnow().isoformat() + "Z",
     })
+
+
+@app.route("/api/fabric-design", methods=["GET", "POST"])
+@admin_required
+def fabric_design():
+    json_payload = request.get_json(silent=True) if request.is_json else {}
+    institute = canonicalize_institute_name(
+        request.args.get("institute")
+        or (json_payload.get("institute") if isinstance(json_payload, dict) else "")
+        or request.form.get("institute")
+    )
+    settings = load_settings(institute)
+    if request.method == "GET":
+        return jsonify({
+            "institute": institute,
+            "design": settings.get("fabric_design", {}),
+        })
+
+    payload = json_payload if isinstance(json_payload, dict) else {}
+    if not institute:
+        return jsonify({"error": "Institute is required to save design"}), 400
+    design = payload.get("design")
+    if not isinstance(design, dict):
+        return jsonify({"error": "Invalid design payload"}), 400
+    serialized = json.dumps(design, ensure_ascii=False)
+    if len(serialized) > 2_500_000:
+        return jsonify({"error": "Design payload too large"}), 400
+    settings["fabric_design"] = design
+    save_settings(settings, institute)
+    return jsonify({"saved": True, "institute": institute})
 
 
 @app.route("/admin/login", methods=["POST"])

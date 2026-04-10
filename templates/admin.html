@@ -1063,7 +1063,7 @@ function openPrintLab() {
   if (institute) params.set('institute', institute);
   if (batchId) params.set('batch_id', batchId);
   const query = params.toString();
-  const url = query ? `/admin/print-lab?${query}` : '/admin/print-lab';
+  const url = query ? `/admin/print-studio?${query}` : '/admin/print-studio';
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
