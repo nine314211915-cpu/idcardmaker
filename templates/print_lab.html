@@ -3,1653 +3,1196 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Print Studio</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
+<title>ID Card Designer</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --cream:#f7efe4;
-    --panel:#fffdf8;
-    --red:#8b0000;
-    --red-deep:#5d0000;
-    --text:#2c1810;
-    --muted:#74685d;
-    --line:#e4d7c7;
-    --shadow:0 18px 40px rgba(63,24,8,0.08);
+  :root{
+    --bg:#f4efe7;
+    --panel:#fffdf9;
+    --line:#dfd2c2;
+    --text:#2f2016;
+    --muted:#7a6b5f;
     --accent:#8b0000;
-    --role-color:#9a6a18;
-    --bg-opacity:0.14;
-    --photo-radius:16px;
-    --info-gap:12px;
-    --name-size:28px;
-    --head-end:#5d0000;
-    --card-border:#d8c9bd;
-    --foot-bg:rgba(255,248,239,0.92);
-    --badge-bg:#8b0000;
-    --photo-width:108px;
-    --bg-image:linear-gradient(140deg, #f6efe8, #ede0cf);
-    --photo-scale:1;
-    --photo-x:0px;
-    --photo-y:0px;
-    --photo-fit:cover;
   }
-  * { box-sizing:border-box; margin:0; padding:0; }
-  body {
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Source Sans 3",sans-serif;
+    color:var(--text);
     min-height:100vh;
-    font-family:'Source Sans 3',sans-serif;
     background:
-      radial-gradient(circle at top left, rgba(139,0,0,0.08), transparent 28%),
-      radial-gradient(circle at bottom right, rgba(120,46,11,0.08), transparent 30%),
-      linear-gradient(180deg, #fbf7f1 0%, var(--cream) 100%);
-    color:var(--text);
-    padding:28px 18px 48px;
-    overflow-x:hidden;
+      radial-gradient(circle at top left, rgba(139,0,0,0.08), transparent 26%),
+      linear-gradient(180deg,#faf6f1 0%,var(--bg) 100%);
+    padding:14px;
   }
-  .shell { max-width:1280px; margin:0 auto; }
-  .hero {
-    background:linear-gradient(135deg, rgba(255,255,255,0.96), rgba(252,246,239,0.94));
+  .app{max-width:1520px;margin:0 auto;display:grid;gap:12px}
+  .top{
     border:1px solid var(--line);
-    border-radius:28px;
-    padding:30px;
-    box-shadow:var(--shadow);
-  }
-  .hero-top {
-    display:flex;
-    justify-content:space-between;
-    gap:18px;
-    align-items:flex-end;
-    flex-wrap:wrap;
-  }
-  h1 {
-    font-family:'Playfair Display',serif;
-    font-size:42px;
-    line-height:1.02;
-  }
-  .hero-copy {
-    margin-top:12px;
-    color:var(--muted);
-    font-size:17px;
-    line-height:1.6;
-    max-width:820px;
-  }
-  .hero-actions {
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-  }
-  .hero-actions a {
-    text-decoration:none;
-    border-radius:14px;
-    padding:11px 16px;
-    font-weight:700;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-  }
-  .hero-actions .primary {
-    background:var(--red);
-    color:#fff;
-  }
-  .hero-actions .soft {
-    background:#fff;
-    border:1px solid var(--line);
-    color:var(--text);
-  }
-  .meta {
-    margin-top:18px;
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-  }
-  .meta span {
-    background:#fff;
-    border:1px solid var(--line);
-    border-radius:999px;
-    padding:8px 12px;
-    font-size:13px;
-    color:var(--muted);
-  }
-  .studio-grid {
-    margin-top:22px;
-    display:grid;
-    grid-template-columns:minmax(300px, 390px) minmax(0, 1fr);
-    gap:18px;
-    align-items:start;
-  }
-  .panel {
+    border-radius:16px;
     background:var(--panel);
-    border:1px solid var(--line);
-    border-radius:24px;
-    box-shadow:var(--shadow);
-    padding:22px;
-  }
-  .panel h2 {
-    font-family:'Playfair Display',serif;
-    font-size:28px;
-    line-height:1.1;
-  }
-  .panel-copy,
-  .panel p {
-    margin-top:10px;
-    color:var(--muted);
-    line-height:1.6;
-    font-size:15px;
-  }
-  .builder-mode {
-    margin-top:16px;
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:10px;
     padding:10px;
-    border:1px solid var(--line);
-    border-radius:18px;
-    background:#fff;
-  }
-  .mode-btn {
-    border:1px solid var(--line);
-    background:#fff;
-    color:var(--text);
-    border-radius:12px;
-    padding:10px 12px;
-    font-weight:700;
-    cursor:pointer;
-  }
-  .mode-btn.active {
-    background:linear-gradient(135deg, var(--red), var(--red-deep));
-    color:#fff;
-    border-color:transparent;
-  }
-  .hint-note {
-    margin-top:10px;
-    padding:12px 14px;
-    border-radius:14px;
-    background:rgba(255,255,255,0.84);
-    border:1px dashed #d2c3b3;
-    color:#64574b;
-    font-size:13px;
-    line-height:1.55;
-  }
-  .free-designer {
-    margin-top:14px;
-    border:1px solid var(--line);
-    border-radius:16px;
-    background:#fff;
-    padding:12px;
     display:grid;
-    gap:10px;
+    gap:8px;
   }
-  .free-designer h3 {
-    font-size:16px;
-    color:#3b2d21;
+  .top-row{
+    display:grid;
+    grid-template-columns:220px 220px 200px 1fr 160px 160px;
+    gap:8px;
+    align-items:center;
   }
-  .free-designer p {
-    margin-top:0;
-    font-size:13px;
-    color:#756758;
+  .title{
+    font-family:"Playfair Display",serif;
+    font-size:24px;
+    color:#3c2618;
+    letter-spacing:.2px;
   }
-  .free-designer textarea {
+  .field{display:grid;gap:4px}
+  .field label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.6px}
+  .field select,.field input,.field textarea{
     width:100%;
-    min-height:72px;
-    resize:vertical;
     border:1px solid var(--line);
-    border-radius:12px;
-    padding:10px;
+    border-radius:9px;
+    padding:7px 9px;
     font:inherit;
+    background:#fff;
     color:var(--text);
-    background:#fffdfb;
-  }
-  .free-designer-actions {
-    display:grid;
-    grid-template-columns:1fr auto;
-    gap:8px;
-    align-items:center;
-  }
-  .free-designer-status {
-    font-size:12px;
-    color:#7b6b5d;
-    min-height:16px;
-  }
-  .mode-panel {
-    margin-top:14px;
-    display:none;
-    gap:12px;
-  }
-  .mode-panel.active {
-    display:grid;
-  }
-  .theme-grid {
-    display:grid;
-    gap:10px;
-  }
-  .theme-card {
-    background:#fff;
-    border:1px solid var(--line);
-    border-radius:16px;
-    padding:13px;
-    cursor:pointer;
-    text-align:left;
-  }
-  .theme-card.active {
-    border-color:#a44d3f;
-    box-shadow:0 8px 20px rgba(130,46,28,0.14);
-  }
-  .theme-card strong {
-    display:block;
-    font-size:16px;
-  }
-  .theme-card span {
-    display:block;
-    margin-top:3px;
-    color:var(--muted);
     font-size:13px;
-    line-height:1.45;
   }
-  .theme-swatch {
-    display:flex;
-    gap:6px;
-    margin-top:8px;
-  }
-  .theme-swatch i {
-    width:16px;
-    height:16px;
-    border-radius:999px;
-    display:block;
-    border:1px solid rgba(0,0,0,0.08);
-  }
-  .auto-actions {
-    display:grid;
-    grid-template-columns:repeat(3, minmax(0, 1fr));
-    gap:10px;
-  }
-  .saved-templates {
-    margin-top:12px;
-    border:1px solid var(--line);
-    border-radius:16px;
-    background:#fff;
-    padding:12px;
-    display:grid;
-    gap:10px;
-  }
-  .saved-head {
-    font-weight:700;
-    color:#4f4136;
-    font-size:14px;
-  }
-  .saved-status {
-    font-size:12px;
-    color:#7b6b5d;
-    min-height:16px;
-  }
-  .saved-list {
-    display:grid;
-    gap:8px;
-  }
-  .saved-item {
-    border:1px solid var(--line);
-    border-radius:12px;
-    padding:10px;
-    display:grid;
-    gap:8px;
-  }
-  .saved-item-head {
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:8px;
-  }
-  .saved-item-name {
-    font-weight:700;
-    color:#2f2217;
-    font-size:14px;
-  }
-  .saved-item-date {
-    font-size:11px;
-    color:#877868;
-  }
-  .saved-item-actions {
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:8px;
-  }
-  .saved-btn {
+  .field textarea{min-height:58px;resize:vertical}
+  .btn{
     border:1px solid var(--line);
     background:#fff;
+    color:var(--text);
     border-radius:10px;
     padding:8px 10px;
     font-size:12px;
     font-weight:700;
     cursor:pointer;
   }
-  .saved-btn.apply {
-    border-color:#b03f2d;
-    color:#8b0000;
-  }
-  .saved-btn.delete {
-    border-color:#d3b8b3;
-    color:#862b1f;
-  }
-  .saved-empty {
-    color:#7d6f62;
-    font-size:13px;
-    border:1px dashed #d4c6b8;
-    border-radius:10px;
-    padding:10px;
-    background:#fff9f3;
-  }
-  .asset-box {
-    margin-top:12px;
-    border:1px solid var(--line);
-    border-radius:16px;
-    background:#fff;
-    padding:12px;
+  .btn.primary{background:var(--accent);color:#fff;border-color:transparent}
+  .btn-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+  .shell{
     display:grid;
-    gap:10px;
-  }
-  .asset-box h3 {
-    font-size:16px;
-    color:#3b2d21;
-  }
-  .asset-preview {
-    border:1px dashed #d4c6b6;
-    border-radius:12px;
-    min-height:96px;
-    background:#faf3ea;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    overflow:hidden;
-    color:#7e6f61;
-    font-size:12px;
-  }
-  .asset-preview img {
-    width:100%;
-    height:100%;
-    object-fit:cover;
-  }
-  .mini-actions {
-    display:grid;
-    grid-template-columns:1fr 1fr 1fr;
-    gap:8px;
-  }
-  .status-note {
-    font-size:12px;
-    color:#7b6b5d;
-    min-height:16px;
-  }
-  .photo-fit-box {
-    margin-top:10px;
-    border:1px dashed #d2c2b2;
-    border-radius:14px;
-    padding:10px;
-    background:#fff9f3;
-    display:grid;
-    gap:10px;
-  }
-  .guides-overlay {
-    position:absolute;
-    inset:14px;
-    border:1px dashed rgba(0,0,0,0.25);
-    border-radius:10px;
-    pointer-events:none;
-    display:none;
-  }
-  .stage.show-guides .guides-overlay {
-    display:block;
-  }
-  .btn {
-    border:1px solid var(--line);
-    background:#fff;
-    color:var(--text);
-    border-radius:12px;
-    padding:10px 12px;
-    font-weight:700;
-    cursor:pointer;
-  }
-  .btn.primary {
-    background:var(--red);
-    color:#fff;
-    border-color:transparent;
-  }
-  .control-stack,
-  .summary-stack,
-  .checklist {
-    margin-top:16px;
-    display:grid;
+    grid-template-columns:360px minmax(0,1fr) 320px;
     gap:12px;
-  }
-  .control {
-    display:grid;
-    gap:7px;
-  }
-  .control label {
-    font-size:13px;
-    font-weight:700;
-    color:#5b4d42;
-  }
-  .control input,
-  .control select {
-    width:100%;
-  }
-  .control input[type="color"] {
-    height:46px;
-    border:1px solid var(--line);
-    border-radius:14px;
-    padding:6px;
-    background:#fff;
-  }
-  .control input[type="range"] {
-    accent-color:var(--red);
-  }
-  .control select {
-    border:1px solid var(--line);
-    border-radius:14px;
-    padding:11px 12px;
-    background:#fff;
-    color:var(--text);
-  }
-  .hint {
-    color:var(--muted);
-    font-size:12px;
-  }
-  .toggle {
-    display:flex;
-    align-items:center;
-    gap:10px;
-    padding:12px 14px;
-    background:#fff;
-    border:1px solid var(--line);
-    border-radius:16px;
-    color:var(--text);
-  }
-  .toggle input {
-    width:16px;
-    height:16px;
-    accent-color:var(--red);
-  }
-  .summary-card,
-  .check-item {
-    padding:14px;
-    background:#fff;
-    border:1px solid var(--line);
-    border-radius:18px;
-  }
-  .summary-card strong,
-  .check-item strong {
-    display:block;
-    color:var(--text);
-    font-size:16px;
-  }
-  .summary-card span,
-  .check-item span {
-    display:block;
-    margin-top:4px;
-    color:var(--muted);
-    line-height:1.55;
-    font-size:14px;
-  }
-  .workspace {
-    display:grid;
-    gap:18px;
-  }
-  .preview-panel {
-    display:grid;
-    grid-template-columns:minmax(0, 1fr) 260px;
-    gap:18px;
     align-items:start;
   }
-  .stage {
-    min-height:100%;
-    padding:18px;
-    border-radius:22px;
-    background:
-      linear-gradient(180deg, rgba(255,255,255,0.82), rgba(255,255,255,0.94)),
-      repeating-linear-gradient(0deg, transparent, transparent 23px, rgba(139,0,0,0.03) 23px, rgba(139,0,0,0.03) 24px),
-      repeating-linear-gradient(90deg, transparent, transparent 23px, rgba(139,0,0,0.03) 23px, rgba(139,0,0,0.03) 24px);
+  .panel{
     border:1px solid var(--line);
-  }
-  .preview-card {
-    width:min(100%, 470px);
-    aspect-ratio:1.58 / 1;
-    margin:0 auto;
-    border-radius:24px;
+    border-radius:16px;
+    background:var(--panel);
     overflow:hidden;
-    border:1px solid var(--card-border);
-    box-shadow:0 22px 44px rgba(41,24,12,0.14);
-    position:relative;
-    background:linear-gradient(140deg, rgba(255,255,255,0.96), rgba(250,243,236,0.92));
-    display:grid;
-    grid-template-rows:auto 1fr auto;
   }
-  .preview-card::before {
-    content:"";
-    position:absolute;
-    inset:0;
-    background:var(--bg-image);
-    background-size:cover;
-    background-position:center;
-    opacity:var(--bg-opacity);
-    pointer-events:none;
-  }
-  .preview-card > * {
-    position:relative;
-    z-index:1;
-  }
-  .preview-head {
-    padding:16px 18px 12px;
-    background:linear-gradient(90deg, var(--accent), var(--head-end));
-    color:#fff;
-  }
-  .preview-head .tiny {
-    text-transform:uppercase;
-    letter-spacing:1.4px;
-    font-size:10px;
-    opacity:0.86;
-  }
-  .preview-head .name {
-    margin-top:4px;
-    font-family:'Playfair Display',serif;
-    font-size:23px;
-    line-height:1.08;
-  }
-  .preview-body {
-    display:grid;
-    grid-template-columns:var(--photo-width) 1fr;
-    gap:var(--info-gap);
-    padding:18px;
-  }
-  .preview-photo {
-    border-radius:var(--photo-radius);
-    overflow:hidden;
-    background:#f7efe6;
-    border:1px solid rgba(0,0,0,0.08);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    color:var(--muted);
-    min-height:132px;
-  }
-  .preview-photo img {
-    width:100%;
-    height:100%;
-    object-fit:var(--photo-fit);
-    transform:translate(var(--photo-x), var(--photo-y)) scale(var(--photo-scale));
-    transform-origin:center center;
-  }
-  .preview-content h3 {
-    color:var(--red);
-    font-size:var(--name-size);
-    line-height:1.05;
-  }
-  .preview-role {
-    margin-top:5px;
-    color:var(--role-color);
-    font-weight:700;
-    font-size:15px;
-  }
-  .preview-meta {
-    margin-top:12px;
-    display:grid;
-    gap:7px;
-    font-size:14px;
-  }
-  .preview-signature {
-    padding:0 18px 12px;
-    display:flex;
-    justify-content:flex-end;
-  }
-  .signature-box {
-    width:130px;
-    text-align:center;
-  }
-  .signature-box img {
-    max-width:100%;
-    max-height:38px;
-    object-fit:contain;
-    display:block;
-    margin:0 auto 4px;
-  }
-  .signature-line {
-    border-top:1px solid rgba(0,0,0,0.45);
-    margin-bottom:3px;
-  }
-  .signature-label {
-    font-size:11px;
-    color:var(--muted);
-  }
-  .preview-foot {
-    padding:12px 18px;
-    display:flex;
-    justify-content:space-between;
-    gap:10px;
-    align-items:center;
-    background:var(--foot-bg);
-    border-top:1px solid rgba(0,0,0,0.06);
-    font-size:13px;
-  }
-  .badge {
-    background:var(--badge-bg);
-    color:#fff;
-    border-radius:999px;
-    padding:5px 10px;
+  .panel-head{
+    border-bottom:1px solid var(--line);
+    padding:8px 10px;
     font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.8px;
     font-weight:700;
-  }
-  .preview-sidebar {
-    display:grid;
-    gap:12px;
-  }
-  .mini-card {
-    padding:16px;
-    border-radius:18px;
-    border:1px solid var(--line);
+    color:#5c493c;
     background:#fff;
   }
-  .mini-card .eyebrow {
-    color:var(--red);
-    text-transform:uppercase;
-    letter-spacing:1.3px;
-    font-weight:700;
-    font-size:11px;
-  }
-  .mini-card strong {
-    display:block;
-    margin-top:6px;
-    font-size:20px;
-    font-family:'Playfair Display',serif;
-  }
-  .mini-card p {
-    margin-top:8px;
-    color:var(--muted);
-    line-height:1.55;
-    font-size:14px;
-  }
-  .mini-card a {
-    margin-top:12px;
-    display:inline-flex;
-    text-decoration:none;
-    background:var(--red);
-    color:#fff;
+  .panel-body{padding:10px;display:grid;gap:10px}
+  .group{
+    border:1px solid var(--line);
     border-radius:12px;
-    padding:10px 14px;
-    font-weight:700;
+    background:#fff;
+    padding:8px;
+    display:grid;
+    gap:8px;
   }
-  @media (max-width: 1080px) {
-    .studio-grid { grid-template-columns:1fr; }
-    .preview-panel { grid-template-columns:1fr; }
+  .group h3{font-size:13px;color:#3d2a1d}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .hint{font-size:11px;color:var(--muted)}
+  #stageWrap{
+    border:1px solid var(--line);
+    border-radius:16px;
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.84),rgba(255,255,255,.94)),
+      repeating-linear-gradient(0deg,transparent,transparent 22px,rgba(139,0,0,.03) 22px,rgba(139,0,0,.03) 23px),
+      repeating-linear-gradient(90deg,transparent,transparent 22px,rgba(139,0,0,.03) 22px,rgba(139,0,0,.03) 23px);
+    padding:10px;
+    min-height:690px;
+    display:grid;
+    place-items:center;
   }
-  @media (max-width: 640px) {
-    body { padding:14px 10px 24px; }
-    .hero { border-radius:18px; padding:18px 14px; }
-    h1 { font-size:28px; }
-    .hero-copy { font-size:15px; }
-    .hero-actions { width:100%; }
-    .hero-actions a { width:100%; }
-    .meta { gap:8px; }
-    .meta span { width:100%; text-align:center; }
-    .studio-grid { margin-top:16px; gap:12px; }
-    .panel { border-radius:18px; padding:16px 14px; }
-    .panel h2 { font-size:22px; }
-    .builder-mode { grid-template-columns:1fr; }
-    .auto-actions { grid-template-columns:1fr; }
-    .free-designer-actions { grid-template-columns:1fr; }
-    .saved-item-actions { grid-template-columns:1fr; }
-    .mini-actions { grid-template-columns:1fr; }
-    .stage { padding:12px; border-radius:18px; }
-    .preview-card { width:100%; max-width:380px; border-radius:20px; }
-    .preview-head { padding:14px 14px 10px; }
-    .preview-head .name { font-size:20px; }
-    .preview-body { grid-template-columns:88px 1fr; gap:10px; padding:14px; }
-    .preview-content h3 { font-size:22px; }
-    .preview-meta { font-size:13px; }
-    .preview-foot { flex-direction:column; align-items:flex-start; gap:8px; }
-    .mini-card a { width:100%; justify-content:center; }
+  #konvaRoot{
+    border:1px solid #c8b7a5;
+    border-radius:10px;
+    overflow:hidden;
+    background:#fff;
+  }
+  .status{font-size:12px;color:#6f5f52;min-height:16px}
+  .tiny{font-size:11px;color:var(--muted)}
+  .layer-list{
+    border:1px solid var(--line);
+    border-radius:10px;
+    background:#fff;
+    max-height:260px;
+    overflow:auto;
+    display:grid;
+    gap:4px;
+    padding:6px;
+  }
+  .layer-item{
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:#fff;
+    padding:6px 7px;
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    cursor:pointer;
+    font-size:12px;
+  }
+  .layer-item.active{
+    border-color:#9b3b2d;
+    box-shadow:0 5px 10px rgba(129,47,24,.12);
+    background:#fff8f3;
+  }
+  .layer-item .muted{color:#857668;font-size:11px}
+  .inline-check{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    font-size:12px;
+    color:#5f5043;
+  }
+  .inline-check input{width:14px;height:14px}
+  @media (max-width:1320px){
+    .top-row{grid-template-columns:1fr 1fr}
+    .shell{grid-template-columns:1fr}
   }
 </style>
 </head>
 <body>
-  <main class="shell">
-    <section class="hero">
-      <div class="hero-top">
-        <div>
-          <h1>Print Studio</h1>
-          <p class="hero-copy">Design everything here: upload Canva background, auto-generate practical layouts, fine-tune photo fit and spacing, save templates, and then print. No extra design page needed.</p>
-        </div>
-        <div class="hero-actions">
-          <a class="primary" href="/admin/print-cards?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Open Print Preview</a>
-          <a class="soft" href="/admin">Back to Admin</a>
-        </div>
+<main class="app">
+  <section class="top">
+    <div class="top-row">
+      <div class="title">ID Card Designer</div>
+      <div class="field">
+        <label>Template</label>
+        <select id="templateType">
+          <option value="horizontal">Horizontal</option>
+          <option value="vertical">Vertical</option>
+          <option value="badge">Badge</option>
+          <option value="mini">Mini</option>
+        </select>
       </div>
-      <div class="meta">
-        <span>Institute: {{ institute or sample_record.get('institute_name') }}</span>
-        <span>Batch: {{ batch_id or 'Demo Preview' }}</span>
-        <span>Records available: {{ records|length }}</span>
+      <div class="field">
+        <label>Photo Shape</label>
+        <select id="photoShape">
+          <option value="rectangle">Rectangle</option>
+          <option value="rounded">Rounded</option>
+          <option value="circle">Circle</option>
+        </select>
       </div>
-
-      <div class="studio-grid">
-        <section class="panel">
-          <h2>Design Builder</h2>
-          <p class="panel-copy">Switch between automatic themes and manual editing based on how quickly you want to produce a print-safe design.</p>
-
-          <div class="builder-mode">
-            <button class="mode-btn active" id="modeAutoBtn" type="button">Auto Design</button>
-            <button class="mode-btn" id="modeManualBtn" type="button">Manual Design</button>
-          </div>
-          <div class="hint-note" id="modeHint">Auto mode applies complete presets instantly, then you can still fine-tune later in manual mode.</div>
-
-          <div class="mode-panel active" id="autoPanel">
-            <section class="free-designer">
-              <h3>Free Auto-Designer (No API)</h3>
-              <p>Type your design idea and this will generate a working template using smart rules from your prompt.</p>
-              <textarea id="freePromptInput" placeholder="Example: govt nursing card, maroon and gold, compact batch print, formal look"></textarea>
-              <div class="free-designer-actions">
-                <span class="free-designer-status" id="freeDesignerStatus">Prompt-based generation ready.</span>
-                <button class="btn primary" id="generateFreeBtn" type="button">Generate Free Design</button>
-              </div>
-            </section>
-            <section class="asset-box">
-              <h3>Canva Background Upload</h3>
-              <p class="sub">Upload and manage multiple Canva backgrounds for this institute.</p>
-              <input id="bgNameInput" type="text" placeholder="Background name (e.g., Nursing Batch 2026)">
-              <input id="canvaBgInput" type="file" accept="image/*">
-              <div class="mini-actions">
-                <button class="btn primary" id="uploadBgBtn" type="button">Upload BG</button>
-                <button class="btn" id="refreshBgBtn" type="button">Reload List</button>
-                <button class="btn" id="removeBgBtn" type="button">Clear All</button>
-              </div>
-              <div class="status-note" id="bgStatus">Background status ready.</div>
-              <div class="asset-preview">
-                <img id="bgPreviewImage" alt="Background preview" style="display:none;">
-                <span id="bgPreviewEmpty">No background loaded</span>
-              </div>
-              <div class="saved-list" id="backgroundLibrary"></div>
-            </section>
-            <div class="theme-grid">
-              <button class="theme-card active" type="button" data-theme="student-classic" data-accent="#8b0000" data-end="#5d0000" data-role="#9a6a18" data-gap="12" data-radius="14" data-opacity="0.14" data-name="28" data-border="#d8c9bd" data-foot="rgba(255,248,239,0.92)" data-badge="#8b0000" data-photo="106">
-                <strong>Student Classic</strong>
-                <span>Standard college ID layout with balanced spacing for everyday batch printing.</span>
-                <span class="theme-swatch"><i style="background:#8b0000"></i><i style="background:#9a6a18"></i><i style="background:#eadcca"></i></span>
-              </button>
-              <button class="theme-card" type="button" data-theme="nursing-pro" data-accent="#8b1e3f" data-end="#5a1128" data-role="#b56f2a" data-gap="11" data-radius="10" data-opacity="0.13" data-name="27" data-border="#d5b8c2" data-foot="rgba(255,242,246,0.92)" data-badge="#8b1e3f" data-photo="102">
-                <strong>Nursing Pro</strong>
-                <span>Compact nursing institute template tuned for larger batches and tight data blocks.</span>
-                <span class="theme-swatch"><i style="background:#8b1e3f"></i><i style="background:#b56f2a"></i><i style="background:#f0dce4"></i></span>
-              </button>
-              <button class="theme-card" type="button" data-theme="staff-corporate" data-accent="#1e3f66" data-end="#132944" data-role="#4b89c5" data-gap="16" data-radius="18" data-opacity="0.17" data-name="29" data-border="#c7d5e3" data-foot="rgba(241,247,255,0.95)" data-badge="#1e3f66" data-photo="112">
-                <strong>Staff Corporate</strong>
-                <span>Professional employee card template with stronger hierarchy and premium spacing.</span>
-                <span class="theme-swatch"><i style="background:#1e3f66"></i><i style="background:#4b89c5"></i><i style="background:#d9e8f7"></i></span>
-              </button>
-              <button class="theme-card" type="button" data-theme="clinical-green" data-accent="#0f5c4d" data-end="#09362d" data-role="#1d7f6f" data-gap="14" data-radius="12" data-opacity="0.10" data-name="27" data-border="#bcdcd4" data-foot="rgba(241,255,251,0.94)" data-badge="#0f5c4d" data-photo="104">
-                <strong>Hospital Clinical</strong>
-                <span>Clean medical center template with low-noise background and clear contact fields.</span>
-                <span class="theme-swatch"><i style="background:#0f5c4d"></i><i style="background:#1d7f6f"></i><i style="background:#d8efe9"></i></span>
-              </button>
-              <button class="theme-card" type="button" data-theme="gov-secure" data-accent="#4f2a00" data-end="#2f1a00" data-role="#8e5b16" data-gap="10" data-radius="8" data-opacity="0.20" data-name="26" data-border="#d0bfac" data-foot="rgba(248,241,233,0.96)" data-badge="#4f2a00" data-photo="98">
-                <strong>Govt Secure</strong>
-                <span>Formal government-style format with tighter layout and high-trust visual tone.</span>
-                <span class="theme-swatch"><i style="background:#4f2a00"></i><i style="background:#8e5b16"></i><i style="background:#eadfce"></i></span>
-              </button>
-              <button class="theme-card" type="button" data-theme="visitor-pass" data-accent="#30363f" data-end="#14171d" data-role="#5a697f" data-gap="18" data-radius="20" data-opacity="0.06" data-name="30" data-border="#c9ced8" data-foot="rgba(244,247,252,0.96)" data-badge="#30363f" data-photo="116">
-                <strong>Visitor Pass</strong>
-                <span>Simple temporary-pass template with bigger name treatment and minimal texture.</span>
-                <span class="theme-swatch"><i style="background:#30363f"></i><i style="background:#5a697f"></i><i style="background:#e3e8f2"></i></span>
-              </button>
-              <button class="theme-card" type="button" data-theme="premium-academic" data-accent="#1b3764" data-end="#112543" data-role="#5f88d4" data-gap="16" data-radius="18" data-opacity="0.18" data-name="29" data-border="#c5d4eb" data-foot="rgba(238,245,255,0.95)" data-badge="#1b3764" data-photo="110">
-                <strong>Academic Premium</strong>
-                <span>University-grade template for lecturer cards, convocation, and formal identity sets.</span>
-                <span class="theme-swatch"><i style="background:#1b3764"></i><i style="background:#5f88d4"></i><i style="background:#dae5f6"></i></span>
-              </button>
-            </div>
-            <div class="auto-actions">
-              <button class="btn primary" id="applyThemeBtn" type="button">Apply Selected Theme</button>
-              <button class="btn" id="shuffleThemeBtn" type="button">Surprise Me</button>
-              <button class="btn" id="saveTemplateBtn" type="button">Save Template</button>
-            </div>
-            <div class="saved-templates">
-              <div class="saved-head">My Templates</div>
-              <div class="saved-status" id="templateStatus">Loading templates...</div>
-              <div class="saved-list" id="myTemplatesList"></div>
-              <div class="saved-empty" id="myTemplatesEmpty" style="display:none;">No saved templates yet. Apply any style, click Save Template, and it will appear here for this institute.</div>
-            </div>
-          </div>
-
-          <div class="mode-panel" id="manualPanel">
-            <div class="control">
-              <label for="accentColor">Header Color</label>
-              <input id="accentColor" type="color" value="#8b0000">
-            </div>
-            <div class="control">
-              <label for="roleColor">Role Highlight Color</label>
-              <input id="roleColor" type="color" value="#9a6a18">
-            </div>
-            <div class="control">
-              <label for="bgOpacity">Background Strength</label>
-              <input id="bgOpacity" type="range" min="0" max="0.30" step="0.01" value="0.14">
-              <div class="hint" id="bgOpacityValue">14%</div>
-            </div>
-            <div class="control">
-              <label for="photoRadius">Photo Radius</label>
-              <input id="photoRadius" type="range" min="4" max="28" value="16">
-              <div class="hint">Use sharper corners for formal cards or softer corners for friendlier layouts.</div>
-            </div>
-            <div class="control">
-              <label for="infoGap">Photo to Content Gap</label>
-              <input id="infoGap" type="range" min="6" max="24" value="12">
-              <div class="hint">Increase the gap for premium spacing or tighten it for compact batch printing.</div>
-            </div>
-            <div class="control">
-              <label for="nameSize">Name Size</label>
-              <input id="nameSize" type="range" min="22" max="34" value="28">
-              <div class="hint" id="nameSizeValue">28 px</div>
-            </div>
-            <div class="control">
-              <label for="printIntent">Print Intent</label>
-              <select id="printIntent">
-                <option value="compact">Compact batch printing</option>
-                <option value="balanced" selected>Balanced readability</option>
-                <option value="premium">Premium single-card look</option>
-              </select>
-            </div>
-            <label class="toggle">
-              <input id="showBackground" type="checkbox" checked>
-              <span>Show institute background artwork</span>
-            </label>
-            <label class="toggle">
-              <input id="showSignature" type="checkbox" {% if settings.get('signature_url') %}checked{% endif %}>
-              <span>Show HOD signature block</span>
-            </label>
-            <div class="photo-fit-box">
-              <div class="control">
-                <label for="photoFitMode">Photo Fit Mode</label>
-                <select id="photoFitMode">
-                  <option value="cover" selected>Cover</option>
-                  <option value="contain">Contain</option>
-                </select>
-              </div>
-              <div class="control">
-                <label for="photoZoom">Photo Zoom</label>
-                <input id="photoZoom" type="range" min="80" max="170" value="100">
-                <div class="hint">Use this when your Canva frame needs tighter or wider face crop.</div>
-              </div>
-              <div class="control">
-                <label for="photoShiftX">Photo Horizontal Shift</label>
-                <input id="photoShiftX" type="range" min="-40" max="40" value="0">
-              </div>
-              <div class="control">
-                <label for="photoShiftY">Photo Vertical Shift</label>
-                <input id="photoShiftY" type="range" min="-40" max="40" value="0">
-              </div>
-              <div class="mini-actions">
-                <button class="btn" id="resetPhotoFitBtn" type="button">Reset Photo</button>
-                <button class="btn" id="toggleGuidesBtn" type="button">Toggle Guides</button>
-                <button class="btn" id="toggleSignatureBtn" type="button">Toggle Sign</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="summary-stack">
-            <div class="summary-card">
-              <strong>Current Print Job</strong>
-              <span>{{ records|length }} record(s) loaded for {{ batch_id or 'preview mode' }}.</span>
-            </div>
-            <div class="summary-card">
-              <strong>Background Asset</strong>
-              <span>{% if settings.get('background_url') %}Institute background is available and applied to the live preview.{% else %}No background uploaded yet, so the preview uses the built-in neutral card surface.{% endif %}</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="workspace">
-          <div class="panel preview-panel">
-            <div class="stage">
-              <div class="preview-card">
-                <div class="guides-overlay"></div>
-                <div class="preview-head">
-                  <div class="tiny">Live Print Studio Preview</div>
-                  <div class="name">{{ sample_record.get('institute_name') }}</div>
-                </div>
-                <div class="preview-body">
-                  <div class="preview-photo">
-                    {% if sample_record.get('photo_url') %}
-                    <img src="{{ sample_record.get('photo_url') }}" alt="Preview photo">
-                    {% else %}
-                    <span>Photo</span>
-                    {% endif %}
-                  </div>
-                  <div class="preview-content">
-                    <h3>{{ sample_record.get('name') }}</h3>
-                    <div class="preview-role">{{ sample_record.get('training_year') or sample_record.get('course') or sample_record.get('designation') or sample_record.get('department') }}</div>
-                    <div class="preview-meta">
-                      <div><strong>DOB:</strong> {{ sample_record.get('dob') or '-' }}</div>
-                      <div><strong>Contact:</strong> {{ sample_record.get('contact') or '-' }}</div>
-                      <div><strong>Batch:</strong> {{ sample_record.get('batch_session') or '-' }}</div>
-                      <div><strong>Valid:</strong> {{ sample_record.get('valid_upto') or '-' }}</div>
-                    </div>
-                  </div>
-                </div>
-                {% if settings.get('signature_url') %}
-                <div class="preview-signature" id="signatureBlock">
-                  <div class="signature-box">
-                    <img src="{{ settings.get('signature_url') }}" alt="Institute signature">
-                    <div class="signature-line"></div>
-                    <div class="signature-label">Head of Department</div>
-                  </div>
-                </div>
-                {% endif %}
-                <div class="preview-foot">
-                  <span>{{ sample_record.get('serial_no') }}</span>
-                  <span class="badge">{{ (sample_record.get('profile_type') or 'student').upper() }}</span>
-                </div>
-              </div>
-            </div>
-
-            <aside class="preview-sidebar">
-              <div class="mini-card">
-                <div class="eyebrow">Next Step</div>
-                <strong>Open A4 Sheet</strong>
-                <p>Once the card feels right, continue to print preview for sheet density and final output.</p>
-                <a href="/admin/print-cards?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Go To Print Preview</a>
-              </div>
-              <div class="mini-card">
-                <div class="eyebrow">Workflow</div>
-                <strong>Auto or Manual</strong>
-                <p>Start with one-click theme generation, then switch to manual controls for precision tuning before batch print.</p>
-              </div>
-            </aside>
-          </div>
-
-          <div class="panel">
-            <h2>Print Readiness</h2>
-            <p class="panel-copy">Confirm readability, photo crop, and background balance here before opening the A4 production sheet.</p>
-            <div class="checklist">
-              <div class="check-item">
-                <strong>Text Hierarchy</strong>
-                <span>Name, role, and key fields should remain readable when reduced to print size.</span>
-              </div>
-              <div class="check-item">
-                <strong>Asset Clarity</strong>
-                <span>Background image and signature should support the card instead of competing with personal details.</span>
-              </div>
-              <div class="check-item">
-                <strong>Batch Safety</strong>
-                <span>Validate style once in this studio, then print the full batch using the dedicated A4 page.</span>
-              </div>
-            </div>
-          </div>
-        </section>
+      <div class="field">
+        <label>Employee Record</label>
+        <select id="employeeSelect"></select>
       </div>
+      <button class="btn primary" id="saveDesignBtn" type="button">Save Design</button>
+      <button class="btn" id="loadDesignBtn" type="button">Load Last</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="uploadBackgroundBtn" type="button">Upload Background</button>
+      <button class="btn" id="uploadLogoBtn" type="button">Upload Logo</button>
+      <button class="btn" id="uploadSignatureBtn" type="button">Upload Signature</button>
+      <button class="btn primary" id="exportPngBtn" type="button">Export PNG (Hi-Res)</button>
+    </div>
+    <div class="status" id="topStatus">Ready.</div>
+  </section>
+
+  <section class="shell">
+    <aside class="panel">
+      <div class="panel-head">Manual Controls</div>
+      <div class="panel-body">
+        <article class="group">
+          <h3>Background</h3>
+          <div class="row2">
+            <div class="field">
+              <label>Solid Color</label>
+              <input id="bgColor" type="color" value="#ffffff">
+            </div>
+            <div class="field">
+              <label>Gradient End</label>
+              <input id="bgGradientEnd" type="color" value="#f3f6fa">
+            </div>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label>Gradient Angle</label>
+              <input id="bgGradientAngle" type="range" min="0" max="360" value="130">
+            </div>
+            <div class="field">
+              <label>BG Opacity</label>
+              <input id="bgImageOpacity" type="range" min="0" max="100" value="100">
+            </div>
+          </div>
+        </article>
+
+        <article class="group">
+          <h3>Field Positioning</h3>
+          <div class="field">
+            <label>Select Field/Layer</label>
+            <select id="layerSelect"></select>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label>X</label>
+              <input id="layerX" type="range" min="-100" max="1000" value="0">
+            </div>
+            <div class="field">
+              <label>Y</label>
+              <input id="layerY" type="range" min="-100" max="1000" value="0">
+            </div>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label>Scale %</label>
+              <input id="layerScale" type="range" min="20" max="220" value="100">
+            </div>
+            <div class="field">
+              <label>Rotate</label>
+              <input id="layerRotate" type="range" min="-180" max="180" value="0">
+            </div>
+          </div>
+          <div class="row2">
+            <button class="btn" id="centerLayerBtn" type="button">Center Selected</button>
+            <button class="btn" id="resetLayerBtn" type="button">Reset Selected</button>
+          </div>
+          <div class="row3">
+            <button class="btn" id="alignLeftBtn" type="button">Align Left</button>
+            <button class="btn" id="alignCenterBtn" type="button">Align Center</button>
+            <button class="btn" id="alignRightBtn" type="button">Align Right</button>
+          </div>
+          <div class="row3">
+            <button class="btn" id="alignTopBtn" type="button">Align Top</button>
+            <button class="btn" id="alignMiddleBtn" type="button">Align Middle</button>
+            <button class="btn" id="alignBottomBtn" type="button">Align Bottom</button>
+          </div>
+        </article>
+
+        <article class="group">
+          <h3>Print Guides</h3>
+          <label class="inline-check"><input id="showGuidesCheck" type="checkbox" checked>Show Trim/Safe/Bleed</label>
+          <div class="row2">
+            <div class="field">
+              <label>Bleed (px)</label>
+              <input id="bleedPx" type="range" min="0" max="40" value="12">
+            </div>
+            <div class="field">
+              <label>Safe Margin (px)</label>
+              <input id="safePx" type="range" min="8" max="80" value="30">
+            </div>
+          </div>
+          <label class="inline-check"><input id="snapCheck" type="checkbox" checked>Snap To Guides/Center</label>
+        </article>
+
+        <article class="group">
+          <h3>QR & Barcode</h3>
+          <div class="field">
+            <label>QR Value</label>
+            <input id="qrInput" type="text" placeholder="Auto from employee ID">
+          </div>
+          <div class="field">
+            <label>Barcode Value</label>
+            <input id="barcodeInput" type="text" placeholder="Auto from employee ID">
+          </div>
+          <div class="row2">
+            <button class="btn" id="toggleQrBtn" type="button">Toggle QR</button>
+            <button class="btn" id="toggleBarcodeBtn" type="button">Toggle Barcode</button>
+          </div>
+        </article>
+      </div>
+    </aside>
+
+    <section id="stageWrap">
+      <div id="konvaRoot"></div>
     </section>
-  </main>
 
-  <script>
-    (function () {
-      const currentInstitute = {{ (institute or sample_record.get('institute_name') or '')|tojson }};
-      const initialBackgroundUrl = {{ (settings.get('background_url') or '')|tojson }};
-      const root = document.documentElement;
-      const modeAutoBtn = document.getElementById('modeAutoBtn');
-      const modeManualBtn = document.getElementById('modeManualBtn');
-      const modeHint = document.getElementById('modeHint');
-      const autoPanel = document.getElementById('autoPanel');
-      const manualPanel = document.getElementById('manualPanel');
-      const stage = document.querySelector('.stage');
-      const themeCards = Array.from(document.querySelectorAll('.theme-card'));
-      const applyThemeBtn = document.getElementById('applyThemeBtn');
-      const shuffleThemeBtn = document.getElementById('shuffleThemeBtn');
-      const saveTemplateBtn = document.getElementById('saveTemplateBtn');
-      const bgNameInput = document.getElementById('bgNameInput');
-      const canvaBgInput = document.getElementById('canvaBgInput');
-      const uploadBgBtn = document.getElementById('uploadBgBtn');
-      const refreshBgBtn = document.getElementById('refreshBgBtn');
-      const removeBgBtn = document.getElementById('removeBgBtn');
-      const bgStatus = document.getElementById('bgStatus');
-      const bgPreviewImage = document.getElementById('bgPreviewImage');
-      const bgPreviewEmpty = document.getElementById('bgPreviewEmpty');
-      const backgroundLibrary = document.getElementById('backgroundLibrary');
-      const freePromptInput = document.getElementById('freePromptInput');
-      const generateFreeBtn = document.getElementById('generateFreeBtn');
-      const freeDesignerStatus = document.getElementById('freeDesignerStatus');
-      const myTemplatesList = document.getElementById('myTemplatesList');
-      const myTemplatesEmpty = document.getElementById('myTemplatesEmpty');
-      const templateStatus = document.getElementById('templateStatus');
-      const accentColor = document.getElementById('accentColor');
-      const roleColor = document.getElementById('roleColor');
-      const bgOpacity = document.getElementById('bgOpacity');
-      const bgOpacityValue = document.getElementById('bgOpacityValue');
-      const photoRadius = document.getElementById('photoRadius');
-      const infoGap = document.getElementById('infoGap');
-      const nameSize = document.getElementById('nameSize');
-      const nameSizeValue = document.getElementById('nameSizeValue');
-      const printIntent = document.getElementById('printIntent');
-      const showBackground = document.getElementById('showBackground');
-      const showSignature = document.getElementById('showSignature');
-      const signatureBlock = document.getElementById('signatureBlock');
-      const photoFitMode = document.getElementById('photoFitMode');
-      const photoZoom = document.getElementById('photoZoom');
-      const photoShiftX = document.getElementById('photoShiftX');
-      const photoShiftY = document.getElementById('photoShiftY');
-      const resetPhotoFitBtn = document.getElementById('resetPhotoFitBtn');
-      const toggleGuidesBtn = document.getElementById('toggleGuidesBtn');
-      const toggleSignatureBtn = document.getElementById('toggleSignatureBtn');
+    <aside class="panel">
+      <div class="panel-head">Batch & Data</div>
+      <div class="panel-body">
+        <article class="group">
+          <h3>CSV Batch Export</h3>
+          <div class="field">
+            <label>CSV File</label>
+            <input id="csvInput" type="file" accept=".csv">
+          </div>
+          <div class="row2">
+            <button class="btn" id="previewCsvBtn" type="button">Preview Rows</button>
+            <button class="btn primary" id="exportBatchBtn" type="button">Export ZIP</button>
+          </div>
+          <div class="status" id="batchStatus">No CSV loaded.</div>
+        </article>
 
-      let selectedTheme = themeCards[0] || null;
-      let savedTemplates = [];
-      let savedBackgrounds = [];
-      let activeBackgroundId = '';
-      let guidesVisible = false;
-      let signatureVisible = showSignature ? showSignature.checked : true;
+        <article class="group">
+          <h3>Layer Manager</h3>
+          <div class="layer-list" id="layerList"></div>
+          <div class="row2">
+            <button class="btn" id="toggleLockBtn" type="button">Lock/Unlock</button>
+            <button class="btn" id="toggleHideBtn" type="button">Hide/Show</button>
+          </div>
+          <div class="row2">
+            <button class="btn" id="moveUpBtn" type="button">Move Up</button>
+            <button class="btn" id="moveDownBtn" type="button">Move Down</button>
+          </div>
+        </article>
+      </div>
+    </aside>
+  </section>
+</main>
 
-      function setActiveMode(mode) {
-        const auto = mode === 'auto';
-        modeAutoBtn.classList.toggle('active', auto);
-        modeManualBtn.classList.toggle('active', !auto);
-        autoPanel.classList.toggle('active', auto);
-        manualPanel.classList.toggle('active', !auto);
-        modeHint.textContent = auto
-          ? 'Auto mode applies complete presets instantly, then you can still fine-tune later in manual mode.'
-          : 'Manual mode gives direct control for every detail of your print layout.';
+<input id="bgFileInput" type="file" accept="image/*" hidden>
+<input id="logoFileInput" type="file" accept="image/*" hidden>
+<input id="signFileInput" type="file" accept="image/*" hidden>
+
+<script src="https://cdn.jsdelivr.net/npm/konva@9.3.22/konva.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script>
+(() => {
+  const records = {{ records|tojson }};
+  const fallbackRecord = {{ sample_record|tojson }};
+  const allEmployees = (Array.isArray(records) && records.length ? records : [fallbackRecord]).map((row, idx) => normalizeEmployee(row, idx));
+
+  const templateTypeEl = document.getElementById('templateType');
+  const photoShapeEl = document.getElementById('photoShape');
+  const employeeSelectEl = document.getElementById('employeeSelect');
+  const layerSelectEl = document.getElementById('layerSelect');
+  const layerListEl = document.getElementById('layerList');
+  const layerXEl = document.getElementById('layerX');
+  const layerYEl = document.getElementById('layerY');
+  const layerScaleEl = document.getElementById('layerScale');
+  const layerRotateEl = document.getElementById('layerRotate');
+  const bgColorEl = document.getElementById('bgColor');
+  const bgGradientEndEl = document.getElementById('bgGradientEnd');
+  const bgGradientAngleEl = document.getElementById('bgGradientAngle');
+  const bgImageOpacityEl = document.getElementById('bgImageOpacity');
+  const showGuidesCheckEl = document.getElementById('showGuidesCheck');
+  const bleedPxEl = document.getElementById('bleedPx');
+  const safePxEl = document.getElementById('safePx');
+  const snapCheckEl = document.getElementById('snapCheck');
+  const qrInputEl = document.getElementById('qrInput');
+  const barcodeInputEl = document.getElementById('barcodeInput');
+  const topStatusEl = document.getElementById('topStatus');
+  const batchStatusEl = document.getElementById('batchStatus');
+
+  const bgInputEl = document.getElementById('bgFileInput');
+  const logoInputEl = document.getElementById('logoFileInput');
+  const signInputEl = document.getElementById('signFileInput');
+  const csvInputEl = document.getElementById('csvInput');
+
+  const stageRoot = document.getElementById('konvaRoot');
+  let stage = null;
+  let layer = null;
+  let guideLayer = null;
+  let selectedEmployee = allEmployees[0];
+  let parsedCsvRows = [];
+
+  const state = {
+    templateType: 'horizontal',
+    photoShape: 'rectangle',
+    bg: { start: '#ffffff', end: '#f3f6fa', angle: 130, imageOpacity: 1, imageObj: null },
+    assets: { logo: null, signature: null, cardBg: null, employeePhoto: null },
+    visibility: { qr: true, barcode: true },
+    nodes: {},
+    defaults: {},
+    layerMeta: {},
+    guideSettings: { show: true, bleed: 12, safe: 30, snap: true },
+  };
+
+  const templates = {
+    horizontal: { w: 980, h: 620 },
+    vertical: { w: 680, h: 980 },
+    badge: { w: 760, h: 760 },
+    mini: { w: 620, h: 420 },
+  };
+  const SNAP_THRESHOLD = 8;
+
+  function setStatus(text, kind = 'info') {
+    topStatusEl.textContent = text;
+    topStatusEl.style.color = kind === 'error' ? '#a2271b' : '#6f5f52';
+  }
+
+  function setBatchStatus(text, kind = 'info') {
+    batchStatusEl.textContent = text;
+    batchStatusEl.style.color = kind === 'error' ? '#a2271b' : '#6f5f52';
+  }
+
+  function normalizeEmployee(raw, idx) {
+    return {
+      key: String(raw.serial_no || raw.employee_id || raw.id || `EMP-${idx + 1}`),
+      name: raw.name || 'Employee',
+      designation: raw.designation || raw.training_year || raw.course || '',
+      employee_id: raw.employee_id || raw.serial_no || raw.id || `EMP-${idx + 1}`,
+      department: raw.department || '',
+      contact: raw.contact || '',
+      dob: raw.dob || '',
+      valid_upto: raw.valid_upto || '',
+      photo_url: raw.photo_url || '',
+      institute_name: raw.institute_name || '',
+    };
+  }
+
+  function buildGradientFill(width, height) {
+    const angle = Number(bgGradientAngleEl.value || 130) * Math.PI / 180;
+    const cx = width / 2;
+    const cy = height / 2;
+    const len = Math.max(width, height);
+    const dx = Math.cos(angle) * len;
+    const dy = Math.sin(angle) * len;
+    return {
+      fillLinearGradientStartPoint: { x: cx - dx / 2, y: cy - dy / 2 },
+      fillLinearGradientEndPoint: { x: cx + dx / 2, y: cy + dy / 2 },
+      fillLinearGradientColorStops: [0, bgColorEl.value, 1, bgGradientEndEl.value],
+    };
+  }
+
+  function createStage() {
+    const cfg = templates[state.templateType];
+    stageRoot.innerHTML = '';
+    stage = new Konva.Stage({
+      container: 'konvaRoot',
+      width: cfg.w,
+      height: cfg.h,
+    });
+    layer = new Konva.Layer();
+    guideLayer = new Konva.Layer({ listening: false });
+    stage.add(layer);
+    stage.add(guideLayer);
+  }
+
+  function imageFromUrl(url) {
+    return new Promise((resolve) => {
+      if (!url) {
+        resolve(null);
+        return;
       }
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  }
 
-      function setGap(value) {
-        root.style.setProperty('--info-gap', `${value}px`);
+  async function loadEmployeePhoto() {
+    state.assets.employeePhoto = await imageFromUrl(selectedEmployee.photo_url || '');
+  }
+
+  function addNode(name, node, snapshot = null) {
+    state.nodes[name] = node;
+    state.defaults[name] = {
+      x: node.x(),
+      y: node.y(),
+      scaleX: node.scaleX(),
+      scaleY: node.scaleY(),
+      rotation: node.rotation(),
+    };
+    if (!state.layerMeta[name]) {
+      state.layerMeta[name] = { locked: false, hidden: false };
+    }
+    const saved = snapshot && snapshot[name] ? snapshot[name] : null;
+    if (saved) {
+      if (typeof saved.x === 'number') node.x(saved.x);
+      if (typeof saved.y === 'number') node.y(saved.y);
+      if (typeof saved.sx === 'number') node.scaleX(saved.sx);
+      if (typeof saved.sy === 'number') node.scaleY(saved.sy);
+      if (typeof saved.r === 'number') node.rotation(saved.r);
+      if (typeof saved.locked === 'boolean') state.layerMeta[name].locked = saved.locked;
+      if (typeof saved.hidden === 'boolean') state.layerMeta[name].hidden = saved.hidden;
+    }
+    node.name(name);
+    node.visible(!state.layerMeta[name].hidden);
+    node.draggable(!state.layerMeta[name].locked);
+    node.on('dragmove', () => {
+      if (state.guideSettings.snap) {
+        applySnap(node);
       }
+      syncSelectedLayerControls();
+      layer.draw();
+    });
+    node.on('dragend', () => syncSelectedLayerControls());
+    layer.add(node);
+  }
 
-      function setNameSize(value) {
-        root.style.setProperty('--name-size', `${value}px`);
-        if (nameSizeValue) nameSizeValue.textContent = `${value} px`;
-      }
+  function createPhotoClip(node, width, height) {
+    if (state.photoShape === 'circle') {
+      node.clipFunc((ctx) => {
+        ctx.beginPath();
+        ctx.arc(width / 2, height / 2, Math.min(width, height) / 2, 0, Math.PI * 2);
+      });
+      return;
+    }
+    if (state.photoShape === 'rounded') {
+      const r = 20;
+      node.clipFunc((ctx) => {
+        ctx.beginPath();
+        ctx.moveTo(r, 0);
+        ctx.lineTo(width - r, 0);
+        ctx.quadraticCurveTo(width, 0, width, r);
+        ctx.lineTo(width, height - r);
+        ctx.quadraticCurveTo(width, height, width - r, height);
+        ctx.lineTo(r, height);
+        ctx.quadraticCurveTo(0, height, 0, height - r);
+        ctx.lineTo(0, r);
+        ctx.quadraticCurveTo(0, 0, r, 0);
+        ctx.closePath();
+      });
+      return;
+    }
+    node.clipFunc(null);
+  }
 
-      function setOpacity(value) {
-        const normalized = Number(value);
-        const safeValue = Number.isFinite(normalized) ? normalized : 0.14;
-        const effective = showBackground && showBackground.checked ? safeValue : 0;
-        root.style.setProperty('--bg-opacity', effective);
-        if (bgOpacityValue) {
-          bgOpacityValue.textContent = `${Math.round(safeValue * 100)}%`;
+  function makeQrDataUrl(value) {
+    return new Promise((resolve) => {
+      const temp = document.createElement('div');
+      const qr = new QRCode(temp, {
+        text: value || 'N/A',
+        width: 180,
+        height: 180,
+        colorDark: '#111111',
+        colorLight: '#ffffff',
+      });
+      setTimeout(() => {
+        const canvas = temp.querySelector('canvas');
+        resolve(canvas ? canvas.toDataURL('image/png') : null);
+      }, 40);
+    });
+  }
+
+  function makeBarcodeDataUrl(value) {
+    const canvas = document.createElement('canvas');
+    JsBarcode(canvas, value || 'N/A', {
+      format: 'CODE128',
+      width: 2,
+      height: 70,
+      displayValue: false,
+      margin: 4,
+    });
+    return canvas.toDataURL('image/png');
+  }
+
+  function getGuideTargets() {
+    const cfg = templates[state.templateType];
+    const bleed = Math.max(0, Math.min(Number(state.guideSettings.bleed || 0), Math.floor(Math.min(cfg.w, cfg.h) / 2)));
+    const safe = Math.max(0, Math.min(Number(state.guideSettings.safe || 0), Math.floor(Math.min(cfg.w, cfg.h) / 2)));
+    return {
+      vertical: [0, bleed, safe, cfg.w / 2, cfg.w - safe, cfg.w - bleed, cfg.w],
+      horizontal: [0, bleed, safe, cfg.h / 2, cfg.h - safe, cfg.h - bleed, cfg.h],
+      bleed,
+      safe,
+    };
+  }
+
+  function applySnap(node) {
+    if (!stage || !layer) return;
+    const box = node.getClientRect({ relativeTo: layer });
+    const targets = getGuideTargets();
+    const xEdges = [
+      { type: 'left', value: box.x },
+      { type: 'center', value: box.x + box.width / 2 },
+      { type: 'right', value: box.x + box.width },
+    ];
+    const yEdges = [
+      { type: 'top', value: box.y },
+      { type: 'middle', value: box.y + box.height / 2 },
+      { type: 'bottom', value: box.y + box.height },
+    ];
+
+    let bestDx = 0;
+    let bestDy = 0;
+    let minX = SNAP_THRESHOLD + 1;
+    let minY = SNAP_THRESHOLD + 1;
+
+    xEdges.forEach((edge) => {
+      targets.vertical.forEach((target) => {
+        const diff = target - edge.value;
+        const abs = Math.abs(diff);
+        if (abs < minX && abs <= SNAP_THRESHOLD) {
+          minX = abs;
+          bestDx = diff;
         }
-      }
-
-      function applyIntent() {
-        const mode = printIntent.value;
-        if (mode === 'compact') {
-          setGap(8);
-        } else if (mode === 'premium') {
-          setGap(18);
-        } else {
-          setGap(infoGap.value);
+      });
+    });
+    yEdges.forEach((edge) => {
+      targets.horizontal.forEach((target) => {
+        const diff = target - edge.value;
+        const abs = Math.abs(diff);
+        if (abs < minY && abs <= SNAP_THRESHOLD) {
+          minY = abs;
+          bestDy = diff;
         }
-      }
+      });
+    });
 
-      function toNumber(value, fallback) {
-        const parsed = Number(value);
-        return Number.isFinite(parsed) ? parsed : fallback;
-      }
+    if (bestDx) node.x(node.x() + bestDx);
+    if (bestDy) node.y(node.y() + bestDy);
+  }
 
-      function clamp(value, min, max) {
-        return Math.max(min, Math.min(max, value));
-      }
+  function drawGuides() {
+    if (!guideLayer || !stage) return;
+    guideLayer.destroyChildren();
+    if (!state.guideSettings.show) {
+      guideLayer.draw();
+      return;
+    }
 
-      function escapeHtml(value) {
-        return String(value || '')
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#39;');
-      }
+    const cfg = templates[state.templateType];
+    const targets = getGuideTargets();
+    const bleed = targets.bleed;
+    const safe = targets.safe;
 
-      function setTemplateStatus(text, isError) {
-        templateStatus.textContent = text || '';
-        templateStatus.style.color = isError ? '#9f2b1f' : '#7b6b5d';
-      }
+    const trimRect = new Konva.Rect({
+      x: 0, y: 0, width: cfg.w, height: cfg.h,
+      stroke: '#2f2016', strokeWidth: 1, dash: [7, 5],
+    });
+    guideLayer.add(trimRect);
 
-      function extractThemeConfig(card) {
-        return {
-          accent: card.dataset.accent || '#8b0000',
-          head_end: card.dataset.end || '#5d0000',
-          role: card.dataset.role || '#9a6a18',
-          gap: toNumber(card.dataset.gap, 12),
-          radius: toNumber(card.dataset.radius, 16),
-          opacity: toNumber(card.dataset.opacity, 0.14),
-          name: toNumber(card.dataset.name, 28),
-          border: card.dataset.border || '#d8c9bd',
-          foot: card.dataset.foot || 'rgba(255,248,239,0.92)',
-          badge: card.dataset.badge || (card.dataset.accent || '#8b0000'),
-          photo: toNumber(card.dataset.photo, 106),
-        };
-      }
+    if (bleed > 0) {
+      guideLayer.add(new Konva.Rect({
+        x: bleed, y: bleed, width: cfg.w - (bleed * 2), height: cfg.h - (bleed * 2),
+        stroke: '#aa1f1f', strokeWidth: 1, dash: [4, 4],
+      }));
+    }
+    if (safe > 0) {
+      guideLayer.add(new Konva.Rect({
+        x: safe, y: safe, width: cfg.w - (safe * 2), height: cfg.h - (safe * 2),
+        stroke: '#1f6b4f', strokeWidth: 1, dash: [4, 4],
+      }));
+    }
 
-      function setFreeDesignerStatus(text, isError) {
-        if (!freeDesignerStatus) return;
-        freeDesignerStatus.textContent = text || '';
-        freeDesignerStatus.style.color = isError ? '#9f2b1f' : '#7b6b5d';
-      }
+    guideLayer.add(new Konva.Line({
+      points: [cfg.w / 2, 0, cfg.w / 2, cfg.h],
+      stroke: '#6a5a4d',
+      strokeWidth: 1,
+      dash: [4, 6],
+    }));
+    guideLayer.add(new Konva.Line({
+      points: [0, cfg.h / 2, cfg.w, cfg.h / 2],
+      stroke: '#6a5a4d',
+      strokeWidth: 1,
+      dash: [4, 6],
+    }));
+    guideLayer.draw();
+  }
 
-      function setBgStatus(text, isError) {
-        if (!bgStatus) return;
-        bgStatus.textContent = text || '';
-        bgStatus.style.color = isError ? '#9f2b1f' : '#7b6b5d';
-      }
+  function captureLayerSnapshot() {
+    if (!layer) return {};
+    const snap = {};
+    layer.getChildren().forEach((node, idx) => {
+      const name = node.name();
+      if (!name) return;
+      const meta = state.layerMeta[name] || {};
+      snap[name] = {
+        x: node.x(),
+        y: node.y(),
+        sx: node.scaleX(),
+        sy: node.scaleY(),
+        r: node.rotation(),
+        z: idx,
+        locked: !!meta.locked,
+        hidden: !node.visible() || !!meta.hidden,
+      };
+    });
+    return snap;
+  }
 
-      function setBackgroundPreview(url) {
-        const clean = (url || '').trim();
-        if (clean) {
-          root.style.setProperty('--bg-image', `url("${clean}")`);
-          if (bgPreviewImage) {
-            bgPreviewImage.src = clean;
-            bgPreviewImage.style.display = 'block';
-          }
-          if (bgPreviewEmpty) bgPreviewEmpty.style.display = 'none';
-          return;
-        }
-        root.style.setProperty('--bg-image', 'linear-gradient(140deg, #f6efe8, #ede0cf)');
-        if (bgPreviewImage) {
-          bgPreviewImage.style.display = 'none';
-          bgPreviewImage.removeAttribute('src');
-        }
-        if (bgPreviewEmpty) bgPreviewEmpty.style.display = 'block';
-      }
+  function applyLayerOrdering(snapshot) {
+    if (!layer || !snapshot) return;
+    const entries = Object.entries(snapshot)
+      .filter(([name]) => state.nodes[name])
+      .sort((a, b) => (a[1].z ?? 0) - (b[1].z ?? 0));
+    entries.forEach(([name], idx) => {
+      state.nodes[name].zIndex(idx);
+    });
+  }
 
-      async function refreshBackgroundFromServer() {
-        if (!currentInstitute) {
-          setBgStatus('Institute is required. Select institute from admin first.', true);
-          return;
-        }
-        try {
-          setBgStatus('Loading background library...');
-          const res = await fetch(`/api/print-backgrounds?institute=${encodeURIComponent(currentInstitute)}`);
-          const data = await res.json();
-          if (!res.ok) throw new Error((data && data.error) || 'Unable to load backgrounds');
-          savedBackgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : [];
-          activeBackgroundId = data.active_background_id || '';
-          setBackgroundPreview(data.background_url || '');
-          renderBackgroundLibrary();
-          setBgStatus(savedBackgrounds.length ? `${savedBackgrounds.length} background(s) available.` : 'No background saved yet.');
-        } catch (error) {
-          setBgStatus(error.message || 'Unable to load backgrounds.', true);
-        }
-      }
+  async function drawCard(snapshot = null, keepSelected = null) {
+    createStage();
+    await loadEmployeePhoto();
+    const cfg = templates[state.templateType];
 
-      async function uploadBackground() {
-        if (!currentInstitute) {
-          setBgStatus('Institute is required. Select institute from admin first.', true);
-          return;
-        }
-        if (!canvaBgInput || !canvaBgInput.files || !canvaBgInput.files.length) {
-          setBgStatus('Choose an image file first.', true);
-          return;
-        }
-        try {
-          const file = canvaBgInput.files[0];
-          const formData = new FormData();
-          formData.append('background', file);
-          formData.append('institute', currentInstitute);
-          if (bgNameInput && bgNameInput.value.trim()) {
-            formData.append('name', bgNameInput.value.trim());
-          }
-          setBgStatus(`Uploading "${file.name}"...`);
-          const res = await fetch('/api/print-backgrounds', { method: 'POST', body: formData });
-          const data = await res.json();
-          if (!res.ok) throw new Error((data && data.error) || 'Background upload failed');
-          setBackgroundPreview(data.background_url || '');
-          savedBackgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : [];
-          activeBackgroundId = data.active_background_id || '';
-          renderBackgroundLibrary();
-          setBgStatus('Background uploaded and applied.');
-          canvaBgInput.value = '';
-          if (bgNameInput) bgNameInput.value = '';
-        } catch (error) {
-          setBgStatus(error.message || 'Background upload failed.', true);
-        }
-      }
+    const bgRect = new Konva.Rect({
+      x: 0, y: 0, width: cfg.w, height: cfg.h, stroke: '#bca88f', strokeWidth: 2,
+    });
+    bgRect.setAttrs(buildGradientFill(cfg.w, cfg.h));
+    addNode('background', bgRect, snapshot);
 
-      async function removeBackground() {
-        if (!currentInstitute) {
-          setBgStatus('Institute is required. Select institute from admin first.', true);
-          return;
-        }
-        if (!window.confirm(`Remove all backgrounds for "${currentInstitute}"?`)) return;
-        try {
-          setBgStatus('Clearing backgrounds...');
-          const targets = [...savedBackgrounds];
-          for (const background of targets) {
-            await fetch(`/api/print-backgrounds/${encodeURIComponent(background.id)}?institute=${encodeURIComponent(currentInstitute)}`, { method: 'DELETE' });
-          }
-          savedBackgrounds = [];
-          activeBackgroundId = '';
-          setBackgroundPreview('');
-          renderBackgroundLibrary();
-          setBgStatus('All backgrounds removed.');
-        } catch (error) {
-          setBgStatus(error.message || 'Unable to clear backgrounds.', true);
-        }
-      }
+    if (state.assets.cardBg) {
+      addNode('background_image', new Konva.Image({
+        x: 0, y: 0, width: cfg.w, height: cfg.h, image: state.assets.cardBg, opacity: Number(bgImageOpacityEl.value || 100) / 100,
+      }), snapshot);
+    }
 
-      function renderBackgroundLibrary() {
-        if (!backgroundLibrary) return;
-        if (!savedBackgrounds.length) {
-          backgroundLibrary.innerHTML = '<div class="saved-empty">No saved backgrounds yet.</div>';
-          return;
-        }
-        backgroundLibrary.innerHTML = savedBackgrounds.map((item) => `
-          <article class="saved-item">
-            <div class="saved-item-head">
-              <span class="saved-item-name">${escapeHtml(item.name || 'Background')}</span>
-              <span class="saved-item-date">${escapeHtml(item.updated_at || item.created_at || '')}</span>
-            </div>
-            <div class="saved-item-actions">
-              <button class="saved-btn apply" type="button" data-bg-action="activate" data-bg-id="${escapeHtml(item.id)}">${item.id === activeBackgroundId ? 'Active' : 'Activate'}</button>
-              <button class="saved-btn delete" type="button" data-bg-action="delete" data-bg-id="${escapeHtml(item.id)}">Delete</button>
-            </div>
-          </article>
-        `).join('');
-      }
+    addNode('header_bar', new Konva.Rect({ x: 0, y: 0, width: cfg.w, height: Math.round(cfg.h * 0.16), fill: '#8b0000' }), snapshot);
+    addNode('institute', new Konva.Text({
+      x: 24, y: 18, text: selectedEmployee.institute_name || 'Institute Name', fill: '#ffffff',
+      fontSize: 30, fontStyle: 'bold', fontFamily: 'Source Sans 3', width: cfg.w - 48,
+    }), snapshot);
 
-      async function activateBackground(backgroundId) {
-        if (!currentInstitute) return;
-        try {
-          setBgStatus('Activating background...');
-          const res = await fetch(`/api/print-backgrounds/${encodeURIComponent(backgroundId)}/activate?institute=${encodeURIComponent(currentInstitute)}`, { method: 'POST' });
-          const data = await res.json();
-          if (!res.ok) throw new Error((data && data.error) || 'Unable to activate background');
-          savedBackgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : [];
-          activeBackgroundId = data.active_background_id || '';
-          setBackgroundPreview(data.background_url || '');
-          renderBackgroundLibrary();
-          setBgStatus('Background activated.');
-        } catch (error) {
-          setBgStatus(error.message || 'Unable to activate background.', true);
-        }
-      }
+    const photoX = Math.round(cfg.w * 0.04);
+    const photoY = Math.round(cfg.h * 0.22);
+    const photoW = Math.round(cfg.w * 0.24);
+    const photoH = Math.round(cfg.h * 0.44);
+    const photoGroup = new Konva.Group({ x: photoX, y: photoY, width: photoW, height: photoH });
+    const photoBg = new Konva.Rect({ x: 0, y: 0, width: photoW, height: photoH, fill: '#f2ece4', stroke: '#c5b5a2', strokeWidth: 1 });
+    photoGroup.add(photoBg);
+    if (state.assets.employeePhoto) {
+      const p = new Konva.Image({ x: 0, y: 0, width: photoW, height: photoH, image: state.assets.employeePhoto });
+      createPhotoClip(p, photoW, photoH);
+      photoGroup.add(p);
+    } else {
+      photoGroup.add(new Konva.Text({ x: 0, y: photoH / 2 - 8, width: photoW, text: 'Photo', align: 'center', fill: '#8f7f70', fontSize: 16 }));
+    }
+    addNode('photo', photoGroup, snapshot);
 
-      async function deleteBackgroundItem(backgroundId) {
-        if (!currentInstitute) return;
-        const target = savedBackgrounds.find((item) => item.id === backgroundId);
-        if (target && !window.confirm(`Delete background "${target.name}"?`)) return;
-        try {
-          setBgStatus('Deleting background...');
-          const res = await fetch(`/api/print-backgrounds/${encodeURIComponent(backgroundId)}?institute=${encodeURIComponent(currentInstitute)}`, { method: 'DELETE' });
-          const data = await res.json();
-          if (!res.ok) throw new Error((data && data.error) || 'Unable to delete background');
-          savedBackgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : [];
-          activeBackgroundId = data.active_background_id || '';
-          setBackgroundPreview(data.background_url || '');
-          renderBackgroundLibrary();
-          setBgStatus('Background deleted.');
-        } catch (error) {
-          setBgStatus(error.message || 'Unable to delete background.', true);
-        }
-      }
+    addNode('name', new Konva.Text({
+      x: Math.round(cfg.w * 0.33),
+      y: Math.round(cfg.h * 0.24),
+      text: selectedEmployee.name || '-',
+      fill: '#8b0000',
+      fontSize: 42,
+      fontStyle: 'bold',
+      fontFamily: 'Source Sans 3',
+      width: Math.round(cfg.w * 0.62),
+    }), snapshot);
+    addNode('designation', new Konva.Text({
+      x: Math.round(cfg.w * 0.33),
+      y: Math.round(cfg.h * 0.34),
+      text: selectedEmployee.designation || '-',
+      fill: '#9a6a18',
+      fontSize: 26,
+      fontStyle: 'bold',
+      width: Math.round(cfg.w * 0.62),
+    }), snapshot);
 
-      function applyPhotoFitControls() {
-        if (!photoFitMode || !photoZoom || !photoShiftX || !photoShiftY) return;
-        root.style.setProperty('--photo-fit', photoFitMode.value);
-        root.style.setProperty('--photo-scale', (Number(photoZoom.value) / 100).toFixed(2));
-        root.style.setProperty('--photo-x', `${photoShiftX.value}px`);
-        root.style.setProperty('--photo-y', `${photoShiftY.value}px`);
-      }
+    const metaStartY = Math.round(cfg.h * 0.44);
+    addNode('id', new Konva.Text({ x: Math.round(cfg.w * 0.33), y: metaStartY, text: `ID: ${selectedEmployee.employee_id || '-'}`, fill: '#1e1e1e', fontSize: 22 }), snapshot);
+    addNode('department', new Konva.Text({ x: Math.round(cfg.w * 0.33), y: metaStartY + 36, text: `Dept: ${selectedEmployee.department || '-'}`, fill: '#1e1e1e', fontSize: 22 }), snapshot);
+    addNode('contact', new Konva.Text({ x: Math.round(cfg.w * 0.33), y: metaStartY + 72, text: `Contact: ${selectedEmployee.contact || '-'}`, fill: '#1e1e1e', fontSize: 22 }), snapshot);
 
-      function resetPhotoFitControls() {
-        if (!photoFitMode || !photoZoom || !photoShiftX || !photoShiftY) return;
-        photoFitMode.value = 'cover';
-        photoZoom.value = '100';
-        photoShiftX.value = '0';
-        photoShiftY.value = '0';
-        applyPhotoFitControls();
-      }
+    const qrValue = qrInputEl.value.trim() || String(selectedEmployee.employee_id || selectedEmployee.key || 'N/A');
+    const barcodeValue = barcodeInputEl.value.trim() || String(selectedEmployee.employee_id || selectedEmployee.key || 'N/A');
+    const qrUrl = await makeQrDataUrl(qrValue);
+    if (qrUrl && state.visibility.qr) {
+      const qrImg = await imageFromUrl(qrUrl);
+      addNode('qr', new Konva.Image({ x: Math.round(cfg.w * 0.76), y: Math.round(cfg.h * 0.62), width: 150, height: 150, image: qrImg }), snapshot);
+    }
+    if (state.visibility.barcode) {
+      const barcodeUrl = makeBarcodeDataUrl(barcodeValue);
+      const barcodeImg = await imageFromUrl(barcodeUrl);
+      addNode('barcode', new Konva.Image({ x: Math.round(cfg.w * 0.04), y: Math.round(cfg.h * 0.86), width: Math.round(cfg.w * 0.45), height: 76, image: barcodeImg }), snapshot);
+    }
 
-      function toggleGuides() {
-        if (!stage) return;
-        guidesVisible = !guidesVisible;
-        stage.classList.toggle('show-guides', guidesVisible);
-      }
+    if (state.assets.logo) {
+      addNode('logo', new Konva.Image({ x: Math.round(cfg.w - 170), y: 20, width: 140, height: 80, image: state.assets.logo }), snapshot);
+    }
+    if (state.assets.signature) {
+      addNode('signature', new Konva.Image({ x: Math.round(cfg.w - 220), y: Math.round(cfg.h - 120), width: 180, height: 60, image: state.assets.signature }), snapshot);
+    }
 
-      function toggleSignatureVisibility() {
-        if (!signatureBlock) return;
-        signatureVisible = !signatureVisible;
-        signatureBlock.style.display = signatureVisible ? 'flex' : 'none';
-        if (showSignature) showSignature.checked = signatureVisible;
-      }
+    applyLayerOrdering(snapshot);
+    layer.draw();
+    drawGuides();
+    rebuildLayerSelect();
+    rebuildLayerList();
+    const targetSelection = keepSelected && state.nodes[keepSelected]
+      ? keepSelected
+      : (layerSelectEl.options.length ? layerSelectEl.options[0].value : '');
+    layerSelectEl.value = targetSelection;
+    syncSelectedLayerControls();
+  }
 
-      function containsAny(text, keywords) {
-        return keywords.some((keyword) => text.includes(keyword));
-      }
+  function selectedNode() {
+    const key = layerSelectEl.value;
+    return state.nodes[key] || null;
+  }
 
-      function pickBaseTemplateFromPrompt(prompt) {
-        const text = (prompt || '').toLowerCase();
-        if (containsAny(text, ['visitor', 'temporary', 'temp pass', 'gate pass'])) return 'visitor-pass';
-        if (containsAny(text, ['government', 'govt', 'official', 'secure'])) return 'gov-secure';
-        if (containsAny(text, ['staff', 'employee', 'corporate', 'office'])) return 'staff-corporate';
-        if (containsAny(text, ['nursing', 'anm', 'gnm'])) return 'nursing-pro';
-        if (containsAny(text, ['hospital', 'clinical', 'clinic', 'medical center'])) return 'clinical-green';
-        if (containsAny(text, ['academic', 'university', 'college', 'lecturer', 'faculty'])) return 'premium-academic';
-        return 'student-classic';
-      }
+  function syncSelectedLayerControls() {
+    const node = selectedNode();
+    if (!node) return;
+    layerXEl.value = String(Math.round(node.x()));
+    layerYEl.value = String(Math.round(node.y()));
+    layerScaleEl.value = String(Math.round((node.scaleX() || 1) * 100));
+    layerRotateEl.value = String(Math.round(node.rotation() || 0));
+  }
 
-      function findThemeById(themeId) {
-        return themeCards.find((card) => card.dataset.theme === themeId) || null;
-      }
+  function applyControlsToNode() {
+    const node = selectedNode();
+    if (!node) return;
+    node.x(Number(layerXEl.value || 0));
+    node.y(Number(layerYEl.value || 0));
+    const sc = Number(layerScaleEl.value || 100) / 100;
+    node.scaleX(sc);
+    node.scaleY(sc);
+    node.rotation(Number(layerRotateEl.value || 0));
+    layer.draw();
+  }
 
-      function applyPromptColorOverrides(text, config) {
-        const palette = [
-          { keys: ['maroon', 'red', 'burgundy'], accent: '#8b0000', end: '#5d0000', role: '#9a6a18', border: '#d8c9bd', foot: 'rgba(255,248,239,0.92)' },
-          { keys: ['blue', 'navy'], accent: '#1b3764', end: '#112543', role: '#5f88d4', border: '#c5d4eb', foot: 'rgba(238,245,255,0.95)' },
-          { keys: ['green', 'teal', 'clinical'], accent: '#0f5c4d', end: '#09362d', role: '#1d7f6f', border: '#bcdcd4', foot: 'rgba(241,255,251,0.94)' },
-          { keys: ['grey', 'gray', 'black', 'neutral'], accent: '#30363f', end: '#14171d', role: '#5a697f', border: '#c9ced8', foot: 'rgba(244,247,252,0.96)' },
-          { keys: ['brown', 'earth', 'khaki'], accent: '#4f2a00', end: '#2f1a00', role: '#8e5b16', border: '#d0bfac', foot: 'rgba(248,241,233,0.96)' },
-        ];
-        const match = palette.find((item) => containsAny(text, item.keys));
-        if (!match) return;
-        config.accent = match.accent;
-        config.head_end = match.end;
-        config.role = match.role;
-        config.border = match.border;
-        config.foot = match.foot;
-        config.badge = match.accent;
-      }
+  function rebuildLayerSelect() {
+    const names = layer ? layer.getChildren().map((n) => n.name()).filter(Boolean) : Object.keys(state.nodes);
+    layerSelectEl.innerHTML = names.map((n) => `<option value="${n}">${n}</option>`).join('');
+  }
 
-      function applyPromptLayoutOverrides(text, config) {
-        if (containsAny(text, ['compact', 'batch', 'dense'])) {
-          config.gap = 10;
-          config.photo = 100;
-          config.name = Math.max(24, config.name - 2);
-          config.radius = Math.min(config.radius, 12);
-        }
-        if (containsAny(text, ['premium', 'spacious', 'elegant', 'luxury'])) {
-          config.gap = 17;
-          config.photo = 114;
-          config.name = Math.min(33, config.name + 2);
-          config.radius = Math.max(config.radius, 18);
-        }
-        if (containsAny(text, ['minimal', 'clean', 'simple'])) {
-          config.opacity = 0.08;
-        }
-        if (containsAny(text, ['bold', 'strong', 'heavy'])) {
-          config.opacity = Math.min(0.22, config.opacity + 0.05);
-          config.name = Math.min(34, config.name + 1);
-        }
-        if (containsAny(text, ['soft', 'light'])) {
-          config.opacity = Math.max(0.05, config.opacity - 0.04);
-          config.radius = Math.min(24, config.radius + 3);
-        }
-      }
+  function rebuildLayerList() {
+    if (!layerListEl || !layer) return;
+    const ordered = layer.getChildren().map((n) => n.name()).filter(Boolean);
+    const topFirst = [...ordered].reverse();
+    const selected = layerSelectEl.value;
+    layerListEl.innerHTML = topFirst.map((name) => {
+      const meta = state.layerMeta[name] || {};
+      const lockLabel = meta.locked ? 'Locked' : 'Free';
+      const visLabel = meta.hidden ? 'Hidden' : 'Visible';
+      const active = selected === name ? ' active' : '';
+      return `<button class="layer-item${active}" data-layer="${name}" type="button"><span>${name}</span><span class="muted">${lockLabel} | ${visLabel}</span></button>`;
+    }).join('');
+    layerListEl.querySelectorAll('[data-layer]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const name = btn.getAttribute('data-layer');
+        if (!name || !state.nodes[name]) return;
+        layerSelectEl.value = name;
+        syncSelectedLayerControls();
+        rebuildLayerList();
+      });
+    });
+  }
 
-      function generateTemplateConfigFromPrompt(prompt) {
-        const text = (prompt || '').trim().toLowerCase();
-        const themeId = pickBaseTemplateFromPrompt(text);
-        const baseTheme = findThemeById(themeId) || themeCards[0];
-        const config = extractThemeConfig(baseTheme);
-        applyPromptColorOverrides(text, config);
-        applyPromptLayoutOverrides(text, config);
-        config.gap = clamp(toNumber(config.gap, 12), 6, 24);
-        config.radius = clamp(toNumber(config.radius, 14), 4, 28);
-        config.opacity = clamp(toNumber(config.opacity, 0.14), 0, 0.30);
-        config.name = clamp(toNumber(config.name, 28), 22, 34);
-        config.photo = clamp(toNumber(config.photo, 106), 90, 130);
-        return { config, themeId };
-      }
+  function redrawKeepLayout() {
+    const snapshot = captureLayerSnapshot();
+    const selected = layerSelectEl.value;
+    drawCard(snapshot, selected).catch(() => setStatus('Redraw failed.', 'error'));
+  }
 
-      function runFreeDesigner() {
-        const prompt = (freePromptInput && freePromptInput.value) ? freePromptInput.value.trim() : '';
-        if (!prompt) {
-          setFreeDesignerStatus('Enter a prompt first, then click Generate Free Design.', true);
-          return;
-        }
-        const result = generateTemplateConfigFromPrompt(prompt);
-        themeCards.forEach((card) => card.classList.toggle('active', card.dataset.theme === result.themeId));
-        selectedTheme = findThemeById(result.themeId);
-        applyTemplateConfig(result.config);
-        setActiveMode('manual');
-        setFreeDesignerStatus(`Generated from prompt using "${result.themeId.replace('-', ' ')}" template base.`);
-      }
+  function updateTemplateDimensions() {
+    state.templateType = templateTypeEl.value;
+    redrawKeepLayout();
+  }
 
-      function applyTemplateConfig(config) {
-        const accent = config.accent || '#8b0000';
-        const headEnd = config.head_end || accent || '#5d0000';
-        const role = config.role || '#9a6a18';
-        const gap = clamp(toNumber(config.gap, 12), 6, 24);
-        const radius = clamp(toNumber(config.radius, 14), 4, 28);
-        const opacity = clamp(toNumber(config.opacity, 0.14), 0, 0.30);
-        const name = clamp(toNumber(config.name, 28), 22, 34);
-        const border = config.border || '#d8c9bd';
-        const foot = config.foot || 'rgba(255,248,239,0.92)';
-        const badge = config.badge || accent;
-        const photo = clamp(toNumber(config.photo, 106), 90, 130);
+  function parseCsvText(text) {
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    if (!lines.length) return [];
+    const headers = lines[0].split(',').map((h) => h.trim());
+    return lines.slice(1).map((line, idx) => {
+      const cols = line.split(',');
+      const row = {};
+      headers.forEach((h, i) => {
+        row[h] = (cols[i] || '').trim();
+      });
+      return normalizeEmployee(row, idx);
+    });
+  }
 
-        root.style.setProperty('--accent', accent);
-        root.style.setProperty('--head-end', headEnd);
-        root.style.setProperty('--role-color', role);
-        root.style.setProperty('--card-border', border);
-        root.style.setProperty('--foot-bg', foot);
-        root.style.setProperty('--badge-bg', badge);
-        root.style.setProperty('--photo-width', `${photo}px`);
-        root.style.setProperty('--photo-radius', `${radius}px`);
-        setGap(gap);
-        setNameSize(name);
-        setOpacity(opacity);
+  function applyEmployee(emp) {
+    selectedEmployee = emp;
+    qrInputEl.value = selectedEmployee.employee_id || '';
+    barcodeInputEl.value = selectedEmployee.employee_id || '';
+    redrawKeepLayout();
+  }
 
-        accentColor.value = accent;
-        roleColor.value = role;
-        infoGap.value = String(gap);
-        photoRadius.value = String(radius);
-        bgOpacity.value = String(opacity);
-        nameSize.value = String(name);
-      }
+  function populateEmployeeSelect() {
+    employeeSelectEl.innerHTML = allEmployees.map((e, idx) => `<option value="${idx}">${e.name} (${e.employee_id})</option>`).join('');
+    employeeSelectEl.value = '0';
+  }
 
-      function getCurrentTemplateConfig() {
-        const styles = getComputedStyle(root);
-        return {
-          accent: styles.getPropertyValue('--accent').trim() || '#8b0000',
-          head_end: styles.getPropertyValue('--head-end').trim() || '#5d0000',
-          role: styles.getPropertyValue('--role-color').trim() || '#9a6a18',
-          gap: clamp(parseInt(styles.getPropertyValue('--info-gap'), 10) || 12, 6, 24),
-          radius: clamp(parseInt(styles.getPropertyValue('--photo-radius'), 10) || 14, 4, 28),
-          opacity: clamp(parseFloat(styles.getPropertyValue('--bg-opacity')) || 0.14, 0, 0.30),
-          name: clamp(parseInt(styles.getPropertyValue('--name-size'), 10) || 28, 22, 34),
-          border: styles.getPropertyValue('--card-border').trim() || '#d8c9bd',
-          foot: styles.getPropertyValue('--foot-bg').trim() || 'rgba(255,248,239,0.92)',
-          badge: styles.getPropertyValue('--badge-bg').trim() || '#8b0000',
-          photo: clamp(parseInt(styles.getPropertyValue('--photo-width'), 10) || 106, 90, 130),
-        };
-      }
+  function wireFileLoader(buttonId, inputEl, targetKey) {
+    document.getElementById(buttonId).addEventListener('click', () => inputEl.click());
+    inputEl.addEventListener('change', async () => {
+      if (!inputEl.files || !inputEl.files.length) return;
+      const file = inputEl.files[0];
+      const url = URL.createObjectURL(file);
+      state.assets[targetKey] = await imageFromUrl(url);
+      URL.revokeObjectURL(url);
+      redrawKeepLayout();
+      inputEl.value = '';
+    });
+  }
 
-      function applyTheme(card) {
-        if (!card) return;
-        selectedTheme = card;
-        themeCards.forEach((item) => item.classList.toggle('active', item === card));
-        applyTemplateConfig(extractThemeConfig(card));
-      }
+  function saveDesignLocal() {
+    const payload = {
+      templateType: state.templateType,
+      photoShape: state.photoShape,
+      bg: {
+        start: bgColorEl.value,
+        end: bgGradientEndEl.value,
+        angle: Number(bgGradientAngleEl.value || 130),
+        imageOpacity: Number(bgImageOpacityEl.value || 100),
+      },
+      layerStates: Object.keys(state.nodes).reduce((acc, name) => {
+        const n = state.nodes[name];
+        acc[name] = { x: n.x(), y: n.y(), sx: n.scaleX(), sy: n.scaleY(), r: n.rotation() };
+        return acc;
+      }, {}),
+    };
+    localStorage.setItem('id_designer_last_design', JSON.stringify(payload));
+    setStatus('Design saved locally. Wire this to Supabase `designs` table next.');
+  }
 
-      function renderSavedTemplates() {
-        if (!savedTemplates.length) {
-          myTemplatesList.innerHTML = '';
-          myTemplatesEmpty.style.display = 'block';
-          return;
-        }
-        myTemplatesEmpty.style.display = 'none';
-        myTemplatesList.innerHTML = savedTemplates.map((template) => `
-          <article class="saved-item">
-            <div class="saved-item-head">
-              <span class="saved-item-name">${escapeHtml(template.name)}</span>
-              <span class="saved-item-date">${escapeHtml(template.updated_at || template.created_at || '')}</span>
-            </div>
-            <div class="saved-item-actions">
-              <button class="saved-btn apply" type="button" data-action="apply" data-id="${escapeHtml(template.id)}">Apply</button>
-              <button class="saved-btn delete" type="button" data-action="delete" data-id="${escapeHtml(template.id)}">Delete</button>
-            </div>
-          </article>
-        `).join('');
-      }
-
-      async function loadSavedTemplates() {
-        if (!currentInstitute) {
-          setTemplateStatus('Select an institute first to use My Templates.', true);
-          myTemplatesList.innerHTML = '';
-          myTemplatesEmpty.style.display = 'block';
-          return;
-        }
-        try {
-          const res = await fetch(`/api/print-templates?institute=${encodeURIComponent(currentInstitute)}`);
-          const data = await res.json();
-          if (!res.ok) throw new Error((data && data.error) || 'Unable to load templates');
-          savedTemplates = Array.isArray(data.templates) ? data.templates : [];
-          renderSavedTemplates();
-          setTemplateStatus(savedTemplates.length ? `Loaded ${savedTemplates.length} template(s).` : 'No templates saved yet.');
-        } catch (error) {
-          savedTemplates = [];
-          renderSavedTemplates();
-          setTemplateStatus(error.message || 'Unable to load templates.', true);
-        }
-      }
-
-      async function saveCurrentTemplate() {
-        if (!currentInstitute) {
-          setTemplateStatus('Institute is required to save templates.', true);
-          return;
-        }
-        const defaultName = `Template ${new Date().toLocaleTimeString()}`;
-        const name = (window.prompt('Template name', defaultName) || '').trim();
-        if (!name) return;
-        const payload = {
-          name,
-          config: getCurrentTemplateConfig(),
-        };
-        try {
-          setTemplateStatus('Saving template...');
-          const res = await fetch(`/api/print-templates?institute=${encodeURIComponent(currentInstitute)}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error((data && data.error) || 'Unable to save template');
-          savedTemplates = Array.isArray(data.templates) ? data.templates : [];
-          renderSavedTemplates();
-          setTemplateStatus(`Saved "${name}".`);
-          setActiveMode('auto');
-        } catch (error) {
-          setTemplateStatus(error.message || 'Unable to save template.', true);
-        }
-      }
-
-      async function deleteSavedTemplate(templateId) {
-        const item = savedTemplates.find((template) => template.id === templateId);
-        if (!item) return;
-        if (!window.confirm(`Delete template "${item.name}"?`)) return;
-        try {
-          setTemplateStatus(`Deleting "${item.name}"...`);
-          const res = await fetch(`/api/print-templates/${encodeURIComponent(templateId)}?institute=${encodeURIComponent(currentInstitute)}`, {
-            method: 'DELETE',
-          });
-          const data = await res.json();
-          if (!res.ok) throw new Error((data && data.error) || 'Unable to delete template');
-          savedTemplates = Array.isArray(data.templates) ? data.templates : [];
-          renderSavedTemplates();
-          setTemplateStatus(`Deleted "${item.name}".`);
-        } catch (error) {
-          setTemplateStatus(error.message || 'Unable to delete template.', true);
-        }
-      }
-
-      function applySavedTemplate(templateId) {
-        const item = savedTemplates.find((template) => template.id === templateId);
-        if (!item || !item.config) return;
-        themeCards.forEach((card) => card.classList.remove('active'));
-        selectedTheme = null;
-        applyTemplateConfig(item.config);
-        setActiveMode('manual');
-        setTemplateStatus(`Applied "${item.name}".`);
-      }
-
-      modeAutoBtn.addEventListener('click', () => setActiveMode('auto'));
-      modeManualBtn.addEventListener('click', () => setActiveMode('manual'));
-
-      themeCards.forEach((card) => {
-        card.addEventListener('click', () => {
-          selectedTheme = card;
-          themeCards.forEach((item) => item.classList.toggle('active', item === card));
+  function loadDesignLocal() {
+    const raw = localStorage.getItem('id_designer_last_design');
+    if (!raw) {
+      setStatus('No saved local design found.', 'error');
+      return;
+    }
+    try {
+      const data = JSON.parse(raw);
+      templateTypeEl.value = data.templateType || 'horizontal';
+      photoShapeEl.value = data.photoShape || 'rectangle';
+      bgColorEl.value = data.bg?.start || '#ffffff';
+      bgGradientEndEl.value = data.bg?.end || '#f3f6fa';
+      bgGradientAngleEl.value = String(data.bg?.angle || 130);
+      bgImageOpacityEl.value = String(data.bg?.imageOpacity || 100);
+      state.templateType = templateTypeEl.value;
+      state.photoShape = photoShapeEl.value;
+      drawCard().then(() => {
+        Object.entries(data.layerStates || {}).forEach(([name, cfg]) => {
+          if (!state.nodes[name]) return;
+          state.nodes[name].x(cfg.x ?? state.nodes[name].x());
+          state.nodes[name].y(cfg.y ?? state.nodes[name].y());
+          state.nodes[name].scaleX(cfg.sx ?? 1);
+          state.nodes[name].scaleY(cfg.sy ?? 1);
+          state.nodes[name].rotation(cfg.r ?? 0);
         });
+        layer.draw();
+        syncSelectedLayerControls();
+        rebuildLayerList();
       });
+      setStatus('Loaded local design snapshot.');
+    } catch {
+      setStatus('Saved design is corrupted.', 'error');
+    }
+  }
 
-      applyThemeBtn.addEventListener('click', () => applyTheme(selectedTheme));
-      shuffleThemeBtn.addEventListener('click', () => {
-        if (!themeCards.length) return;
-        const randomCard = themeCards[Math.floor(Math.random() * themeCards.length)];
-        applyTheme(randomCard);
-      });
-      saveTemplateBtn.addEventListener('click', saveCurrentTemplate);
-      if (uploadBgBtn) uploadBgBtn.addEventListener('click', uploadBackground);
-      if (refreshBgBtn) refreshBgBtn.addEventListener('click', refreshBackgroundFromServer);
-      if (removeBgBtn) removeBgBtn.addEventListener('click', removeBackground);
-      if (backgroundLibrary) {
-        backgroundLibrary.addEventListener('click', (event) => {
-          const button = event.target.closest('button[data-bg-action][data-bg-id]');
-          if (!button) return;
-          const action = button.dataset.bgAction;
-          const backgroundId = button.dataset.bgId;
-          if (action === 'activate') activateBackground(backgroundId);
-          if (action === 'delete') deleteBackgroundItem(backgroundId);
-        });
+  function exportPng(scale = 3) {
+    if (!stage) return;
+    const dataUrl = stage.toDataURL({ pixelRatio: scale, mimeType: 'image/png' });
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = `id-card-${selectedEmployee.employee_id || selectedEmployee.key}.png`;
+    link.click();
+    setStatus(`PNG exported at ${scale}x resolution.`);
+  }
+
+  async function exportBatchZip() {
+    if (!parsedCsvRows.length) {
+      setBatchStatus('Load CSV first.', 'error');
+      return;
+    }
+    const zip = new JSZip();
+    setBatchStatus(`Rendering ${parsedCsvRows.length} cards...`);
+    const snapshot = captureLayerSnapshot();
+    const keepSelected = layerSelectEl.value;
+    const previousEmployee = selectedEmployee;
+    const previousQr = qrInputEl.value;
+    const previousBarcode = barcodeInputEl.value;
+    for (let i = 0; i < parsedCsvRows.length; i += 1) {
+      selectedEmployee = parsedCsvRows[i];
+      qrInputEl.value = selectedEmployee.employee_id || '';
+      barcodeInputEl.value = selectedEmployee.employee_id || '';
+      await drawCard(snapshot, keepSelected);
+      const base64 = stage.toDataURL({ pixelRatio: 3 }).split(',')[1];
+      const fileName = `${parsedCsvRows[i].employee_id || parsedCsvRows[i].key || `row-${i + 1}`}.png`;
+      zip.file(fileName, base64, { base64: true });
+    }
+    selectedEmployee = previousEmployee;
+    qrInputEl.value = previousQr;
+    barcodeInputEl.value = previousBarcode;
+    await drawCard(snapshot, keepSelected);
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'id-card-batch.zip';
+    link.click();
+    setBatchStatus(`Exported ZIP with ${parsedCsvRows.length} card(s).`);
+  }
+
+  function wireEvents() {
+    templateTypeEl.addEventListener('change', updateTemplateDimensions);
+    photoShapeEl.addEventListener('change', () => {
+      state.photoShape = photoShapeEl.value;
+      redrawKeepLayout();
+    });
+    employeeSelectEl.addEventListener('change', () => {
+      applyEmployee(allEmployees[Number(employeeSelectEl.value || 0)] || allEmployees[0]);
+    });
+
+    [layerXEl, layerYEl, layerScaleEl, layerRotateEl].forEach((input) => input.addEventListener('input', applyControlsToNode));
+    layerSelectEl.addEventListener('change', () => {
+      syncSelectedLayerControls();
+      rebuildLayerList();
+    });
+    document.getElementById('centerLayerBtn').addEventListener('click', () => {
+      const node = selectedNode();
+      if (!node) return;
+      const box = node.getClientRect({ relativeTo: layer });
+      const dx = (stage.width() / 2) - (box.x + box.width / 2);
+      const dy = (stage.height() / 2) - (box.y + box.height / 2);
+      node.x(node.x() + dx);
+      node.y(node.y() + dy);
+      layer.draw();
+      syncSelectedLayerControls();
+      rebuildLayerList();
+    });
+    document.getElementById('resetLayerBtn').addEventListener('click', () => {
+      const name = layerSelectEl.value;
+      const node = selectedNode();
+      const def = state.defaults[name];
+      if (!node || !def) return;
+      node.x(def.x); node.y(def.y); node.scaleX(def.scaleX); node.scaleY(def.scaleY); node.rotation(def.rotation);
+      layer.draw();
+      syncSelectedLayerControls();
+      rebuildLayerList();
+    });
+    document.getElementById('alignLeftBtn').addEventListener('click', () => {
+      const node = selectedNode();
+      if (!node) return;
+      const box = node.getClientRect({ relativeTo: layer });
+      node.x(node.x() - box.x);
+      layer.draw();
+      syncSelectedLayerControls();
+    });
+    document.getElementById('alignCenterBtn').addEventListener('click', () => {
+      const node = selectedNode();
+      if (!node) return;
+      const box = node.getClientRect({ relativeTo: layer });
+      node.x(node.x() + (stage.width() / 2 - (box.x + box.width / 2)));
+      layer.draw();
+      syncSelectedLayerControls();
+    });
+    document.getElementById('alignRightBtn').addEventListener('click', () => {
+      const node = selectedNode();
+      if (!node) return;
+      const box = node.getClientRect({ relativeTo: layer });
+      node.x(node.x() + (stage.width() - (box.x + box.width)));
+      layer.draw();
+      syncSelectedLayerControls();
+    });
+    document.getElementById('alignTopBtn').addEventListener('click', () => {
+      const node = selectedNode();
+      if (!node) return;
+      const box = node.getClientRect({ relativeTo: layer });
+      node.y(node.y() - box.y);
+      layer.draw();
+      syncSelectedLayerControls();
+    });
+    document.getElementById('alignMiddleBtn').addEventListener('click', () => {
+      const node = selectedNode();
+      if (!node) return;
+      const box = node.getClientRect({ relativeTo: layer });
+      node.y(node.y() + (stage.height() / 2 - (box.y + box.height / 2)));
+      layer.draw();
+      syncSelectedLayerControls();
+    });
+    document.getElementById('alignBottomBtn').addEventListener('click', () => {
+      const node = selectedNode();
+      if (!node) return;
+      const box = node.getClientRect({ relativeTo: layer });
+      node.y(node.y() + (stage.height() - (box.y + box.height)));
+      layer.draw();
+      syncSelectedLayerControls();
+    });
+
+    [bgColorEl, bgGradientEndEl, bgGradientAngleEl, bgImageOpacityEl].forEach((el) => el.addEventListener('input', redrawKeepLayout));
+    qrInputEl.addEventListener('change', redrawKeepLayout);
+    barcodeInputEl.addEventListener('change', redrawKeepLayout);
+    document.getElementById('toggleQrBtn').addEventListener('click', () => { state.visibility.qr = !state.visibility.qr; redrawKeepLayout(); });
+    document.getElementById('toggleBarcodeBtn').addEventListener('click', () => { state.visibility.barcode = !state.visibility.barcode; redrawKeepLayout(); });
+
+    showGuidesCheckEl.addEventListener('change', () => {
+      state.guideSettings.show = !!showGuidesCheckEl.checked;
+      drawGuides();
+    });
+    bleedPxEl.addEventListener('input', () => {
+      state.guideSettings.bleed = Number(bleedPxEl.value || 12);
+      drawGuides();
+    });
+    safePxEl.addEventListener('input', () => {
+      state.guideSettings.safe = Number(safePxEl.value || 30);
+      drawGuides();
+    });
+    snapCheckEl.addEventListener('change', () => {
+      state.guideSettings.snap = !!snapCheckEl.checked;
+    });
+
+    document.getElementById('saveDesignBtn').addEventListener('click', saveDesignLocal);
+    document.getElementById('loadDesignBtn').addEventListener('click', loadDesignLocal);
+    document.getElementById('exportPngBtn').addEventListener('click', () => exportPng(4));
+
+    wireFileLoader('uploadBackgroundBtn', bgInputEl, 'cardBg');
+    wireFileLoader('uploadLogoBtn', logoInputEl, 'logo');
+    wireFileLoader('uploadSignatureBtn', signInputEl, 'signature');
+
+    document.getElementById('previewCsvBtn').addEventListener('click', async () => {
+      if (!csvInputEl.files || !csvInputEl.files.length) {
+        setBatchStatus('Choose CSV file first.', 'error');
+        return;
       }
-      if (generateFreeBtn) {
-        generateFreeBtn.addEventListener('click', runFreeDesigner);
-      }
-      if (freePromptInput) {
-        freePromptInput.addEventListener('keydown', (event) => {
-          if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-            runFreeDesigner();
-          }
-        });
-      }
+      const text = await csvInputEl.files[0].text();
+      parsedCsvRows = parseCsvText(text);
+      setBatchStatus(parsedCsvRows.length ? `${parsedCsvRows.length} row(s) parsed.` : 'No valid rows found.', parsedCsvRows.length ? 'info' : 'error');
+    });
+    document.getElementById('exportBatchBtn').addEventListener('click', exportBatchZip);
 
-      myTemplatesList.addEventListener('click', (event) => {
-        const button = event.target.closest('button[data-action][data-id]');
-        if (!button) return;
-        const action = button.dataset.action;
-        const templateId = button.dataset.id;
-        if (action === 'apply') applySavedTemplate(templateId);
-        if (action === 'delete') deleteSavedTemplate(templateId);
-      });
+    document.getElementById('toggleLockBtn').addEventListener('click', () => {
+      const name = layerSelectEl.value;
+      const node = selectedNode();
+      if (!name || !node) return;
+      const meta = state.layerMeta[name] || { locked: false, hidden: false };
+      meta.locked = !meta.locked;
+      state.layerMeta[name] = meta;
+      node.draggable(!meta.locked);
+      rebuildLayerList();
+    });
+    document.getElementById('toggleHideBtn').addEventListener('click', () => {
+      const name = layerSelectEl.value;
+      const node = selectedNode();
+      if (!name || !node) return;
+      const meta = state.layerMeta[name] || { locked: false, hidden: false };
+      meta.hidden = !meta.hidden;
+      state.layerMeta[name] = meta;
+      node.visible(!meta.hidden);
+      layer.draw();
+      rebuildLayerList();
+    });
+    document.getElementById('moveUpBtn').addEventListener('click', () => {
+      const node = selectedNode();
+      if (!node) return;
+      node.moveUp();
+      layer.draw();
+      rebuildLayerSelect();
+      layerSelectEl.value = node.name();
+      rebuildLayerList();
+    });
+    document.getElementById('moveDownBtn').addEventListener('click', () => {
+      const node = selectedNode();
+      if (!node) return;
+      node.moveDown();
+      layer.draw();
+      rebuildLayerSelect();
+      layerSelectEl.value = node.name();
+      rebuildLayerList();
+    });
+  }
 
-      accentColor.addEventListener('input', () => {
-        root.style.setProperty('--accent', accentColor.value);
-        root.style.setProperty('--head-end', accentColor.value);
-        root.style.setProperty('--badge-bg', accentColor.value);
-      });
-      roleColor.addEventListener('input', () => root.style.setProperty('--role-color', roleColor.value));
-      photoRadius.addEventListener('input', () => root.style.setProperty('--photo-radius', `${photoRadius.value}px`));
-      infoGap.addEventListener('input', () => {
-        if (printIntent.value === 'balanced') setGap(infoGap.value);
-      });
-      nameSize.addEventListener('input', () => setNameSize(nameSize.value));
-      printIntent.addEventListener('change', applyIntent);
-      bgOpacity.addEventListener('input', () => setOpacity(bgOpacity.value));
-      showBackground.addEventListener('input', () => setOpacity(bgOpacity.value));
-      if (photoFitMode) photoFitMode.addEventListener('change', applyPhotoFitControls);
-      if (photoZoom) photoZoom.addEventListener('input', applyPhotoFitControls);
-      if (photoShiftX) photoShiftX.addEventListener('input', applyPhotoFitControls);
-      if (photoShiftY) photoShiftY.addEventListener('input', applyPhotoFitControls);
-      if (resetPhotoFitBtn) resetPhotoFitBtn.addEventListener('click', resetPhotoFitControls);
-      if (toggleGuidesBtn) toggleGuidesBtn.addEventListener('click', toggleGuides);
-      if (toggleSignatureBtn) toggleSignatureBtn.addEventListener('click', toggleSignatureVisibility);
+  async function init() {
+    populateEmployeeSelect();
+    state.templateType = templateTypeEl.value;
+    state.photoShape = photoShapeEl.value;
+    state.guideSettings.show = !!showGuidesCheckEl.checked;
+    state.guideSettings.bleed = Number(bleedPxEl.value || 12);
+    state.guideSettings.safe = Number(safePxEl.value || 30);
+    state.guideSettings.snap = !!snapCheckEl.checked;
+    await drawCard();
+    wireEvents();
+    setStatus('Designer ready. Drag layers or use dropdown controls.');
+  }
 
-      if (showSignature && signatureBlock) {
-        showSignature.addEventListener('input', () => {
-          signatureVisible = showSignature.checked;
-          signatureBlock.style.display = signatureVisible ? 'flex' : 'none';
-        });
-      }
-
-      setActiveMode('auto');
-      applyTheme(selectedTheme);
-      applyIntent();
-      setBackgroundPreview(initialBackgroundUrl);
-      applyPhotoFitControls();
-      refreshBackgroundFromServer();
-      loadSavedTemplates();
-
-      if (signatureBlock && showSignature) {
-        signatureBlock.style.display = showSignature.checked ? 'flex' : 'none';
-      }
-    })();
-  </script>
+  init();
+})();
+</script>
 </body>
 </html>

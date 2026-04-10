@@ -324,6 +324,17 @@ def normalize_foot_bg(value, fallback):
 def sanitize_print_template_config(config):
     if not isinstance(config, dict):
         return None
+    raw_transforms = config.get("field_transforms", {}) if isinstance(config.get("field_transforms", {}), dict) else {}
+    sanitized_transforms = {}
+    for field_id, value in raw_transforms.items():
+        field_key = str(field_id or "").strip()
+        if not field_key or not isinstance(value, dict):
+            continue
+        sanitized_transforms[field_key] = {
+            "x": clamp_int(value.get("x"), 0, -80, 80),
+            "y": clamp_int(value.get("y"), 0, -80, 80),
+            "scale": clamp_int(value.get("scale"), 100, 60, 160),
+        }
     return {
         "accent": normalize_hex_color(config.get("accent"), "#8b0000"),
         "head_end": normalize_hex_color(config.get("head_end"), "#5d0000"),
@@ -336,6 +347,7 @@ def sanitize_print_template_config(config):
         "foot": normalize_foot_bg(config.get("foot"), "rgba(255,248,239,0.92)"),
         "badge": normalize_hex_color(config.get("badge"), "#8b0000"),
         "photo": clamp_int(config.get("photo"), 106, 90, 130),
+        "field_transforms": sanitized_transforms,
     }
 
 
