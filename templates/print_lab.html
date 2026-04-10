@@ -502,9 +502,11 @@
     const requestedScale = selected === 'fit' ? fitScale : Math.min(fitScale, (Number(selected) || 55) / 100);
     const scale = Number.isFinite(requestedScale) && requestedScale > 0 ? requestedScale : 1;
     state.viewScale = scale;
-    stage.width(Math.round(cfg.w * scale));
-    stage.height(Math.round(cfg.h * scale));
+    stage.width(cfg.w);
+    stage.height(cfg.h);
     stage.scale({ x: scale, y: scale });
+    stageRoot.style.width = `${Math.round(cfg.w * scale)}px`;
+    stageRoot.style.height = `${Math.round(cfg.h * scale)}px`;
     stage.batchDraw();
   }
 
@@ -1017,8 +1019,12 @@
 
   function exportPng(scale = 3) {
     if (!stage) return;
-    const pixelRatio = Math.max(1, scale / (state.viewScale || 1));
-    const dataUrl = stage.toDataURL({ pixelRatio, mimeType: 'image/png' });
+    const keepScale = stage.scaleX();
+    stage.scale({ x: 1, y: 1 });
+    stage.batchDraw();
+    const dataUrl = stage.toDataURL({ pixelRatio: Math.max(1, scale), mimeType: 'image/png' });
+    stage.scale({ x: keepScale, y: keepScale });
+    stage.batchDraw();
     const link = document.createElement('a');
     link.href = dataUrl;
     link.download = `id-card-${selectedEmployee.employee_id || selectedEmployee.key}.png`;
@@ -1043,8 +1049,12 @@
       qrInputEl.value = selectedEmployee.employee_id || '';
       barcodeInputEl.value = selectedEmployee.employee_id || '';
       await drawCard(snapshot, keepSelected);
-      const pixelRatio = Math.max(1, 3 / (state.viewScale || 1));
-      const base64 = stage.toDataURL({ pixelRatio }).split(',')[1];
+      const keepScale = stage.scaleX();
+      stage.scale({ x: 1, y: 1 });
+      stage.batchDraw();
+      const base64 = stage.toDataURL({ pixelRatio: 3 }).split(',')[1];
+      stage.scale({ x: keepScale, y: keepScale });
+      stage.batchDraw();
       const fileName = `${parsedCsvRows[i].employee_id || parsedCsvRows[i].key || `row-${i + 1}`}.png`;
       zip.file(fileName, base64, { base64: true });
     }
