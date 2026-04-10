@@ -15,6 +15,17 @@
     --muted:#74685d;
     --line:#e4d7c7;
     --shadow:0 18px 40px rgba(63,24,8,0.08);
+    --accent:#8b0000;
+    --role-color:#9a6a18;
+    --bg-opacity:0.14;
+    --photo-radius:16px;
+    --info-gap:12px;
+    --name-size:28px;
+    --head-end:#5d0000;
+    --card-border:#d8c9bd;
+    --foot-bg:rgba(255,248,239,0.92);
+    --badge-bg:#8b0000;
+    --photo-width:108px;
   }
   * { box-sizing:border-box; margin:0; padding:0; }
   body {
@@ -22,12 +33,13 @@
     font-family:'Source Sans 3',sans-serif;
     background:
       radial-gradient(circle at top left, rgba(139,0,0,0.08), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(120,46,11,0.08), transparent 30%),
       linear-gradient(180deg, #fbf7f1 0%, var(--cream) 100%);
     color:var(--text);
     padding:28px 18px 48px;
     overflow-x:hidden;
   }
-  .shell { max-width:1220px; margin:0 auto; }
+  .shell { max-width:1280px; margin:0 auto; }
   .hero {
     background:linear-gradient(135deg, rgba(255,255,255,0.96), rgba(252,246,239,0.94));
     border:1px solid var(--line);
@@ -52,7 +64,7 @@
     color:var(--muted);
     font-size:17px;
     line-height:1.6;
-    max-width:780px;
+    max-width:820px;
   }
   .hero-actions {
     display:flex;
@@ -92,9 +104,9 @@
     color:var(--muted);
   }
   .studio-grid {
-    margin-top:20px;
+    margin-top:22px;
     display:grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 430px);
+    grid-template-columns:minmax(300px, 390px) minmax(0, 1fr);
     gap:18px;
     align-items:start;
   }
@@ -110,114 +122,355 @@
     font-size:28px;
     line-height:1.1;
   }
-  .panel-copy {
+  .panel-copy,
+  .panel p {
     margin-top:10px;
     color:var(--muted);
     line-height:1.6;
     font-size:15px;
   }
-  .workflow {
+  .builder-mode {
+    margin-top:16px;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    padding:10px;
+    border:1px solid var(--line);
+    border-radius:18px;
+    background:#fff;
+  }
+  .mode-btn {
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--text);
+    border-radius:12px;
+    padding:10px 12px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .mode-btn.active {
+    background:linear-gradient(135deg, var(--red), var(--red-deep));
+    color:#fff;
+    border-color:transparent;
+  }
+  .hint-note {
+    margin-top:10px;
+    padding:12px 14px;
+    border-radius:14px;
+    background:rgba(255,255,255,0.84);
+    border:1px dashed #d2c3b3;
+    color:#64574b;
+    font-size:13px;
+    line-height:1.55;
+  }
+  .free-designer {
+    margin-top:14px;
+    border:1px solid var(--line);
+    border-radius:16px;
+    background:#fff;
+    padding:12px;
+    display:grid;
+    gap:10px;
+  }
+  .free-designer h3 {
+    font-size:16px;
+    color:#3b2d21;
+  }
+  .free-designer p {
+    margin-top:0;
+    font-size:13px;
+    color:#756758;
+  }
+  .free-designer textarea {
+    width:100%;
+    min-height:72px;
+    resize:vertical;
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:10px;
+    font:inherit;
+    color:var(--text);
+    background:#fffdfb;
+  }
+  .free-designer-actions {
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:8px;
+    align-items:center;
+  }
+  .free-designer-status {
+    font-size:12px;
+    color:#7b6b5d;
+    min-height:16px;
+  }
+  .mode-panel {
+    margin-top:14px;
+    display:none;
+    gap:12px;
+  }
+  .mode-panel.active {
+    display:grid;
+  }
+  .theme-grid {
+    display:grid;
+    gap:10px;
+  }
+  .theme-card {
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:13px;
+    cursor:pointer;
+    text-align:left;
+  }
+  .theme-card.active {
+    border-color:#a44d3f;
+    box-shadow:0 8px 20px rgba(130,46,28,0.14);
+  }
+  .theme-card strong {
+    display:block;
+    font-size:16px;
+  }
+  .theme-card span {
+    display:block;
+    margin-top:3px;
+    color:var(--muted);
+    font-size:13px;
+    line-height:1.45;
+  }
+  .theme-swatch {
+    display:flex;
+    gap:6px;
+    margin-top:8px;
+  }
+  .theme-swatch i {
+    width:16px;
+    height:16px;
+    border-radius:999px;
+    display:block;
+    border:1px solid rgba(0,0,0,0.08);
+  }
+  .auto-actions {
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:10px;
+  }
+  .saved-templates {
+    margin-top:12px;
+    border:1px solid var(--line);
+    border-radius:16px;
+    background:#fff;
+    padding:12px;
+    display:grid;
+    gap:10px;
+  }
+  .saved-head {
+    font-weight:700;
+    color:#4f4136;
+    font-size:14px;
+  }
+  .saved-status {
+    font-size:12px;
+    color:#7b6b5d;
+    min-height:16px;
+  }
+  .saved-list {
+    display:grid;
+    gap:8px;
+  }
+  .saved-item {
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:10px;
+    display:grid;
+    gap:8px;
+  }
+  .saved-item-head {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+  }
+  .saved-item-name {
+    font-weight:700;
+    color:#2f2217;
+    font-size:14px;
+  }
+  .saved-item-date {
+    font-size:11px;
+    color:#877868;
+  }
+  .saved-item-actions {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+  .saved-btn {
+    border:1px solid var(--line);
+    background:#fff;
+    border-radius:10px;
+    padding:8px 10px;
+    font-size:12px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .saved-btn.apply {
+    border-color:#b03f2d;
+    color:#8b0000;
+  }
+  .saved-btn.delete {
+    border-color:#d3b8b3;
+    color:#862b1f;
+  }
+  .saved-empty {
+    color:#7d6f62;
+    font-size:13px;
+    border:1px dashed #d4c6b8;
+    border-radius:10px;
+    padding:10px;
+    background:#fff9f3;
+  }
+  .btn {
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--text);
+    border-radius:12px;
+    padding:10px 12px;
+    font-weight:700;
+    cursor:pointer;
+  }
+  .btn.primary {
+    background:var(--red);
+    color:#fff;
+    border-color:transparent;
+  }
+  .control-stack,
+  .summary-stack,
+  .checklist {
     margin-top:16px;
     display:grid;
     gap:12px;
   }
-  .workflow-step {
+  .control {
     display:grid;
-    grid-template-columns: 42px 1fr;
-    gap:12px;
-    align-items:start;
+    gap:7px;
+  }
+  .control label {
+    font-size:13px;
+    font-weight:700;
+    color:#5b4d42;
+  }
+  .control input,
+  .control select {
+    width:100%;
+  }
+  .control input[type="color"] {
+    height:46px;
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:6px;
+    background:#fff;
+  }
+  .control input[type="range"] {
+    accent-color:var(--red);
+  }
+  .control select {
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:11px 12px;
+    background:#fff;
+    color:var(--text);
+  }
+  .hint {
+    color:var(--muted);
+    font-size:12px;
+  }
+  .toggle {
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:12px 14px;
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:16px;
+    color:var(--text);
+  }
+  .toggle input {
+    width:16px;
+    height:16px;
+    accent-color:var(--red);
+  }
+  .summary-card,
+  .check-item {
     padding:14px;
     background:#fff;
     border:1px solid var(--line);
     border-radius:18px;
   }
-  .step-no {
-    width:42px;
-    height:42px;
-    border-radius:14px;
-    background:linear-gradient(135deg, var(--red), var(--red-deep));
-    color:#fff;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-weight:700;
-    font-size:15px;
-  }
-  .workflow-step strong {
+  .summary-card strong,
+  .check-item strong {
     display:block;
-    font-size:16px;
     color:var(--text);
+    font-size:16px;
   }
-  .workflow-step span {
+  .summary-card span,
+  .check-item span {
     display:block;
     margin-top:4px;
     color:var(--muted);
     line-height:1.55;
     font-size:14px;
   }
-  .tool-grid {
-    margin-top:16px;
+  .workspace {
     display:grid;
-    gap:12px;
+    gap:18px;
   }
-  .tool-card {
-    padding:16px;
-    border-radius:18px;
-    background:#fff;
-    border:1px solid var(--line);
+  .preview-panel {
     display:grid;
-    gap:10px;
+    grid-template-columns:minmax(0, 1fr) 260px;
+    gap:18px;
+    align-items:start;
   }
-  .tool-card .eyebrow {
-    color:var(--red);
-    text-transform:uppercase;
-    letter-spacing:1.3px;
-    font-weight:700;
-    font-size:11px;
-  }
-  .tool-card h3 {
-    font-size:22px;
-    line-height:1.1;
-    font-family:'Playfair Display',serif;
-  }
-  .tool-card p {
-    color:var(--muted);
-    line-height:1.55;
-    font-size:14px;
-  }
-  .tool-card a {
-    margin-top:4px;
-    display:inline-flex;
-    align-self:flex-start;
-    text-decoration:none;
-    background:var(--red);
-    color:#fff;
-    border-radius:12px;
-    padding:10px 14px;
-    font-weight:700;
-  }
-  .preview-shell {
+  .stage {
     min-height:100%;
-    display:grid;
-    gap:14px;
+    padding:18px;
+    border-radius:22px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.82), rgba(255,255,255,0.94)),
+      repeating-linear-gradient(0deg, transparent, transparent 23px, rgba(139,0,0,0.03) 23px, rgba(139,0,0,0.03) 24px),
+      repeating-linear-gradient(90deg, transparent, transparent 23px, rgba(139,0,0,0.03) 23px, rgba(139,0,0,0.03) 24px);
+    border:1px solid var(--line);
   }
   .preview-card {
-    width:min(100%, 390px);
+    width:min(100%, 470px);
     aspect-ratio:1.58 / 1;
     margin:0 auto;
     border-radius:24px;
     overflow:hidden;
-    border:1px solid #d8c9bd;
+    border:1px solid var(--card-border);
     box-shadow:0 22px 44px rgba(41,24,12,0.14);
-    background:linear-gradient(140deg, rgba(255,255,255,0.92), rgba(250,243,236,0.92)), {% if settings.get('background_url') %}url('{{ settings.get("background_url") }}'){% else %}linear-gradient(140deg, #f6efe8, #ede0cf){% endif %};
-    background-size:cover;
-    background-position:center;
+    position:relative;
+    background:linear-gradient(140deg, rgba(255,255,255,0.96), rgba(250,243,236,0.92));
     display:grid;
     grid-template-rows:auto 1fr auto;
   }
+  .preview-card::before {
+    content:"";
+    position:absolute;
+    inset:0;
+    background:{% if settings.get('background_url') %}url('{{ settings.get("background_url") }}'){% else %}linear-gradient(140deg, #f6efe8, #ede0cf){% endif %};
+    background-size:cover;
+    background-position:center;
+    opacity:var(--bg-opacity);
+    pointer-events:none;
+  }
+  .preview-card > * {
+    position:relative;
+    z-index:1;
+  }
   .preview-head {
-    padding:14px 16px 12px;
-    background:linear-gradient(90deg, rgba(139,0,0,0.96), rgba(89,0,0,0.88));
+    padding:16px 18px 12px;
+    background:linear-gradient(90deg, var(--accent), var(--head-end));
     color:#fff;
   }
   .preview-head .tiny {
@@ -229,17 +482,17 @@
   .preview-head .name {
     margin-top:4px;
     font-family:'Playfair Display',serif;
-    font-size:21px;
+    font-size:23px;
     line-height:1.08;
   }
   .preview-body {
     display:grid;
-    grid-template-columns:96px 1fr;
-    gap:12px;
-    padding:14px 16px;
+    grid-template-columns:var(--photo-width) 1fr;
+    gap:var(--info-gap);
+    padding:18px;
   }
   .preview-photo {
-    border-radius:14px;
+    border-radius:var(--photo-radius);
     overflow:hidden;
     background:#f7efe6;
     border:1px solid rgba(0,0,0,0.08);
@@ -247,7 +500,7 @@
     align-items:center;
     justify-content:center;
     color:var(--muted);
-    min-height:118px;
+    min-height:132px;
   }
   .preview-photo img {
     width:100%;
@@ -256,58 +509,105 @@
   }
   .preview-content h3 {
     color:var(--red);
-    font-size:22px;
+    font-size:var(--name-size);
     line-height:1.05;
   }
   .preview-role {
-    margin-top:4px;
-    color:#9a6a18;
+    margin-top:5px;
+    color:var(--role-color);
     font-weight:700;
-    font-size:14px;
+    font-size:15px;
   }
   .preview-meta {
-    margin-top:10px;
+    margin-top:12px;
     display:grid;
-    gap:6px;
-    font-size:13px;
+    gap:7px;
+    font-size:14px;
+  }
+  .preview-signature {
+    padding:0 18px 12px;
+    display:flex;
+    justify-content:flex-end;
+  }
+  .signature-box {
+    width:130px;
+    text-align:center;
+  }
+  .signature-box img {
+    max-width:100%;
+    max-height:38px;
+    object-fit:contain;
+    display:block;
+    margin:0 auto 4px;
+  }
+  .signature-line {
+    border-top:1px solid rgba(0,0,0,0.45);
+    margin-bottom:3px;
+  }
+  .signature-label {
+    font-size:11px;
+    color:var(--muted);
   }
   .preview-foot {
-    padding:10px 16px;
+    padding:12px 18px;
     display:flex;
     justify-content:space-between;
     gap:10px;
     align-items:center;
-    background:rgba(255,248,239,0.92);
+    background:var(--foot-bg);
     border-top:1px solid rgba(0,0,0,0.06);
-    font-size:12px;
+    font-size:13px;
   }
   .badge {
-    background:var(--red);
+    background:var(--badge-bg);
     color:#fff;
     border-radius:999px;
     padding:5px 10px;
-    font-size:11px;
+    font-size:12px;
     font-weight:700;
   }
-  .sheet-preview {
+  .preview-sidebar {
+    display:grid;
+    gap:12px;
+  }
+  .mini-card {
     padding:16px;
     border-radius:18px;
-    border:1px dashed #ccb9a6;
-    background:linear-gradient(180deg, #fff 0%, #fffaf4 100%);
+    border:1px solid var(--line);
+    background:#fff;
   }
-  .sheet-preview strong {
-    display:block;
+  .mini-card .eyebrow {
     color:var(--red);
-    margin-bottom:8px;
+    text-transform:uppercase;
+    letter-spacing:1.3px;
+    font-weight:700;
+    font-size:11px;
   }
-  .sheet-preview p {
+  .mini-card strong {
+    display:block;
+    margin-top:6px;
+    font-size:20px;
+    font-family:'Playfair Display',serif;
+  }
+  .mini-card p {
+    margin-top:8px;
     color:var(--muted);
     line-height:1.55;
     font-size:14px;
   }
-  @media (max-width: 980px) {
+  .mini-card a {
+    margin-top:12px;
+    display:inline-flex;
+    text-decoration:none;
+    background:var(--red);
+    color:#fff;
+    border-radius:12px;
+    padding:10px 14px;
+    font-weight:700;
+  }
+  @media (max-width: 1080px) {
     .studio-grid { grid-template-columns:1fr; }
-    h1 { font-size:34px; }
+    .preview-panel { grid-template-columns:1fr; }
   }
   @media (max-width: 640px) {
     body { padding:14px 10px 24px; }
@@ -321,16 +621,19 @@
     .studio-grid { margin-top:16px; gap:12px; }
     .panel { border-radius:18px; padding:16px 14px; }
     .panel h2 { font-size:22px; }
-    .workflow-step { grid-template-columns:38px 1fr; padding:12px; }
-    .step-no { width:38px; height:38px; border-radius:12px; }
-    .tool-card { border-radius:16px; padding:14px; }
-    .tool-card h3 { font-size:20px; }
-    .tool-card a { width:100%; justify-content:center; }
+    .builder-mode { grid-template-columns:1fr; }
+    .auto-actions { grid-template-columns:1fr; }
+    .free-designer-actions { grid-template-columns:1fr; }
+    .saved-item-actions { grid-template-columns:1fr; }
+    .stage { padding:12px; border-radius:18px; }
     .preview-card { width:100%; max-width:380px; border-radius:20px; }
-    .preview-head .name { font-size:19px; }
-    .preview-body { grid-template-columns:86px 1fr; gap:10px; padding:12px 14px; }
-    .preview-content h3 { font-size:20px; }
+    .preview-head { padding:14px 14px 10px; }
+    .preview-head .name { font-size:20px; }
+    .preview-body { grid-template-columns:88px 1fr; gap:10px; padding:14px; }
+    .preview-content h3 { font-size:22px; }
+    .preview-meta { font-size:13px; }
     .preview-foot { flex-direction:column; align-items:flex-start; gap:8px; }
+    .mini-card a { width:100%; justify-content:center; }
   }
 </style>
 </head>
@@ -340,7 +643,7 @@
       <div class="hero-top">
         <div>
           <h1>Print Studio</h1>
-          <p class="hero-copy">A production-focused workspace for selecting templates, refining layout behavior, and preparing print-ready ID card output. This replaces the idea-board feel with a more professional workflow built around reliable preview and final print control.</p>
+          <p class="hero-copy">Build cards like a modern print platform. Choose `Auto Design` for one-click style generation or switch to `Manual Design` for full control over spacing, color, and hierarchy.</p>
         </div>
         <div class="hero-actions">
           <a class="primary" href="/admin/print-cards?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Open Print Preview</a>
@@ -355,93 +658,653 @@
 
       <div class="studio-grid">
         <section class="panel">
-          <h2>Professional Workflow</h2>
-          <p class="panel-copy">Use a single, structured flow similar to commercial print platforms: choose the template style, review the live card output, confirm sheet layout, and print with confidence.</p>
+          <h2>Design Builder</h2>
+          <p class="panel-copy">Switch between automatic themes and manual editing based on how quickly you want to produce a print-safe design.</p>
 
-          <div class="workflow">
-            <div class="workflow-step">
-              <div class="step-no">1</div>
-              <div>
-                <strong>Select Template</strong>
-                <span>Choose the visual direction for the institute card, then keep the design stable for repeatable printing.</span>
+          <div class="builder-mode">
+            <button class="mode-btn active" id="modeAutoBtn" type="button">Auto Design</button>
+            <button class="mode-btn" id="modeManualBtn" type="button">Manual Design</button>
+          </div>
+          <div class="hint-note" id="modeHint">Auto mode applies complete presets instantly, then you can still fine-tune later in manual mode.</div>
+
+          <div class="mode-panel active" id="autoPanel">
+            <section class="free-designer">
+              <h3>Free Auto-Designer (No API)</h3>
+              <p>Type your design idea and this will generate a working template using smart rules from your prompt.</p>
+              <textarea id="freePromptInput" placeholder="Example: govt nursing card, maroon and gold, compact batch print, formal look"></textarea>
+              <div class="free-designer-actions">
+                <span class="free-designer-status" id="freeDesignerStatus">Prompt-based generation ready.</span>
+                <button class="btn primary" id="generateFreeBtn" type="button">Generate Free Design</button>
               </div>
+            </section>
+            <div class="theme-grid">
+              <button class="theme-card active" type="button" data-theme="student-classic" data-accent="#8b0000" data-end="#5d0000" data-role="#9a6a18" data-gap="12" data-radius="14" data-opacity="0.14" data-name="28" data-border="#d8c9bd" data-foot="rgba(255,248,239,0.92)" data-badge="#8b0000" data-photo="106">
+                <strong>Student Classic</strong>
+                <span>Standard college ID layout with balanced spacing for everyday batch printing.</span>
+                <span class="theme-swatch"><i style="background:#8b0000"></i><i style="background:#9a6a18"></i><i style="background:#eadcca"></i></span>
+              </button>
+              <button class="theme-card" type="button" data-theme="nursing-pro" data-accent="#8b1e3f" data-end="#5a1128" data-role="#b56f2a" data-gap="11" data-radius="10" data-opacity="0.13" data-name="27" data-border="#d5b8c2" data-foot="rgba(255,242,246,0.92)" data-badge="#8b1e3f" data-photo="102">
+                <strong>Nursing Pro</strong>
+                <span>Compact nursing institute template tuned for larger batches and tight data blocks.</span>
+                <span class="theme-swatch"><i style="background:#8b1e3f"></i><i style="background:#b56f2a"></i><i style="background:#f0dce4"></i></span>
+              </button>
+              <button class="theme-card" type="button" data-theme="staff-corporate" data-accent="#1e3f66" data-end="#132944" data-role="#4b89c5" data-gap="16" data-radius="18" data-opacity="0.17" data-name="29" data-border="#c7d5e3" data-foot="rgba(241,247,255,0.95)" data-badge="#1e3f66" data-photo="112">
+                <strong>Staff Corporate</strong>
+                <span>Professional employee card template with stronger hierarchy and premium spacing.</span>
+                <span class="theme-swatch"><i style="background:#1e3f66"></i><i style="background:#4b89c5"></i><i style="background:#d9e8f7"></i></span>
+              </button>
+              <button class="theme-card" type="button" data-theme="clinical-green" data-accent="#0f5c4d" data-end="#09362d" data-role="#1d7f6f" data-gap="14" data-radius="12" data-opacity="0.10" data-name="27" data-border="#bcdcd4" data-foot="rgba(241,255,251,0.94)" data-badge="#0f5c4d" data-photo="104">
+                <strong>Hospital Clinical</strong>
+                <span>Clean medical center template with low-noise background and clear contact fields.</span>
+                <span class="theme-swatch"><i style="background:#0f5c4d"></i><i style="background:#1d7f6f"></i><i style="background:#d8efe9"></i></span>
+              </button>
+              <button class="theme-card" type="button" data-theme="gov-secure" data-accent="#4f2a00" data-end="#2f1a00" data-role="#8e5b16" data-gap="10" data-radius="8" data-opacity="0.20" data-name="26" data-border="#d0bfac" data-foot="rgba(248,241,233,0.96)" data-badge="#4f2a00" data-photo="98">
+                <strong>Govt Secure</strong>
+                <span>Formal government-style format with tighter layout and high-trust visual tone.</span>
+                <span class="theme-swatch"><i style="background:#4f2a00"></i><i style="background:#8e5b16"></i><i style="background:#eadfce"></i></span>
+              </button>
+              <button class="theme-card" type="button" data-theme="visitor-pass" data-accent="#30363f" data-end="#14171d" data-role="#5a697f" data-gap="18" data-radius="20" data-opacity="0.06" data-name="30" data-border="#c9ced8" data-foot="rgba(244,247,252,0.96)" data-badge="#30363f" data-photo="116">
+                <strong>Visitor Pass</strong>
+                <span>Simple temporary-pass template with bigger name treatment and minimal texture.</span>
+                <span class="theme-swatch"><i style="background:#30363f"></i><i style="background:#5a697f"></i><i style="background:#e3e8f2"></i></span>
+              </button>
+              <button class="theme-card" type="button" data-theme="premium-academic" data-accent="#1b3764" data-end="#112543" data-role="#5f88d4" data-gap="16" data-radius="18" data-opacity="0.18" data-name="29" data-border="#c5d4eb" data-foot="rgba(238,245,255,0.95)" data-badge="#1b3764" data-photo="110">
+                <strong>Academic Premium</strong>
+                <span>University-grade template for lecturer cards, convocation, and formal identity sets.</span>
+                <span class="theme-swatch"><i style="background:#1b3764"></i><i style="background:#5f88d4"></i><i style="background:#dae5f6"></i></span>
+              </button>
             </div>
-            <div class="workflow-step">
-              <div class="step-no">2</div>
-              <div>
-                <strong>Customize Layout</strong>
-                <span>Adjust spacing, field positions, card rhythm, and visual treatment so the output stays professional and consistent.</span>
-              </div>
+            <div class="auto-actions">
+              <button class="btn primary" id="applyThemeBtn" type="button">Apply Selected Theme</button>
+              <button class="btn" id="shuffleThemeBtn" type="button">Surprise Me</button>
+              <button class="btn" id="saveTemplateBtn" type="button">Save Template</button>
             </div>
-            <div class="workflow-step">
-              <div class="step-no">3</div>
-              <div>
-                <strong>Review Print Sheet</strong>
-                <span>Check how multiple cards sit on the A4 page, confirm margins and density, then proceed to print-ready output.</span>
-              </div>
+            <div class="saved-templates">
+              <div class="saved-head">My Templates</div>
+              <div class="saved-status" id="templateStatus">Loading templates...</div>
+              <div class="saved-list" id="myTemplatesList"></div>
+              <div class="saved-empty" id="myTemplatesEmpty" style="display:none;">No saved templates yet. Apply any style, click Save Template, and it will appear here for this institute.</div>
             </div>
           </div>
 
-          <div class="tool-grid">
-            <article class="tool-card">
-              <div class="eyebrow">Template Source</div>
-              <h3>Canva Template Intake</h3>
-              <p>Best when your final background or branding is designed externally and then merged here with live records for production printing.</p>
-              <a href="/admin/print-lab/canva?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Open Template Intake</a>
-            </article>
-            <article class="tool-card">
-              <div class="eyebrow">Layout Controls</div>
-              <h3>In-App Layout Editor</h3>
-              <p>Use controlled spacing and positioning adjustments to stabilize the card design before using it for institute-level printing.</p>
-              <a href="/admin/print-lab/designer?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Open Layout Editor</a>
-            </article>
-            <article class="tool-card">
-              <div class="eyebrow">Style Validation</div>
-              <h3>Style Review Panel</h3>
-              <p>Test alternate color systems and hierarchy directions before locking the final print language for a professional output.</p>
-              <a href="/admin/print-lab/ai?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Open Style Review</a>
-            </article>
+          <div class="mode-panel" id="manualPanel">
+            <div class="control">
+              <label for="accentColor">Header Color</label>
+              <input id="accentColor" type="color" value="#8b0000">
+            </div>
+            <div class="control">
+              <label for="roleColor">Role Highlight Color</label>
+              <input id="roleColor" type="color" value="#9a6a18">
+            </div>
+            <div class="control">
+              <label for="bgOpacity">Background Strength</label>
+              <input id="bgOpacity" type="range" min="0" max="0.30" step="0.01" value="0.14">
+              <div class="hint" id="bgOpacityValue">14%</div>
+            </div>
+            <div class="control">
+              <label for="photoRadius">Photo Radius</label>
+              <input id="photoRadius" type="range" min="4" max="28" value="16">
+              <div class="hint">Use sharper corners for formal cards or softer corners for friendlier layouts.</div>
+            </div>
+            <div class="control">
+              <label for="infoGap">Photo to Content Gap</label>
+              <input id="infoGap" type="range" min="6" max="24" value="12">
+              <div class="hint">Increase the gap for premium spacing or tighten it for compact batch printing.</div>
+            </div>
+            <div class="control">
+              <label for="nameSize">Name Size</label>
+              <input id="nameSize" type="range" min="22" max="34" value="28">
+              <div class="hint" id="nameSizeValue">28 px</div>
+            </div>
+            <div class="control">
+              <label for="printIntent">Print Intent</label>
+              <select id="printIntent">
+                <option value="compact">Compact batch printing</option>
+                <option value="balanced" selected>Balanced readability</option>
+                <option value="premium">Premium single-card look</option>
+              </select>
+            </div>
+            <label class="toggle">
+              <input id="showBackground" type="checkbox" checked>
+              <span>Show institute background artwork</span>
+            </label>
+            <label class="toggle">
+              <input id="showSignature" type="checkbox" {% if settings.get('signature_url') %}checked{% endif %}>
+              <span>Show HOD signature block</span>
+            </label>
+          </div>
+
+          <div class="summary-stack">
+            <div class="summary-card">
+              <strong>Current Print Job</strong>
+              <span>{{ records|length }} record(s) loaded for {{ batch_id or 'preview mode' }}.</span>
+            </div>
+            <div class="summary-card">
+              <strong>Background Asset</strong>
+              <span>{% if settings.get('background_url') %}Institute background is available and applied to the live preview.{% else %}No background uploaded yet, so the preview uses the built-in neutral card surface.{% endif %}</span>
+            </div>
           </div>
         </section>
 
-        <aside class="preview-shell">
-          <div class="preview-card">
-            <div class="preview-head">
-              <div class="tiny">Live Print Card Preview</div>
-              <div class="name">{{ sample_record.get('institute_name') }}</div>
-            </div>
-            <div class="preview-body">
-              <div class="preview-photo">
-                {% if sample_record.get('photo_url') %}
-                <img src="{{ sample_record.get('photo_url') }}" alt="Preview photo">
-                {% else %}
-                <span>Photo</span>
+        <section class="workspace">
+          <div class="panel preview-panel">
+            <div class="stage">
+              <div class="preview-card">
+                <div class="preview-head">
+                  <div class="tiny">Live Print Studio Preview</div>
+                  <div class="name">{{ sample_record.get('institute_name') }}</div>
+                </div>
+                <div class="preview-body">
+                  <div class="preview-photo">
+                    {% if sample_record.get('photo_url') %}
+                    <img src="{{ sample_record.get('photo_url') }}" alt="Preview photo">
+                    {% else %}
+                    <span>Photo</span>
+                    {% endif %}
+                  </div>
+                  <div class="preview-content">
+                    <h3>{{ sample_record.get('name') }}</h3>
+                    <div class="preview-role">{{ sample_record.get('training_year') or sample_record.get('course') or sample_record.get('designation') or sample_record.get('department') }}</div>
+                    <div class="preview-meta">
+                      <div><strong>DOB:</strong> {{ sample_record.get('dob') or '-' }}</div>
+                      <div><strong>Contact:</strong> {{ sample_record.get('contact') or '-' }}</div>
+                      <div><strong>Batch:</strong> {{ sample_record.get('batch_session') or '-' }}</div>
+                      <div><strong>Valid:</strong> {{ sample_record.get('valid_upto') or '-' }}</div>
+                    </div>
+                  </div>
+                </div>
+                {% if settings.get('signature_url') %}
+                <div class="preview-signature" id="signatureBlock">
+                  <div class="signature-box">
+                    <img src="{{ settings.get('signature_url') }}" alt="Institute signature">
+                    <div class="signature-line"></div>
+                    <div class="signature-label">Head of Department</div>
+                  </div>
+                </div>
                 {% endif %}
-              </div>
-              <div class="preview-content">
-                <h3>{{ sample_record.get('name') }}</h3>
-                <div class="preview-role">{{ sample_record.get('training_year') or sample_record.get('course') or sample_record.get('designation') or sample_record.get('department') }}</div>
-                <div class="preview-meta">
-                  <div><strong>DOB:</strong> {{ sample_record.get('dob') or '-' }}</div>
-                  <div><strong>Contact:</strong> {{ sample_record.get('contact') or '-' }}</div>
-                  <div><strong>Batch:</strong> {{ sample_record.get('batch_session') or '-' }}</div>
-                  <div><strong>Valid:</strong> {{ sample_record.get('valid_upto') or '-' }}</div>
+                <div class="preview-foot">
+                  <span>{{ sample_record.get('serial_no') }}</span>
+                  <span class="badge">{{ (sample_record.get('profile_type') or 'student').upper() }}</span>
                 </div>
               </div>
             </div>
-            <div class="preview-foot">
-              <span>{{ sample_record.get('serial_no') }}</span>
-              <span class="badge">{{ (sample_record.get('profile_type') or 'student').upper() }}</span>
-            </div>
+
+            <aside class="preview-sidebar">
+              <div class="mini-card">
+                <div class="eyebrow">Next Step</div>
+                <strong>Open A4 Sheet</strong>
+                <p>Once the card feels right, continue to print preview for sheet density and final output.</p>
+                <a href="/admin/print-cards?institute={{ institute|urlencode }}&batch_id={{ batch_id|urlencode }}">Go To Print Preview</a>
+              </div>
+              <div class="mini-card">
+                <div class="eyebrow">Workflow</div>
+                <strong>Auto or Manual</strong>
+                <p>Start with one-click theme generation, then switch to manual controls for precision tuning before batch print.</p>
+              </div>
+            </aside>
           </div>
 
-          <div class="sheet-preview">
-            <strong>A4 Output Focus</strong>
-            <p>Use this studio as the preparation layer before opening the full print sheet. The goal is not concept exploration alone, but a reliable institute template that can be printed repeatedly with correct spacing, density, and hierarchy.</p>
+          <div class="panel">
+            <h2>Print Readiness</h2>
+            <p class="panel-copy">Confirm readability, photo crop, and background balance here before opening the A4 production sheet.</p>
+            <div class="checklist">
+              <div class="check-item">
+                <strong>Text Hierarchy</strong>
+                <span>Name, role, and key fields should remain readable when reduced to print size.</span>
+              </div>
+              <div class="check-item">
+                <strong>Asset Clarity</strong>
+                <span>Background image and signature should support the card instead of competing with personal details.</span>
+              </div>
+              <div class="check-item">
+                <strong>Batch Safety</strong>
+                <span>Validate style once in this studio, then print the full batch using the dedicated A4 page.</span>
+              </div>
+            </div>
           </div>
-        </aside>
+        </section>
       </div>
     </section>
   </main>
+
+  <script>
+    (function () {
+      const currentInstitute = {{ (institute or sample_record.get('institute_name') or '')|tojson }};
+      const root = document.documentElement;
+      const modeAutoBtn = document.getElementById('modeAutoBtn');
+      const modeManualBtn = document.getElementById('modeManualBtn');
+      const modeHint = document.getElementById('modeHint');
+      const autoPanel = document.getElementById('autoPanel');
+      const manualPanel = document.getElementById('manualPanel');
+      const themeCards = Array.from(document.querySelectorAll('.theme-card'));
+      const applyThemeBtn = document.getElementById('applyThemeBtn');
+      const shuffleThemeBtn = document.getElementById('shuffleThemeBtn');
+      const saveTemplateBtn = document.getElementById('saveTemplateBtn');
+      const freePromptInput = document.getElementById('freePromptInput');
+      const generateFreeBtn = document.getElementById('generateFreeBtn');
+      const freeDesignerStatus = document.getElementById('freeDesignerStatus');
+      const myTemplatesList = document.getElementById('myTemplatesList');
+      const myTemplatesEmpty = document.getElementById('myTemplatesEmpty');
+      const templateStatus = document.getElementById('templateStatus');
+      const accentColor = document.getElementById('accentColor');
+      const roleColor = document.getElementById('roleColor');
+      const bgOpacity = document.getElementById('bgOpacity');
+      const bgOpacityValue = document.getElementById('bgOpacityValue');
+      const photoRadius = document.getElementById('photoRadius');
+      const infoGap = document.getElementById('infoGap');
+      const nameSize = document.getElementById('nameSize');
+      const nameSizeValue = document.getElementById('nameSizeValue');
+      const printIntent = document.getElementById('printIntent');
+      const showBackground = document.getElementById('showBackground');
+      const showSignature = document.getElementById('showSignature');
+      const signatureBlock = document.getElementById('signatureBlock');
+
+      let selectedTheme = themeCards[0] || null;
+      let savedTemplates = [];
+
+      function setActiveMode(mode) {
+        const auto = mode === 'auto';
+        modeAutoBtn.classList.toggle('active', auto);
+        modeManualBtn.classList.toggle('active', !auto);
+        autoPanel.classList.toggle('active', auto);
+        manualPanel.classList.toggle('active', !auto);
+        modeHint.textContent = auto
+          ? 'Auto mode applies complete presets instantly, then you can still fine-tune later in manual mode.'
+          : 'Manual mode gives direct control for every detail of your print layout.';
+      }
+
+      function setGap(value) {
+        root.style.setProperty('--info-gap', `${value}px`);
+      }
+
+      function setNameSize(value) {
+        root.style.setProperty('--name-size', `${value}px`);
+        if (nameSizeValue) nameSizeValue.textContent = `${value} px`;
+      }
+
+      function setOpacity(value) {
+        const normalized = Number(value);
+        const safeValue = Number.isFinite(normalized) ? normalized : 0.14;
+        const effective = showBackground && showBackground.checked ? safeValue : 0;
+        root.style.setProperty('--bg-opacity', effective);
+        if (bgOpacityValue) {
+          bgOpacityValue.textContent = `${Math.round(safeValue * 100)}%`;
+        }
+      }
+
+      function applyIntent() {
+        const mode = printIntent.value;
+        if (mode === 'compact') {
+          setGap(8);
+        } else if (mode === 'premium') {
+          setGap(18);
+        } else {
+          setGap(infoGap.value);
+        }
+      }
+
+      function toNumber(value, fallback) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+      }
+
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function setTemplateStatus(text, isError) {
+        templateStatus.textContent = text || '';
+        templateStatus.style.color = isError ? '#9f2b1f' : '#7b6b5d';
+      }
+
+      function extractThemeConfig(card) {
+        return {
+          accent: card.dataset.accent || '#8b0000',
+          head_end: card.dataset.end || '#5d0000',
+          role: card.dataset.role || '#9a6a18',
+          gap: toNumber(card.dataset.gap, 12),
+          radius: toNumber(card.dataset.radius, 16),
+          opacity: toNumber(card.dataset.opacity, 0.14),
+          name: toNumber(card.dataset.name, 28),
+          border: card.dataset.border || '#d8c9bd',
+          foot: card.dataset.foot || 'rgba(255,248,239,0.92)',
+          badge: card.dataset.badge || (card.dataset.accent || '#8b0000'),
+          photo: toNumber(card.dataset.photo, 106),
+        };
+      }
+
+      function setFreeDesignerStatus(text, isError) {
+        if (!freeDesignerStatus) return;
+        freeDesignerStatus.textContent = text || '';
+        freeDesignerStatus.style.color = isError ? '#9f2b1f' : '#7b6b5d';
+      }
+
+      function containsAny(text, keywords) {
+        return keywords.some((keyword) => text.includes(keyword));
+      }
+
+      function pickBaseTemplateFromPrompt(prompt) {
+        const text = (prompt || '').toLowerCase();
+        if (containsAny(text, ['visitor', 'temporary', 'temp pass', 'gate pass'])) return 'visitor-pass';
+        if (containsAny(text, ['government', 'govt', 'official', 'secure'])) return 'gov-secure';
+        if (containsAny(text, ['staff', 'employee', 'corporate', 'office'])) return 'staff-corporate';
+        if (containsAny(text, ['nursing', 'anm', 'gnm'])) return 'nursing-pro';
+        if (containsAny(text, ['hospital', 'clinical', 'clinic', 'medical center'])) return 'clinical-green';
+        if (containsAny(text, ['academic', 'university', 'college', 'lecturer', 'faculty'])) return 'premium-academic';
+        return 'student-classic';
+      }
+
+      function findThemeById(themeId) {
+        return themeCards.find((card) => card.dataset.theme === themeId) || null;
+      }
+
+      function applyPromptColorOverrides(text, config) {
+        const palette = [
+          { keys: ['maroon', 'red', 'burgundy'], accent: '#8b0000', end: '#5d0000', role: '#9a6a18', border: '#d8c9bd', foot: 'rgba(255,248,239,0.92)' },
+          { keys: ['blue', 'navy'], accent: '#1b3764', end: '#112543', role: '#5f88d4', border: '#c5d4eb', foot: 'rgba(238,245,255,0.95)' },
+          { keys: ['green', 'teal', 'clinical'], accent: '#0f5c4d', end: '#09362d', role: '#1d7f6f', border: '#bcdcd4', foot: 'rgba(241,255,251,0.94)' },
+          { keys: ['grey', 'gray', 'black', 'neutral'], accent: '#30363f', end: '#14171d', role: '#5a697f', border: '#c9ced8', foot: 'rgba(244,247,252,0.96)' },
+          { keys: ['brown', 'earth', 'khaki'], accent: '#4f2a00', end: '#2f1a00', role: '#8e5b16', border: '#d0bfac', foot: 'rgba(248,241,233,0.96)' },
+        ];
+        const match = palette.find((item) => containsAny(text, item.keys));
+        if (!match) return;
+        config.accent = match.accent;
+        config.head_end = match.end;
+        config.role = match.role;
+        config.border = match.border;
+        config.foot = match.foot;
+        config.badge = match.accent;
+      }
+
+      function applyPromptLayoutOverrides(text, config) {
+        if (containsAny(text, ['compact', 'batch', 'dense'])) {
+          config.gap = 10;
+          config.photo = 100;
+          config.name = Math.max(24, config.name - 2);
+          config.radius = Math.min(config.radius, 12);
+        }
+        if (containsAny(text, ['premium', 'spacious', 'elegant', 'luxury'])) {
+          config.gap = 17;
+          config.photo = 114;
+          config.name = Math.min(33, config.name + 2);
+          config.radius = Math.max(config.radius, 18);
+        }
+        if (containsAny(text, ['minimal', 'clean', 'simple'])) {
+          config.opacity = 0.08;
+        }
+        if (containsAny(text, ['bold', 'strong', 'heavy'])) {
+          config.opacity = Math.min(0.22, config.opacity + 0.05);
+          config.name = Math.min(34, config.name + 1);
+        }
+        if (containsAny(text, ['soft', 'light'])) {
+          config.opacity = Math.max(0.05, config.opacity - 0.04);
+          config.radius = Math.min(24, config.radius + 3);
+        }
+      }
+
+      function generateTemplateConfigFromPrompt(prompt) {
+        const text = (prompt || '').trim().toLowerCase();
+        const themeId = pickBaseTemplateFromPrompt(text);
+        const baseTheme = findThemeById(themeId) || themeCards[0];
+        const config = extractThemeConfig(baseTheme);
+        applyPromptColorOverrides(text, config);
+        applyPromptLayoutOverrides(text, config);
+        config.gap = clamp(toNumber(config.gap, 12), 6, 24);
+        config.radius = clamp(toNumber(config.radius, 14), 4, 28);
+        config.opacity = clamp(toNumber(config.opacity, 0.14), 0, 0.30);
+        config.name = clamp(toNumber(config.name, 28), 22, 34);
+        config.photo = clamp(toNumber(config.photo, 106), 90, 130);
+        return { config, themeId };
+      }
+
+      function runFreeDesigner() {
+        const prompt = (freePromptInput && freePromptInput.value) ? freePromptInput.value.trim() : '';
+        if (!prompt) {
+          setFreeDesignerStatus('Enter a prompt first, then click Generate Free Design.', true);
+          return;
+        }
+        const result = generateTemplateConfigFromPrompt(prompt);
+        themeCards.forEach((card) => card.classList.toggle('active', card.dataset.theme === result.themeId));
+        selectedTheme = findThemeById(result.themeId);
+        applyTemplateConfig(result.config);
+        setActiveMode('manual');
+        setFreeDesignerStatus(`Generated from prompt using "${result.themeId.replace('-', ' ')}" template base.`);
+      }
+
+      function applyTemplateConfig(config) {
+        const accent = config.accent || '#8b0000';
+        const headEnd = config.head_end || accent || '#5d0000';
+        const role = config.role || '#9a6a18';
+        const gap = clamp(toNumber(config.gap, 12), 6, 24);
+        const radius = clamp(toNumber(config.radius, 14), 4, 28);
+        const opacity = clamp(toNumber(config.opacity, 0.14), 0, 0.30);
+        const name = clamp(toNumber(config.name, 28), 22, 34);
+        const border = config.border || '#d8c9bd';
+        const foot = config.foot || 'rgba(255,248,239,0.92)';
+        const badge = config.badge || accent;
+        const photo = clamp(toNumber(config.photo, 106), 90, 130);
+
+        root.style.setProperty('--accent', accent);
+        root.style.setProperty('--head-end', headEnd);
+        root.style.setProperty('--role-color', role);
+        root.style.setProperty('--card-border', border);
+        root.style.setProperty('--foot-bg', foot);
+        root.style.setProperty('--badge-bg', badge);
+        root.style.setProperty('--photo-width', `${photo}px`);
+        root.style.setProperty('--photo-radius', `${radius}px`);
+        setGap(gap);
+        setNameSize(name);
+        setOpacity(opacity);
+
+        accentColor.value = accent;
+        roleColor.value = role;
+        infoGap.value = String(gap);
+        photoRadius.value = String(radius);
+        bgOpacity.value = String(opacity);
+        nameSize.value = String(name);
+      }
+
+      function getCurrentTemplateConfig() {
+        const styles = getComputedStyle(root);
+        return {
+          accent: styles.getPropertyValue('--accent').trim() || '#8b0000',
+          head_end: styles.getPropertyValue('--head-end').trim() || '#5d0000',
+          role: styles.getPropertyValue('--role-color').trim() || '#9a6a18',
+          gap: clamp(parseInt(styles.getPropertyValue('--info-gap'), 10) || 12, 6, 24),
+          radius: clamp(parseInt(styles.getPropertyValue('--photo-radius'), 10) || 14, 4, 28),
+          opacity: clamp(parseFloat(styles.getPropertyValue('--bg-opacity')) || 0.14, 0, 0.30),
+          name: clamp(parseInt(styles.getPropertyValue('--name-size'), 10) || 28, 22, 34),
+          border: styles.getPropertyValue('--card-border').trim() || '#d8c9bd',
+          foot: styles.getPropertyValue('--foot-bg').trim() || 'rgba(255,248,239,0.92)',
+          badge: styles.getPropertyValue('--badge-bg').trim() || '#8b0000',
+          photo: clamp(parseInt(styles.getPropertyValue('--photo-width'), 10) || 106, 90, 130),
+        };
+      }
+
+      function applyTheme(card) {
+        if (!card) return;
+        selectedTheme = card;
+        themeCards.forEach((item) => item.classList.toggle('active', item === card));
+        applyTemplateConfig(extractThemeConfig(card));
+      }
+
+      function renderSavedTemplates() {
+        if (!savedTemplates.length) {
+          myTemplatesList.innerHTML = '';
+          myTemplatesEmpty.style.display = 'block';
+          return;
+        }
+        myTemplatesEmpty.style.display = 'none';
+        myTemplatesList.innerHTML = savedTemplates.map((template) => `
+          <article class="saved-item">
+            <div class="saved-item-head">
+              <span class="saved-item-name">${escapeHtml(template.name)}</span>
+              <span class="saved-item-date">${escapeHtml(template.updated_at || template.created_at || '')}</span>
+            </div>
+            <div class="saved-item-actions">
+              <button class="saved-btn apply" type="button" data-action="apply" data-id="${escapeHtml(template.id)}">Apply</button>
+              <button class="saved-btn delete" type="button" data-action="delete" data-id="${escapeHtml(template.id)}">Delete</button>
+            </div>
+          </article>
+        `).join('');
+      }
+
+      async function loadSavedTemplates() {
+        if (!currentInstitute) {
+          setTemplateStatus('Select an institute first to use My Templates.', true);
+          myTemplatesList.innerHTML = '';
+          myTemplatesEmpty.style.display = 'block';
+          return;
+        }
+        try {
+          const res = await fetch(`/api/print-templates?institute=${encodeURIComponent(currentInstitute)}`);
+          const data = await res.json();
+          if (!res.ok) throw new Error((data && data.error) || 'Unable to load templates');
+          savedTemplates = Array.isArray(data.templates) ? data.templates : [];
+          renderSavedTemplates();
+          setTemplateStatus(savedTemplates.length ? `Loaded ${savedTemplates.length} template(s).` : 'No templates saved yet.');
+        } catch (error) {
+          savedTemplates = [];
+          renderSavedTemplates();
+          setTemplateStatus(error.message || 'Unable to load templates.', true);
+        }
+      }
+
+      async function saveCurrentTemplate() {
+        if (!currentInstitute) {
+          setTemplateStatus('Institute is required to save templates.', true);
+          return;
+        }
+        const defaultName = `Template ${new Date().toLocaleTimeString()}`;
+        const name = (window.prompt('Template name', defaultName) || '').trim();
+        if (!name) return;
+        const payload = {
+          name,
+          config: getCurrentTemplateConfig(),
+        };
+        try {
+          setTemplateStatus('Saving template...');
+          const res = await fetch(`/api/print-templates?institute=${encodeURIComponent(currentInstitute)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error((data && data.error) || 'Unable to save template');
+          savedTemplates = Array.isArray(data.templates) ? data.templates : [];
+          renderSavedTemplates();
+          setTemplateStatus(`Saved "${name}".`);
+          setActiveMode('auto');
+        } catch (error) {
+          setTemplateStatus(error.message || 'Unable to save template.', true);
+        }
+      }
+
+      async function deleteSavedTemplate(templateId) {
+        const item = savedTemplates.find((template) => template.id === templateId);
+        if (!item) return;
+        if (!window.confirm(`Delete template "${item.name}"?`)) return;
+        try {
+          setTemplateStatus(`Deleting "${item.name}"...`);
+          const res = await fetch(`/api/print-templates/${encodeURIComponent(templateId)}?institute=${encodeURIComponent(currentInstitute)}`, {
+            method: 'DELETE',
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error((data && data.error) || 'Unable to delete template');
+          savedTemplates = Array.isArray(data.templates) ? data.templates : [];
+          renderSavedTemplates();
+          setTemplateStatus(`Deleted "${item.name}".`);
+        } catch (error) {
+          setTemplateStatus(error.message || 'Unable to delete template.', true);
+        }
+      }
+
+      function applySavedTemplate(templateId) {
+        const item = savedTemplates.find((template) => template.id === templateId);
+        if (!item || !item.config) return;
+        themeCards.forEach((card) => card.classList.remove('active'));
+        selectedTheme = null;
+        applyTemplateConfig(item.config);
+        setActiveMode('manual');
+        setTemplateStatus(`Applied "${item.name}".`);
+      }
+
+      modeAutoBtn.addEventListener('click', () => setActiveMode('auto'));
+      modeManualBtn.addEventListener('click', () => setActiveMode('manual'));
+
+      themeCards.forEach((card) => {
+        card.addEventListener('click', () => {
+          selectedTheme = card;
+          themeCards.forEach((item) => item.classList.toggle('active', item === card));
+        });
+      });
+
+      applyThemeBtn.addEventListener('click', () => applyTheme(selectedTheme));
+      shuffleThemeBtn.addEventListener('click', () => {
+        if (!themeCards.length) return;
+        const randomCard = themeCards[Math.floor(Math.random() * themeCards.length)];
+        applyTheme(randomCard);
+      });
+      saveTemplateBtn.addEventListener('click', saveCurrentTemplate);
+      if (generateFreeBtn) {
+        generateFreeBtn.addEventListener('click', runFreeDesigner);
+      }
+      if (freePromptInput) {
+        freePromptInput.addEventListener('keydown', (event) => {
+          if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+            runFreeDesigner();
+          }
+        });
+      }
+
+      myTemplatesList.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-action][data-id]');
+        if (!button) return;
+        const action = button.dataset.action;
+        const templateId = button.dataset.id;
+        if (action === 'apply') applySavedTemplate(templateId);
+        if (action === 'delete') deleteSavedTemplate(templateId);
+      });
+
+      accentColor.addEventListener('input', () => {
+        root.style.setProperty('--accent', accentColor.value);
+        root.style.setProperty('--head-end', accentColor.value);
+        root.style.setProperty('--badge-bg', accentColor.value);
+      });
+      roleColor.addEventListener('input', () => root.style.setProperty('--role-color', roleColor.value));
+      photoRadius.addEventListener('input', () => root.style.setProperty('--photo-radius', `${photoRadius.value}px`));
+      infoGap.addEventListener('input', () => {
+        if (printIntent.value === 'balanced') setGap(infoGap.value);
+      });
+      nameSize.addEventListener('input', () => setNameSize(nameSize.value));
+      printIntent.addEventListener('change', applyIntent);
+      bgOpacity.addEventListener('input', () => setOpacity(bgOpacity.value));
+      showBackground.addEventListener('input', () => setOpacity(bgOpacity.value));
+
+      if (showSignature && signatureBlock) {
+        showSignature.addEventListener('input', () => {
+          signatureBlock.style.display = showSignature.checked ? 'flex' : 'none';
+        });
+      }
+
+      setActiveMode('auto');
+      applyTheme(selectedTheme);
+      applyIntent();
+      loadSavedTemplates();
+
+      if (signatureBlock && showSignature) {
+        signatureBlock.style.display = showSignature.checked ? 'flex' : 'none';
+      }
+    })();
+  </script>
 </body>
 </html>

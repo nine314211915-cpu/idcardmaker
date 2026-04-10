@@ -32,6 +32,7 @@ app.config["SUPABASE_URL"] = os.environ.get("SUPABASE_URL", "").strip()
 app.config["SUPABASE_SERVICE_ROLE_KEY"] = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 app.config["SUPABASE_PHOTOS_BUCKET"] = os.environ.get("SUPABASE_PHOTOS_BUCKET", "id-card-photos").strip() or "id-card-photos"
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "medical-id-card-secret")
+HEX_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 for bundled_dir, runtime_dir in [
     (os.path.join(BASE_DIR, "static", "uploads"), UPLOAD_DIR),
@@ -65,6 +66,7 @@ def default_institute_settings(institute=None):
         "certificate_background_drive_id": "",
         "signature_url": "",
         "signature_drive_id": "",
+        "print_templates": [],
     }
 
 
@@ -279,6 +281,82 @@ def save_settings(settings, institute):
         payload.update(settings)
     payload["institute_name"] = institute
     save_json_store(make_storage_path("settings", institute), make_storage_filename("settings", institute), payload)
+
+
+def clamp_int(value, fallback, minimum, maximum):
+    try:
+        parsed = int(float(value))
+    except Exception:
+        return fallback
+    return max(minimum, min(maximum, parsed))
+
+
+def clamp_float(value, fallback, minimum, maximum):
+    try:
+        parsed = float(value)
+    except Exception:
+        return fallback
+    return max(minimum, min(maximum, parsed))
+
+
+def normalize_hex_color(value, fallback):
+    color = str(value or "").strip()
+    if HEX_COLOR_PATTERN.match(color):
+        return color.lower()
+    return fallback
+
+
+def normalize_foot_bg(value, fallback):
+    text = str(value or "").strip()
+    if not text:
+        return fallback
+    if len(text) > 80:
+        return fallback
+    if text.lower().startswith("rgba(") or text.lower().startswith("rgb("):
+        return text
+    return fallback
+
+
+def sanitize_print_template_config(config):
+    if not isinstance(config, dict):
+        return None
+    return {
+        "accent": normalize_hex_color(config.get("accent"), "#8b0000"),
+        "head_end": normalize_hex_color(config.get("head_end"), "#5d0000"),
+        "role": normalize_hex_color(config.get("role"), "#9a6a18"),
+        "gap": clamp_int(config.get("gap"), 12, 6, 24),
+        "radius": clamp_int(config.get("radius"), 14, 4, 28),
+        "opacity": round(clamp_float(config.get("opacity"), 0.14, 0, 0.30), 2),
+        "name": clamp_int(config.get("name"), 28, 22, 34),
+        "border": normalize_hex_color(config.get("border"), "#d8c9bd"),
+        "foot": normalize_foot_bg(config.get("foot"), "rgba(255,248,239,0.92)"),
+        "badge": normalize_hex_color(config.get("badge"), "#8b0000"),
+        "photo": clamp_int(config.get("photo"), 106, 90, 130),
+    }
+
+
+def sanitize_print_templates_list(items):
+    if not isinstance(items, list):
+        return []
+    sanitized = []
+    seen_ids = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        template_id = str(item.get("id") or "").strip()
+        name = str(item.get("name") or "").strip()
+        config = sanitize_print_template_config(item.get("config"))
+        if not template_id or not name or not config or template_id in seen_ids:
+            continue
+        seen_ids.add(template_id)
+        sanitized.append({
+            "id": template_id,
+            "name": name[:80],
+            "config": config,
+            "created_at": str(item.get("created_at") or ""),
+            "updated_at": str(item.get("updated_at") or ""),
+        })
+    return sanitized[:60]
 
 
 def is_supabase_enabled():
@@ -2084,24 +2162,6 @@ def admin_print_lab():
     return render_template("print_lab.html", **build_print_preview_context())
 
 
-@app.route("/admin/print-lab/canva")
-@admin_required
-def admin_print_lab_canva():
-    return render_template("print_lab_canva.html", **build_print_preview_context())
-
-
-@app.route("/admin/print-lab/designer")
-@admin_required
-def admin_print_lab_designer():
-    return render_template("print_lab_designer.html", **build_print_preview_context())
-
-
-@app.route("/admin/print-lab/ai")
-@admin_required
-def admin_print_lab_ai():
-    return render_template("print_lab_ai.html", **build_print_preview_context())
-
-
 @app.route("/admin/login", methods=["POST"])
 def admin_login():
     password = request.form.get("password", "")
@@ -2136,6 +2196,63 @@ def get_certificate_settings():
         "background_url": settings.get("certificate_background_url", ""),
         "institute": institute
     })
+
+
+@app.route("/api/print-templates", methods=["GET", "POST"])
+@admin_required
+def print_templates_api():
+    institute = canonicalize_institute_name(request.args.get("institute"))
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+
+    settings = load_settings(institute)
+    templates = sanitize_print_templates_list(settings.get("print_templates", []))
+    if templates != settings.get("print_templates", []):
+        settings["print_templates"] = templates
+        save_settings(settings, institute)
+
+    if request.method == "GET":
+        return jsonify({"templates": templates, "institute": institute})
+
+    data = request.json or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "Template name is required"}), 400
+    config = sanitize_print_template_config(data.get("config"))
+    if not config:
+        return jsonify({"error": "Template config is required"}), 400
+
+    template_id = "tpl-" + datetime.now().strftime("%Y%m%d%H%M%S") + "-" + "".join(
+        random.choices(string.ascii_lowercase + string.digits, k=4)
+    )
+    now_text = current_timestamp_display()
+    template = {
+        "id": template_id,
+        "name": name[:80],
+        "config": config,
+        "created_at": now_text,
+        "updated_at": now_text,
+    }
+    templates.insert(0, template)
+    settings["print_templates"] = templates[:60]
+    save_settings(settings, institute)
+    return jsonify({"status": "saved", "template": template, "templates": settings["print_templates"], "institute": institute})
+
+
+@app.route("/api/print-templates/<template_id>", methods=["DELETE"])
+@admin_required
+def delete_print_template(template_id):
+    institute = canonicalize_institute_name(request.args.get("institute"))
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    settings = load_settings(institute)
+    templates = sanitize_print_templates_list(settings.get("print_templates", []))
+    filtered = [template for template in templates if template.get("id") != template_id]
+    if len(filtered) == len(templates):
+        return jsonify({"error": "Template not found"}), 404
+    settings["print_templates"] = filtered
+    save_settings(settings, institute)
+    return jsonify({"status": "deleted", "template_id": template_id, "templates": filtered, "institute": institute})
 
 
 @app.route("/api/drive-storage-status")
