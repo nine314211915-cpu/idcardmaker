@@ -35,7 +35,7 @@
   }
   .top-row{
     display:grid;
-    grid-template-columns:220px 220px 200px 1fr 160px 160px;
+    grid-template-columns:200px 180px 180px 180px 1fr 150px 150px;
     gap:8px;
     align-items:center;
   }
@@ -192,6 +192,16 @@
         <label>Employee Record</label>
         <select id="employeeSelect"></select>
       </div>
+      <div class="field">
+        <label>Preview Zoom</label>
+        <select id="previewScale">
+          <option value="fit">Fit</option>
+          <option value="45">45%</option>
+          <option value="55" selected>55%</option>
+          <option value="65">65%</option>
+          <option value="75">75%</option>
+        </select>
+      </div>
       <button class="btn primary" id="saveDesignBtn" type="button">Save Design</button>
       <button class="btn" id="loadDesignBtn" type="button">Load Last</button>
     </div>
@@ -201,7 +211,7 @@
       <button class="btn" id="uploadSignatureBtn" type="button">Upload Signature</button>
       <button class="btn primary" id="exportPngBtn" type="button">Export PNG (Hi-Res)</button>
     </div>
-    <div class="status" id="topStatus">Ready.</div>
+    <div class="status" id="topStatus">Ready. Build: print-lab-2026-04-11-02-20</div>
   </section>
 
   <section class="shell">
@@ -362,6 +372,7 @@
   const templateTypeEl = document.getElementById('templateType');
   const photoShapeEl = document.getElementById('photoShape');
   const employeeSelectEl = document.getElementById('employeeSelect');
+  const previewScaleEl = document.getElementById('previewScale');
   const layerSelectEl = document.getElementById('layerSelect');
   const layerListEl = document.getElementById('layerList');
   const layerXEl = document.getElementById('layerX');
@@ -475,8 +486,10 @@
     const rect = stageWrapEl.getBoundingClientRect();
     const availableW = Math.max(320, rect.width - 28);
     const availableH = Math.max(320, window.innerHeight - 230);
-    const rawScale = Math.min(MAX_PREVIEW_SCALE, availableW / cfg.w, availableH / cfg.h);
-    const scale = Number.isFinite(rawScale) && rawScale > 0 ? rawScale : 1;
+    const fitScale = Math.min(MAX_PREVIEW_SCALE, availableW / cfg.w, availableH / cfg.h);
+    const selected = previewScaleEl ? previewScaleEl.value : 'fit';
+    const requestedScale = selected === 'fit' ? fitScale : Math.min(fitScale, (Number(selected) || 55) / 100);
+    const scale = Number.isFinite(requestedScale) && requestedScale > 0 ? requestedScale : 1;
     state.viewScale = scale;
     stage.width(Math.round(cfg.w * scale));
     stage.height(Math.round(cfg.h * scale));
@@ -1038,6 +1051,7 @@
 
   function wireEvents() {
     templateTypeEl.addEventListener('change', updateTemplateDimensions);
+    previewScaleEl.addEventListener('change', fitStageToViewport);
     photoShapeEl.addEventListener('change', () => {
       state.photoShape = photoShapeEl.value;
       redrawKeepLayout();
