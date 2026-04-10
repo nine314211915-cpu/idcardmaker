@@ -414,6 +414,7 @@
     mini: { w: 620, h: 420 },
   };
   const SNAP_THRESHOLD = 8;
+  const MAX_PREVIEW_SCALE = 0.82;
 
   function setStatus(text, kind = 'info') {
     topStatusEl.textContent = text;
@@ -474,13 +475,18 @@
     const rect = stageWrapEl.getBoundingClientRect();
     const availableW = Math.max(320, rect.width - 28);
     const availableH = Math.max(320, window.innerHeight - 230);
-    const rawScale = Math.min(1, availableW / cfg.w, availableH / cfg.h);
+    const rawScale = Math.min(MAX_PREVIEW_SCALE, availableW / cfg.w, availableH / cfg.h);
     const scale = Number.isFinite(rawScale) && rawScale > 0 ? rawScale : 1;
     state.viewScale = scale;
     stage.width(Math.round(cfg.w * scale));
     stage.height(Math.round(cfg.h * scale));
     stage.scale({ x: scale, y: scale });
     stage.batchDraw();
+  }
+
+  function getDesignSize() {
+    const cfg = templates[state.templateType] || templates.horizontal;
+    return { width: cfg.w, height: cfg.h };
   }
 
   function imageFromUrl(url) {
@@ -1048,9 +1054,10 @@
     document.getElementById('centerLayerBtn').addEventListener('click', () => {
       const node = selectedNode();
       if (!node) return;
+      const design = getDesignSize();
       const box = node.getClientRect({ relativeTo: layer });
-      const dx = (stage.width() / 2) - (box.x + box.width / 2);
-      const dy = (stage.height() / 2) - (box.y + box.height / 2);
+      const dx = (design.width / 2) - (box.x + box.width / 2);
+      const dy = (design.height / 2) - (box.y + box.height / 2);
       node.x(node.x() + dx);
       node.y(node.y() + dy);
       layer.draw();
@@ -1078,16 +1085,18 @@
     document.getElementById('alignCenterBtn').addEventListener('click', () => {
       const node = selectedNode();
       if (!node) return;
+      const design = getDesignSize();
       const box = node.getClientRect({ relativeTo: layer });
-      node.x(node.x() + (stage.width() / 2 - (box.x + box.width / 2)));
+      node.x(node.x() + (design.width / 2 - (box.x + box.width / 2)));
       layer.draw();
       syncSelectedLayerControls();
     });
     document.getElementById('alignRightBtn').addEventListener('click', () => {
       const node = selectedNode();
       if (!node) return;
+      const design = getDesignSize();
       const box = node.getClientRect({ relativeTo: layer });
-      node.x(node.x() + (stage.width() - (box.x + box.width)));
+      node.x(node.x() + (design.width - (box.x + box.width)));
       layer.draw();
       syncSelectedLayerControls();
     });
@@ -1102,16 +1111,18 @@
     document.getElementById('alignMiddleBtn').addEventListener('click', () => {
       const node = selectedNode();
       if (!node) return;
+      const design = getDesignSize();
       const box = node.getClientRect({ relativeTo: layer });
-      node.y(node.y() + (stage.height() / 2 - (box.y + box.height / 2)));
+      node.y(node.y() + (design.height / 2 - (box.y + box.height / 2)));
       layer.draw();
       syncSelectedLayerControls();
     });
     document.getElementById('alignBottomBtn').addEventListener('click', () => {
       const node = selectedNode();
       if (!node) return;
+      const design = getDesignSize();
       const box = node.getClientRect({ relativeTo: layer });
-      node.y(node.y() + (stage.height() - (box.y + box.height)));
+      node.y(node.y() + (design.height - (box.y + box.height)));
       layer.draw();
       syncSelectedLayerControls();
     });
