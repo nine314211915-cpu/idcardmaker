@@ -1979,6 +1979,16 @@ function getInstituteValue() {
   return institute === 'Other' ? (document.getElementById('otherInstituteName').value.trim() || 'Other') : institute;
 }
 
+function getInstitutePreviewLabel() {
+  const instituteSelect = document.getElementById('instituteName');
+  const selectedOption = instituteSelect.options[instituteSelect.selectedIndex];
+  if (!selectedOption) return getInstituteValue();
+  if (selectedOption.value === 'Other') {
+    return document.getElementById('otherInstituteName').value.trim() || 'Other';
+  }
+  return (selectedOption.textContent || selectedOption.value || '').trim();
+}
+
 function isCollegeMode() {
   return COLLEGE_INSTITUTES.includes(document.getElementById('instituteName').value);
 }
@@ -2633,7 +2643,7 @@ function updatePreview() {
   const anmMode = isAnmMode();
   const effectiveType = anmMode ? 'student' : (isCollegeMode() ? currentType : 'employee');
   const name = document.getElementById('name').value || 'Full Name';
-  const institute = getInstituteValue() || 'Institute Name';
+  const institute = getInstitutePreviewLabel() || 'Institute Name';
   const facilityLocation = document.getElementById('facilityLocation').value;
   const facilitySubLocation = getFacilitySubLocationValue();
   const previewInstitute = facilityLocation && isFacilityLocationInstitute()
