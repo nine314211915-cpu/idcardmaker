@@ -68,7 +68,7 @@
     }
     .btn-row {
       display: grid;
-      grid-template-columns: repeat(8, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 6px;
     }
     .btn {
@@ -93,6 +93,43 @@
       gap: 8px;
       min-height: 0;
       height: 100%;
+    }
+    .center-stage {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 6px;
+      min-height: 0;
+    }
+    .card-nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--panel);
+      padding: 4px 8px;
+    }
+    .nav-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      line-height: 1;
+      display: grid;
+      place-items: center;
+      color: #3c2a1f;
+    }
+    .card-pos {
+      min-width: 80px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #6a5a4e;
     }
     .panel {
       border: 1px solid var(--line);
@@ -183,6 +220,15 @@
       gap: 6px;
     }
     .asset-title { font-size: 12px; font-weight: 700; color: #5f4d40; }
+    .asset-select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 5px 6px;
+      font-size: 11px;
+      background: #fff;
+      color: #3f2f24;
+    }
     .asset-preview {
       width: 100%;
       height: 52px;
@@ -198,7 +244,7 @@
     .asset-preview img { width: 100%; height: 100%; object-fit: cover; }
     @media (max-width: 1320px) {
       .top-grid { grid-template-columns: 1fr 1fr; }
-      .btn-row { grid-template-columns: 1fr 1fr 1fr; }
+      .btn-row { grid-template-columns: 1fr 1fr; }
       .shell { grid-template-columns: 1fr; }
       body { overflow: auto; }
       .app { height: auto; min-height: 0; }
@@ -242,19 +288,12 @@
       <button class="btn" id="loadServerBtn" type="button">Load From Server</button>
     </div>
     <div class="btn-row">
-      <button class="btn" id="prevCardBtn" type="button">Backward</button>
-      <button class="btn" id="nextCardBtn" type="button">Forward</button>
-      <button class="btn" id="uploadBgBtn" type="button">Upload Background</button>
-      <button class="btn" id="uploadPhotoBtn" type="button">Upload Photo</button>
-      <button class="btn" id="uploadLogoBtn" type="button">Upload Logo</button>
-      <button class="btn" id="uploadSignBtn" type="button">Upload Signature</button>
       <button class="btn" id="saveLocalBtn" type="button">Save Local</button>
       <button class="btn primary" id="exportBtn" type="button">Export PNG (Hi-Res)</button>
       <button class="btn" id="batchZipBtn" type="button">Batch ZIP (Hi-Res)</button>
       <button class="btn primary" id="batchPdfBtn" type="button">Batch PDF (A4)</button>
     </div>
     <div class="status" id="statusLine">Ready.</div>
-    <div class="status" id="cardPosition">Card 1/1</div>
   </section>
 
   <section class="shell">
@@ -263,6 +302,10 @@
       <div class="panel-body">
         <article class="group">
           <h3>Background</h3>
+          <div class="field">
+            <label>Background Library</label>
+            <select id="bgLibrarySelect" class="asset-select"></select>
+          </div>
           <div class="row2">
             <div class="field">
               <label>Start</label>
@@ -294,10 +337,17 @@
       </div>
     </aside>
 
-    <section class="canvas-wrap">
-      <div id="canvasFrame">
-        <canvas id="designCanvas"></canvas>
+    <section class="center-stage">
+      <div class="card-nav">
+        <button class="nav-btn" id="prevCardBtn" type="button" aria-label="Previous Card">&lt;</button>
+        <div class="card-pos" id="cardPosition">1/1</div>
+        <button class="nav-btn" id="nextCardBtn" type="button" aria-label="Next Card">&gt;</button>
       </div>
+      <section class="canvas-wrap">
+        <div id="canvasFrame">
+          <canvas id="designCanvas"></canvas>
+        </div>
+      </section>
     </section>
 
     <aside class="panel">
@@ -364,6 +414,7 @@
   const cardPositionEl = document.getElementById("cardPosition");
   const bgStartEl = document.getElementById("bgStart");
   const bgEndEl = document.getElementById("bgEnd");
+  const bgLibrarySelectEl = document.getElementById("bgLibrarySelect");
   const layerXEl = document.getElementById("layerX");
   const layerYEl = document.getElementById("layerY");
   const layerScaleEl = document.getElementById("layerScale");
@@ -393,6 +444,7 @@
   let instituteBatches = {};
   let isBatchExporting = false;
   let assetUrls = {};
+  let backgroundLibrary = [];
   const assetConfig = {
     background_image: { label: "Background", inputId: "bgFileInput", type: "background" },
     employee_photo: { label: "Photo", inputId: "photoFileInput", type: "photo" },
@@ -496,6 +548,42 @@
     return { left: 10, top: 10, width: 120, height: 80 };
   }
 
+  function normalizeBackgroundLibrary() {
+    const unique = [];
+    const seen = new Set();
+    (Array.isArray(backgroundLibrary) ? backgroundLibrary : []).forEach((url) => {
+      const value = String(url || "").trim();
+      if (!value || seen.has(value)) return;
+      seen.add(value);
+      unique.push(value);
+    });
+    backgroundLibrary = unique;
+    const activeBg = String(assetUrls.background_image || "").trim();
+    if (activeBg && !seen.has(activeBg)) {
+      backgroundLibrary.unshift(activeBg);
+    }
+    if (!assetUrls.background_image && backgroundLibrary.length) {
+      assetUrls.background_image = backgroundLibrary[0];
+    }
+  }
+
+  async function applyBackgroundFromLibrary(url) {
+    const value = String(url || "").trim();
+    if (!value) {
+      const existing = findById("background_image");
+      if (existing) canvas.remove(existing);
+      delete assetUrls.background_image;
+      canvas.requestRenderAll();
+      return;
+    }
+    assetUrls.background_image = value;
+    if (!backgroundLibrary.includes(value)) {
+      backgroundLibrary.unshift(value);
+    }
+    const s = getSlotForAssetId("background_image");
+    await placeImageFromUrl(value, "background_image", s.left, s.top, s.width, s.height);
+  }
+
   function addText(id, text, left, top, color, size, weight = "normal") {
     const node = new fabric.Text(text, {
       left,
@@ -510,6 +598,7 @@
   }
 
   async function drawLayout() {
+    normalizeBackgroundLibrary();
     setTemplateSize(templateTypeEl.value);
     canvas.clear();
     canvas.add(makeGradientRect());
@@ -585,6 +674,7 @@
 
     canvas.renderAll();
     refreshLayers();
+    renderBackgroundSelect();
     renderAssetLibrary();
   }
 
@@ -682,10 +772,12 @@
   }
 
   function saveLocal() {
+    normalizeBackgroundLibrary();
     const payload = {
       templateType: templateTypeEl.value,
       photoShape: photoShapeEl.value,
       assetUrls,
+      background_library: backgroundLibrary,
       json: canvas.toJSON(["customId"])
     };
     localStorage.setItem("fabric_print_studio_design", JSON.stringify(payload));
@@ -693,10 +785,12 @@
   }
 
   async function saveServer() {
+    normalizeBackgroundLibrary();
     const payload = {
       templateType: templateTypeEl.value,
       photoShape: photoShapeEl.value,
       asset_urls: assetUrls,
+      background_library: backgroundLibrary,
       json: canvas.toJSON(["customId"])
     };
     const activeInstitute = getActiveInstitute();
@@ -715,6 +809,7 @@
       return;
     }
     renderAssetLibrary();
+    renderBackgroundSelect();
     setStatus("Saved to server settings.");
   }
 
@@ -738,6 +833,8 @@
     templateTypeEl.value = design.templateType || "horizontal";
     photoShapeEl.value = design.photoShape || "rectangle";
     assetUrls = (design.asset_urls && typeof design.asset_urls === "object") ? design.asset_urls : {};
+    backgroundLibrary = Array.isArray(design.background_library) ? design.background_library : [];
+    normalizeBackgroundLibrary();
     setTemplateSize(templateTypeEl.value);
     canvas.loadFromJSON(design.json, () => {
       canvas.renderAll();
@@ -758,6 +855,7 @@
         })
         .finally(() => {
           refreshLayers();
+          renderBackgroundSelect();
           renderAssetLibrary();
           setStatus("Loaded server design.");
         });
@@ -840,6 +938,20 @@
     });
   }
 
+  function renderBackgroundSelect() {
+    if (!bgLibrarySelectEl) return;
+    normalizeBackgroundLibrary();
+    const options = backgroundLibrary.map((url, idx) => {
+      const label = `BG ${idx + 1}`;
+      const selected = assetUrls.background_image === url ? " selected" : "";
+      return `<option value="${url}"${selected}>${label}</option>`;
+    }).join("");
+    bgLibrarySelectEl.innerHTML = options || '<option value="">No background</option>';
+    if (!options) {
+      bgLibrarySelectEl.value = "";
+    }
+  }
+
   async function removeAsset(id) {
     const existingUrl = assetUrls[id];
     if (!existingUrl) {
@@ -859,6 +971,9 @@
         return;
       }
       delete assetUrls[id];
+      if (id === "background_image") {
+        backgroundLibrary = backgroundLibrary.filter((url) => url !== existingUrl);
+      }
       const node = findById(id);
       if (node) {
         canvas.remove(node);
@@ -870,6 +985,7 @@
         canvas.requestRenderAll();
       }
       renderAssetLibrary();
+      renderBackgroundSelect();
       setStatus(`${assetConfig[id].label} removed.`);
     } catch {
       setStatus("Unable to remove asset.", true);
@@ -1012,7 +1128,10 @@
   }
 
   function wireUpload(buttonId, inputEl, id, fallbackRectId) {
-    document.getElementById(buttonId).addEventListener("click", () => inputEl.click());
+    const triggerBtn = document.getElementById(buttonId);
+    if (triggerBtn) {
+      triggerBtn.addEventListener("click", () => inputEl.click());
+    }
     inputEl.addEventListener("change", async () => {
       const file = inputEl.files && inputEl.files[0];
       if (!file) return;
@@ -1036,7 +1155,11 @@
         const width = slot ? slot.width : 180;
         const height = slot ? slot.height : 110;
         await placeImageFromUrl(persistentUrl, id, left, top, width, height);
+        if (id === "background_image") {
+          normalizeBackgroundLibrary();
+        }
         renderAssetLibrary();
+        renderBackgroundSelect();
         setStatus(`${targetType} uploaded and linked.`);
       } catch (err) {
         setStatus(`${targetType} upload failed: ${err && err.message ? err.message : "unknown error"}`, true);
@@ -1155,6 +1278,12 @@
       selectedEmployee = employees[currentCardIndex];
       await applyEmployeeDataToCanvas(selectedEmployee);
       updateCardPosition();
+    });
+    bgLibrarySelectEl.addEventListener("change", async () => {
+      const nextUrl = bgLibrarySelectEl.value || "";
+      await applyBackgroundFromLibrary(nextUrl);
+      renderBackgroundSelect();
+      renderAssetLibrary();
     });
     document.getElementById("applyBgBtn").addEventListener("click", () => {
       const bg = findById("background");
