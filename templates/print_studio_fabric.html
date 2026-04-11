@@ -50,7 +50,7 @@
     }
     .top-grid {
       display: grid;
-      grid-template-columns: 150px 150px 150px 1fr 130px 130px;
+      grid-template-columns: 130px 130px 130px 1fr 1fr 120px 120px;
       gap: 6px;
       align-items: end;
     }
@@ -231,13 +231,19 @@
         </select>
       </div>
       <div class="field">
-        <label>Employee</label>
-        <select id="employeeSelect"></select>
+        <label>Institute</label>
+        <select id="instituteSelect"></select>
+      </div>
+      <div class="field">
+        <label>Batch</label>
+        <select id="batchSelect"></select>
       </div>
       <button class="btn primary" id="saveServerBtn" type="button">Save To Server</button>
       <button class="btn" id="loadServerBtn" type="button">Load From Server</button>
     </div>
     <div class="btn-row">
+      <button class="btn" id="prevCardBtn" type="button">Backward</button>
+      <button class="btn" id="nextCardBtn" type="button">Forward</button>
       <button class="btn" id="uploadBgBtn" type="button">Upload Background</button>
       <button class="btn" id="uploadPhotoBtn" type="button">Upload Photo</button>
       <button class="btn" id="uploadLogoBtn" type="button">Upload Logo</button>
@@ -248,6 +254,7 @@
       <button class="btn primary" id="batchPdfBtn" type="button">Batch PDF (A4)</button>
     </div>
     <div class="status" id="statusLine">Ready.</div>
+    <div class="status" id="cardPosition">Card 1/1</div>
   </section>
 
   <section class="shell">
@@ -331,23 +338,30 @@
   const fallbackRecord = {{ sample_record|tojson }};
   const institute = {{ institute|tojson }};
   const batchId = {{ batch_id|tojson }};
-  const employees = (Array.isArray(records) && records.length ? records : [fallbackRecord]).map((row, idx) => ({
-    key: String(row.serial_no || row.employee_id || row.id || `EMP-${idx + 1}`),
-    name: row.name || "Employee",
-    designation: row.designation || row.training_year || row.course || "",
-    employee_id: row.employee_id || row.serial_no || row.id || `EMP-${idx + 1}`,
-    department: row.department || "",
-    institute_name: row.institute_name || institute || "Institute Name",
-    photo_url: row.photo_url || "",
-  }));
-  const batchEmployees = (Array.isArray(records) && records.length) ? employees : [];
+  function normalizeEmployee(row, idx, fallback = false) {
+    return {
+      key: String(row.serial_no || row.employee_id || row.id || `EMP-${idx + 1}`),
+      name: row.name || "Employee",
+      designation: row.designation || row.training_year || row.course || "",
+      employee_id: row.employee_id || row.serial_no || row.id || `EMP-${idx + 1}`,
+      department: row.department || "",
+      institute_name: row.institute_name || institute || "Institute Name",
+      photo_url: row.photo_url || "",
+      __fallback: !!fallback,
+    };
+  }
+  let employees = (Array.isArray(records) && records.length
+    ? records.map((row, idx) => normalizeEmployee(row, idx))
+    : [normalizeEmployee(fallbackRecord || {}, 0, true)]);
 
   const templateTypeEl = document.getElementById("templateType");
   const photoShapeEl = document.getElementById("photoShape");
-  const employeeSelectEl = document.getElementById("employeeSelect");
+  const instituteSelectEl = document.getElementById("instituteSelect");
+  const batchSelectEl = document.getElementById("batchSelect");
   const layerSelectEl = document.getElementById("layerSelect");
   const layerListEl = document.getElementById("layerList");
   const statusLineEl = document.getElementById("statusLine");
+  const cardPositionEl = document.getElementById("cardPosition");
   const bgStartEl = document.getElementById("bgStart");
   const bgEndEl = document.getElementById("bgEnd");
   const layerXEl = document.getElementById("layerX");
@@ -373,6 +387,10 @@
     selection: true
   });
   let selectedEmployee = employees[0];
+  let currentCardIndex = 0;
+  let currentInstitute = institute || "";
+  let currentBatchId = batchId || "";
+  let instituteBatches = {};
   let isBatchExporting = false;
   let assetUrls = {};
   const assetConfig = {
@@ -385,6 +403,21 @@
   function setStatus(text, error = false) {
     statusLineEl.textContent = text;
     statusLineEl.style.color = error ? "#a1261a" : "#7c6e62";
+  }
+
+  function updateCardPosition() {
+    if (!cardPositionEl) return;
+    const total = Math.max(1, employees.length);
+    const current = Math.min(total, Math.max(1, currentCardIndex + 1));
+    cardPositionEl.textContent = `Card ${current}/${total}`;
+  }
+
+  function getActiveInstitute() {
+    return (instituteSelectEl && instituteSelectEl.value) ? instituteSelectEl.value : currentInstitute;
+  }
+
+  function getActiveBatch() {
+    return (batchSelectEl && batchSelectEl.value) ? batchSelectEl.value : currentBatchId;
   }
 
   function setTemplateSize(type) {
@@ -666,10 +699,15 @@
       asset_urls: assetUrls,
       json: canvas.toJSON(["customId"])
     };
-    const res = await fetch(`/api/fabric-design?institute=${encodeURIComponent(institute || "")}`, {
+    const activeInstitute = getActiveInstitute();
+    if (!activeInstitute) {
+      setStatus("Select institute first.", true);
+      return;
+    }
+    const res = await fetch(`/api/fabric-design?institute=${encodeURIComponent(activeInstitute)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ institute, design: payload })
+      body: JSON.stringify({ institute: activeInstitute, design: payload })
     });
     const data = await res.json();
     if (!res.ok) {
@@ -681,7 +719,12 @@
   }
 
   async function loadServer() {
-    const res = await fetch(`/api/fabric-design?institute=${encodeURIComponent(institute || "")}`);
+    const activeInstitute = getActiveInstitute();
+    if (!activeInstitute) {
+      setStatus("Select institute first.", true);
+      return;
+    }
+    const res = await fetch(`/api/fabric-design?institute=${encodeURIComponent(activeInstitute)}`);
     const data = await res.json();
     if (!res.ok) {
       setStatus(data.error || "Server load failed.", true);
@@ -722,10 +765,14 @@
   }
 
   async function uploadAssetToServer(file, assetType) {
+    const activeInstitute = getActiveInstitute();
+    if (!activeInstitute) {
+      throw new Error("Select institute first");
+    }
     const form = new FormData();
     form.append("asset", file);
     form.append("asset_type", assetType);
-    form.append("institute", institute || "");
+    form.append("institute", activeInstitute);
     const res = await fetch("/api/fabric-assets/upload", {
       method: "POST",
       body: form,
@@ -756,6 +803,10 @@
       .trim()
       .replace(/\s+/g, "_");
     return cleaned || fallback;
+  }
+
+  function getBatchEmployeesForExport() {
+    return employees.filter((emp) => !emp.__fallback);
   }
 
   function renderAssetLibrary() {
@@ -796,10 +847,11 @@
       return;
     }
     try {
+      const activeInstitute = getActiveInstitute();
       const res = await fetch("/api/fabric-assets/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ institute, url: existingUrl }),
+        body: JSON.stringify({ institute: activeInstitute, url: existingUrl }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -834,7 +886,7 @@
     if (desNode) desNode.set("text", employee.designation || "-");
     if (idNode) idNode.set("text", `ID: ${employee.employee_id || "-"}`);
     if (depNode) depNode.set("text", `Dept: ${employee.department || "-"}`);
-    if (instNode) instNode.set("text", employee.institute_name || institute || "Institute");
+    if (instNode) instNode.set("text", employee.institute_name || getActiveInstitute() || "Institute");
 
     const existingPhoto = findById("employee_photo");
     if (existingPhoto) canvas.remove(existingPhoto);
@@ -855,13 +907,14 @@
 
   async function exportBatchZip() {
     if (isBatchExporting) return;
+    const batchEmployees = getBatchEmployeesForExport();
     if (!batchEmployees.length) {
       setStatus("No batch records found for ZIP export.", true);
       return;
     }
     isBatchExporting = true;
     const originalEmployee = selectedEmployee;
-    const originalSelection = employeeSelectEl.value;
+    const originalIndex = currentCardIndex;
     const zip = new JSZip();
     setStatus(`Preparing ZIP for ${batchEmployees.length} cards...`);
     try {
@@ -876,8 +929,8 @@
       const blob = await zip.generateAsync({ type: "blob" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      const institutePart = sanitizeFilePart(institute || "institute", "institute");
-      const batchPart = sanitizeFilePart(batchId || "batch", "batch");
+      const institutePart = sanitizeFilePart(getActiveInstitute() || "institute", "institute");
+      const batchPart = sanitizeFilePart(getActiveBatch() || "batch", "batch");
       link.download = `${institutePart}_${batchPart}_cards_hires.zip`;
       link.click();
       setStatus(`Batch ZIP exported (${batchEmployees.length} cards).`);
@@ -885,21 +938,23 @@
       setStatus(`Batch ZIP failed: ${err && err.message ? err.message : "unknown error"}`, true);
     } finally {
       selectedEmployee = originalEmployee;
-      employeeSelectEl.value = originalSelection;
+      currentCardIndex = originalIndex;
       await applyEmployeeDataToCanvas(selectedEmployee);
+      updateCardPosition();
       isBatchExporting = false;
     }
   }
 
   async function exportBatchPdfA4() {
     if (isBatchExporting) return;
+    const batchEmployees = getBatchEmployeesForExport();
     if (!batchEmployees.length) {
       setStatus("No batch records found for PDF export.", true);
       return;
     }
     isBatchExporting = true;
     const originalEmployee = selectedEmployee;
-    const originalSelection = employeeSelectEl.value;
+    const originalIndex = currentCardIndex;
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
     const pageW = 210;
@@ -941,16 +996,17 @@
         pdf.addImage(dataUrl, "PNG", drawX, drawY, drawW, drawH, undefined, "FAST");
       }
 
-      const institutePart = sanitizeFilePart(institute || "institute", "institute");
-      const batchPart = sanitizeFilePart(batchId || "batch", "batch");
+      const institutePart = sanitizeFilePart(getActiveInstitute() || "institute", "institute");
+      const batchPart = sanitizeFilePart(getActiveBatch() || "batch", "batch");
       pdf.save(`${institutePart}_${batchPart}_cards_a4.pdf`);
       setStatus(`Batch PDF exported (${batchEmployees.length} cards, A4 10/page).`);
     } catch (err) {
       setStatus(`Batch PDF failed: ${err && err.message ? err.message : "unknown error"}`, true);
     } finally {
       selectedEmployee = originalEmployee;
-      employeeSelectEl.value = originalSelection;
+      currentCardIndex = originalIndex;
       await applyEmployeeDataToCanvas(selectedEmployee);
+      updateCardPosition();
       isBatchExporting = false;
     }
   }
@@ -989,9 +1045,82 @@
     });
   }
 
-  function fillEmployees() {
-    employeeSelectEl.innerHTML = employees.map((e, idx) => `<option value="${idx}">${e.name} (${e.employee_id})</option>`).join("");
-    employeeSelectEl.value = "0";
+  async function loadRecordsForSelection() {
+    const activeInstitute = getActiveInstitute();
+    const activeBatch = getActiveBatch();
+    currentInstitute = activeInstitute || "";
+    currentBatchId = activeBatch || "";
+
+    if (!activeInstitute || !activeBatch) {
+      employees = [normalizeEmployee(fallbackRecord || {}, 0, true)];
+      currentCardIndex = 0;
+      selectedEmployee = employees[0];
+      await drawLayout();
+      updateCardPosition();
+      setStatus("Select institute and batch.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/records?institute=${encodeURIComponent(activeInstitute)}&batch_id=${encodeURIComponent(activeBatch)}`);
+      const data = await res.json();
+      const rows = Array.isArray(data.records) ? data.records : [];
+      employees = rows.length
+        ? rows.map((row, idx) => normalizeEmployee(row, idx))
+        : [normalizeEmployee({ institute_name: activeInstitute }, 0, true)];
+      currentCardIndex = 0;
+      selectedEmployee = employees[0];
+      await drawLayout();
+      updateCardPosition();
+      setStatus(rows.length ? `${rows.length} card records loaded.` : "No records in this batch.");
+    } catch {
+      setStatus("Unable to load batch records.", true);
+    }
+  }
+
+  function populateBatchOptions() {
+    const activeInstitute = getActiveInstitute();
+    const batches = instituteBatches[activeInstitute] || [];
+    batchSelectEl.innerHTML = batches.map((batch) => `<option value="${batch.id}">${batch.name}</option>`).join("");
+    if (!batches.length) {
+      batchSelectEl.innerHTML = '<option value="">No batch</option>';
+      return;
+    }
+    const matched = batches.find((batch) => batch.id === currentBatchId);
+    batchSelectEl.value = matched ? matched.id : batches[0].id;
+  }
+
+  async function loadInstituteBatchOptions() {
+    try {
+      const res = await fetch("/api/batch-overview");
+      const data = await res.json();
+      const batches = Array.isArray(data.batches) ? data.batches : [];
+      const grouped = {};
+      batches.forEach((item) => {
+        const inst = String(item.institute_name || "").trim();
+        const id = String(item.id || "").trim();
+        if (!inst || !id) return;
+        if (!grouped[inst]) grouped[inst] = [];
+        grouped[inst].push({ id, name: String(item.batch_name || id) });
+      });
+      instituteBatches = grouped;
+      const institutes = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
+      instituteSelectEl.innerHTML = institutes.map((inst) => `<option value="${inst}">${inst}</option>`).join("");
+      if (!institutes.length) {
+        instituteSelectEl.innerHTML = '<option value="">No institute</option>';
+        batchSelectEl.innerHTML = '<option value="">No batch</option>';
+        return;
+      }
+      if (!currentInstitute || !grouped[currentInstitute]) {
+        currentInstitute = institutes[0];
+      }
+      instituteSelectEl.value = currentInstitute;
+      populateBatchOptions();
+      currentBatchId = batchSelectEl.value || "";
+      await loadRecordsForSelection();
+    } catch {
+      setStatus("Unable to load institute/batch list.", true);
+    }
   }
 
   function wireEvents() {
@@ -1003,9 +1132,29 @@
         canvas.requestRenderAll();
       }
     });
-    employeeSelectEl.addEventListener("change", async () => {
-      selectedEmployee = employees[Number(employeeSelectEl.value || 0)] || employees[0];
-      await drawLayout();
+    instituteSelectEl.addEventListener("change", async () => {
+      currentInstitute = instituteSelectEl.value || "";
+      currentBatchId = "";
+      populateBatchOptions();
+      await loadRecordsForSelection();
+    });
+    batchSelectEl.addEventListener("change", async () => {
+      currentBatchId = batchSelectEl.value || "";
+      await loadRecordsForSelection();
+    });
+    document.getElementById("prevCardBtn").addEventListener("click", async () => {
+      if (!employees.length) return;
+      currentCardIndex = (currentCardIndex - 1 + employees.length) % employees.length;
+      selectedEmployee = employees[currentCardIndex];
+      await applyEmployeeDataToCanvas(selectedEmployee);
+      updateCardPosition();
+    });
+    document.getElementById("nextCardBtn").addEventListener("click", async () => {
+      if (!employees.length) return;
+      currentCardIndex = (currentCardIndex + 1) % employees.length;
+      selectedEmployee = employees[currentCardIndex];
+      await applyEmployeeDataToCanvas(selectedEmployee);
+      updateCardPosition();
     });
     document.getElementById("applyBgBtn").addEventListener("click", () => {
       const bg = findById("background");
@@ -1088,11 +1237,12 @@
   }
 
   async function init() {
-    fillEmployees();
+    updateCardPosition();
     await drawLayout();
     wireEvents();
+    await loadInstituteBatchOptions();
     renderAssetLibrary();
-    setStatus("Fabric Print Studio ready.");
+    setStatus("Fabric Print Studio ready. Use institute + batch and Backward/Forward.");
   }
 
   init();
