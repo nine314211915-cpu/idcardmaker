@@ -1492,7 +1492,41 @@ const FACILITY_SUB_LOCATIONS = {
 };
 
 function getFacilitySubLocations(institute, block) {
-  return ((FACILITY_SUB_LOCATIONS[institute] || {})[block] || []).slice();
+  const baseItems = ((FACILITY_SUB_LOCATIONS[institute] || {})[block] || []).slice();
+  const customMap = loadCustomFacilitySubLocations();
+  const customItems = (((customMap[institute] || {})[block]) || []).slice();
+  const merged = [];
+  [...baseItems.filter((item) => item !== 'Add New'), ...customItems].forEach((item) => {
+    if (!merged.includes(item)) merged.push(item);
+  });
+  if (baseItems.includes('Add New') || customItems.length) merged.push('Add New');
+  return merged;
+}
+
+function saveFacilitySubLocationOption(institute, block, value) {
+  const cleanedInstitute = String(institute || '').trim();
+  const cleanedBlock = String(block || '').trim();
+  const cleanedValue = String(value || '').trim();
+  if (!cleanedInstitute || !cleanedBlock || !cleanedValue || cleanedValue === 'Add New') return;
+  const currentItems = getFacilitySubLocations(cleanedInstitute, cleanedBlock);
+  if (currentItems.includes(cleanedValue)) return;
+  const customMap = loadCustomFacilitySubLocations();
+  if (!customMap[cleanedInstitute]) customMap[cleanedInstitute] = {};
+  if (!Array.isArray(customMap[cleanedInstitute][cleanedBlock])) customMap[cleanedInstitute][cleanedBlock] = [];
+  customMap[cleanedInstitute][cleanedBlock].push(cleanedValue);
+  customMap[cleanedInstitute][cleanedBlock] = customMap[cleanedInstitute][cleanedBlock]
+    .filter((item, index, arr) => item && arr.indexOf(item) === index)
+    .sort((a, b) => a.localeCompare(b));
+  saveCustomFacilitySubLocations(customMap);
+}
+
+function persistCurrentFacilitySubLocation() {
+  if (!isFacilityLocationInstitute()) return;
+  saveFacilitySubLocationOption(
+    document.getElementById('instituteName').value,
+    document.getElementById('facilityLocation').value,
+    getFacilitySubLocationValue()
+  );
 }
 
 function getFacilityLocationLabel(institute) {
@@ -1613,6 +1647,7 @@ const UI_STATE_KEY = 'idcard_ui_state_v1';
 const DRAFT_BATCHES_KEY = 'idcard_draft_batches_v1';
 const DRAFT_PHOTO_DB_NAME = 'idcard_draft_photo_db';
 const DRAFT_PHOTO_STORE = 'photos';
+const FACILITY_CUSTOM_SUB_LOCATIONS_KEY = 'facility_custom_sub_locations_v1';
 
 function currentDateText() {
   const now = new Date();
@@ -1658,6 +1693,20 @@ function loadDraftBatches() {
 function saveDraftBatches(drafts) {
   try {
     localStorage.setItem(DRAFT_BATCHES_KEY, JSON.stringify(drafts));
+  } catch (e) {}
+}
+
+function loadCustomFacilitySubLocations() {
+  try {
+    return JSON.parse(localStorage.getItem(FACILITY_CUSTOM_SUB_LOCATIONS_KEY) || '{}');
+  } catch (e) {
+    return {};
+  }
+}
+
+function saveCustomFacilitySubLocations(data) {
+  try {
+    localStorage.setItem(FACILITY_CUSTOM_SUB_LOCATIONS_KEY, JSON.stringify(data || {}));
   } catch (e) {}
 }
 
@@ -2092,7 +2141,7 @@ function handleInstituteChange() {
     document.getElementById('validUptoGroup').style.display = 'none';
     document.getElementById('batchSessionGroup').style.display = 'none';
     document.getElementById('trainingYearGroup').style.display = 'none';
-    document.getElementById('bloodGroupGroup').style.display = 'none';
+    document.getElementById('bloodGroupGroup').style.display = facilityLocationMode ? '' : 'none';
     document.getElementById('employeeIdGroup').style.display = '';
     document.getElementById('customEmployeeFieldToggleWrap').style.display = '';
     document.getElementById('prevEmployeeIdRow').style.display = '';
@@ -2110,6 +2159,7 @@ function setType(type) {
   currentType = type;
   const anmMode = isAnmMode();
   const collegeMode = isCollegeMode();
+  const facilityLocationMode = isFacilityLocationInstitute();
   const effectiveType = anmMode ? 'student' : (collegeMode ? type : 'employee');
   document.getElementById('btnStudent').classList.toggle('active', effectiveType === 'student' || effectiveType === 'employee');
   document.getElementById('btnLecturer').classList.toggle('active', effectiveType === 'lecturer');
@@ -2130,6 +2180,8 @@ function setType(type) {
     document.getElementById('courseGroup').style.display = 'none';
     document.getElementById('validUptoGroup').style.display = 'none';
     document.getElementById('bloodGroupGroup').style.display = '';
+  } else if (effectiveType === 'employee') {
+    document.getElementById('bloodGroupGroup').style.display = facilityLocationMode ? '' : 'none';
   }
   updatePreview();
   refreshInstituteLock();
@@ -2636,10 +2688,11 @@ function updatePreview() {
   } else {
     const desig = document.getElementById('designation').value;
     const dept = facilityLocation || '—';
+    const blood = document.getElementById('bloodGroup').value;
     const customFieldLabel = document.getElementById('customEmployeeFieldLabel').value.trim();
     const customFieldValue = document.getElementById('customEmployeeFieldValue').value.trim();
     document.getElementById('prevRole').textContent = desig || 'Employee Designation';
-    document.getElementById('prevBlood').textContent = '—';
+    document.getElementById('prevBlood').textContent = isFacilityLocationInstitute() ? (blood || '—') : '—';
     document.getElementById('prevBatch').textContent = '—';
     document.getElementById('prevFather').textContent = '—';
     document.getElementById('prevAadhaar').textContent = '—';
@@ -2738,6 +2791,7 @@ async function legacySaveCurrentCard() {
     payload.aadhaar_no = document.getElementById('aadhaarNo').value;
   } else {
     payload.designation = document.getElementById('designation').value;
+    payload.blood_group = document.getElementById('bloodGroup').value;
     payload.facility_location = document.getElementById('facilityLocation').value;
     payload.facility_sub_location = getFacilitySubLocationValue();
     payload.department = '';
@@ -2987,6 +3041,7 @@ async function saveCurrentCard() {
   const serial = document.getElementById('serialNo').value.trim();
   if (!name) { alert('Please enter full name.'); return; }
   if (!serial) { alert('Unable to generate serial number.'); return; }
+  persistCurrentFacilitySubLocation();
 
   showLoading('Saving record...');
   const payload = {
@@ -3013,6 +3068,7 @@ async function saveCurrentCard() {
     payload.aadhaar_no = document.getElementById('aadhaarNo').value;
   } else {
     payload.designation = document.getElementById('designation').value;
+    payload.blood_group = document.getElementById('bloodGroup').value;
     payload.facility_location = document.getElementById('facilityLocation').value;
     payload.facility_sub_location = getFacilitySubLocationValue();
     payload.department = '';
