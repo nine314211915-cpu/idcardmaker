@@ -2342,20 +2342,14 @@ def admin_print_studio():
 
 @app.route("/api/build-info")
 def build_info():
-    print_lab_path = os.path.join(BASE_DIR, "templates", "print_lab.html")
     fabric_path = os.path.join(BASE_DIR, "templates", "print_studio_fabric.html")
-    print_lab_mtime = ""
     fabric_mtime = ""
-    if os.path.isfile(print_lab_path):
-        print_lab_mtime = datetime.utcfromtimestamp(os.path.getmtime(print_lab_path)).isoformat() + "Z"
     if os.path.isfile(fabric_path):
         fabric_mtime = datetime.utcfromtimestamp(os.path.getmtime(fabric_path)).isoformat() + "Z"
     return jsonify({
         "build_tag": app.config.get("APP_BUILD_TAG", ""),
         "cwd": BASE_DIR,
         "runtime_dir": RUNTIME_DIR,
-        "print_lab_template": print_lab_path,
-        "print_lab_template_mtime_utc": print_lab_mtime,
         "print_studio_fabric_template": fabric_path,
         "print_studio_fabric_mtime_utc": fabric_mtime,
         "now_utc": datetime.utcnow().isoformat() + "Z",
