@@ -329,27 +329,6 @@
     cursor: pointer;
     text-decoration: underline;
   }
-  .bulk-photo-tools {
-    margin-top: 10px;
-    display: grid;
-    gap: 8px;
-  }
-  .bulk-photo-row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .bulk-photo-note {
-    font-size: 10px;
-    color: var(--muted);
-    line-height: 1.4;
-    max-width: 280px;
-  }
-  .bulk-photo-note strong {
-    color: var(--red);
-    font-weight: 700;
-  }
   .serial-box {
     margin-bottom: 10px;
   }
@@ -1156,14 +1135,8 @@
               </div>
             </div>
             <input type="file" id="photoInput" accept="image/*" onchange="handlePhotoUpload(this)">
-            <input type="file" id="bulkPhotoInput" accept="image/*" multiple style="display:none" onchange="handleBulkPhotoUpload(this)">
-            <div class="bulk-photo-tools">
-              <div class="bulk-photo-row">
-                <button class="btn-mini" type="button" onclick="openCameraDialog()">Use Camera</button>
-                <button class="btn-mini" type="button" onclick="openGalleryPicker()">Choose Photo</button>
-                <button class="btn-mini" type="button" onclick="openBulkPhotoPicker()">Upload Bulk Photos</button>
-              </div>
-              <div class="bulk-photo-note">Use saved names like <strong>Mamta</strong>, <strong>Mamta 1</strong>, or numbers like <strong>1</strong>, <strong>2</strong>, <strong>3</strong>. Matching is automatic.</div>
+            <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn-mini" type="button" onclick="openCameraDialog()">Use Camera</button>
             </div>
           </div>
           <div class="type-block">
@@ -2364,124 +2337,6 @@ function stopCameraStream() {
 function closeCameraDialog() {
   document.getElementById('cameraModal').classList.remove('show');
   stopCameraStream();
-}
-
-function openBulkPhotoPicker() {
-  const institute = getInstituteValue();
-  if (!institute || institute === 'Other') {
-    alert('Please select or enter the institute first.');
-    return;
-  }
-  const draftRecords = getDraftRecords(institute);
-  if (!draftRecords.length) {
-    alert('Save draft cards first, then upload bulk photos for this batch.');
-    return;
-  }
-  document.getElementById('bulkPhotoInput').click();
-}
-
-async function applyBulkPhotosToDraftBatch(files) {
-  const institute = getInstituteValue();
-  const records = getDraftRecords(institute);
-  if (!records.length) {
-    throw new Error('No draft cards are available for this institute.');
-  }
-
-  const updatedRecords = records.map(record => ({ ...record }));
-  const results = { matched: 0, unmatchedFiles: [], missingRecords: [] };
-  const filesList = Array.from(files || []);
-
-  const recordByNumber = new Map();
-  const groupedRecords = {};
-  sortRecordsForBulkMatch(updatedRecords).forEach((record) => {
-    const serialInfo = extractTrailingNumberInfo(record.serial_no || '');
-    if (serialInfo.number !== null && !recordByNumber.has(serialInfo.number)) {
-      recordByNumber.set(serialInfo.number, record);
-    }
-    const nameKey = normalizeMatchText(record.name || '');
-    if (!nameKey) return;
-    if (!groupedRecords[nameKey]) groupedRecords[nameKey] = [];
-    groupedRecords[nameKey].push(record);
-  });
-
-  const matchedSerials = new Set();
-  for (const file of filesList) {
-    const info = extractTrailingNumberInfo(file.name || '');
-    let targetRecord = null;
-    const isSerialNumberFile = !info.base && info.number !== null;
-
-    if (!isSerialNumberFile) {
-      const candidates = groupedRecords[info.base] || [];
-      const candidateIndex = Math.max(1, info.number || 1) - 1;
-      const nameMatch = candidates[candidateIndex];
-      if (nameMatch && !matchedSerials.has(nameMatch.serial_no || '')) {
-        targetRecord = nameMatch;
-      }
-      if (!targetRecord) {
-        targetRecord = candidates.find((candidate) => !matchedSerials.has(candidate.serial_no || '')) || null;
-      }
-    }
-
-    if (!targetRecord && isSerialNumberFile && info.number !== null) {
-      const serialMatch = recordByNumber.get(info.number);
-      if (serialMatch && !matchedSerials.has(serialMatch.serial_no || '')) {
-        targetRecord = serialMatch;
-      }
-    }
-
-    if (!targetRecord) {
-      results.unmatchedFiles.push(file.name);
-      continue;
-    }
-
-    const draftPhotoKey = makeDraftPhotoKey(institute, targetRecord.serial_no || '');
-    await saveDraftPhotoBlob(draftPhotoKey, file);
-    targetRecord.draft_photo_key = draftPhotoKey;
-    targetRecord.photo_url = '';
-    targetRecord.photo_drive_id = '';
-    results.matched += 1;
-    matchedSerials.add(targetRecord.serial_no || '');
-    const matchedNumberInfo = extractTrailingNumberInfo(targetRecord.serial_no || '');
-    if (matchedNumberInfo.number !== null) {
-      recordByNumber.delete(matchedNumberInfo.number);
-    }
-  }
-
-  updatedRecords.forEach((record) => {
-    if (!record.draft_photo_key) {
-      results.missingRecords.push(record.serial_no || record.name || 'Unnamed');
-    }
-  });
-
-  saveDraftRecords(institute, updatedRecords);
-  return { updatedRecords, results };
-}
-
-async function handleBulkPhotoUpload(input) {
-  const files = input.files;
-  if (!files || !files.length) return;
-  showLoading('Matching bulk photos...');
-  try {
-    const { updatedRecords, results } = await applyBulkPhotosToDraftBatch(files);
-    await loadBatchSummary();
-    const currentSerial = selectedBatchSerial || document.getElementById('serialNo').value.trim();
-    const refreshedRecord = updatedRecords.find((record) => record.serial_no === currentSerial);
-    if (refreshedRecord) {
-      await populateFormFromRecord(refreshedRecord);
-    }
-    const messageParts = [`Matched ${results.matched} photo(s).`];
-    if (results.unmatchedFiles.length) {
-      messageParts.push(`Unmatched files: ${results.unmatchedFiles.join(', ')}`);
-    }
-    if (results.missingRecords.length) {
-      messageParts.push(`Still missing photos: ${results.missingRecords.join(', ')}`);
-    }
-    alert(messageParts.join('\n'));
-  } catch (e) {
-    alert(e.message || 'Bulk photo upload failed.');
-  }
-  hideLoading();
-  input.value = '';
 }
 
 async function loadBatchSummary() {
