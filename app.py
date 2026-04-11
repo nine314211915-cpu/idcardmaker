@@ -2115,11 +2115,34 @@ def save_print_studio_asset(file_storage, institute_name, asset_type):
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
     base_name = f"print_studio_{kind}_{safe_institute}_{timestamp}"
 
-    if kind == "signature" and "A" in img.getbands():
+    if kind == "signature":
+        # Make signature print-friendly:
+        # 1) transparent background (remove near-white paper)
+        # 2) darker ink with preserved anti-aliased edges
+        # 3) slight sharpness boost
+        rgba = img.convert("RGBA")
+        processed = []
+        for r, g, b, a in rgba.getdata():
+            if a == 0:
+                processed.append((r, g, b, 0))
+                continue
+            brightness = (r + g + b) / 3
+            channel_spread = max(r, g, b) - min(r, g, b)
+            if brightness > 236 and channel_spread < 20:
+                processed.append((255, 255, 255, 0))
+                continue
+            ink_boost = max(0, int((235 - brightness) * 1.35))
+            alpha = max(72, min(255, ink_boost + 72))
+            processed.append((16, 16, 16, alpha))
+        rgba.putdata(processed)
+        bbox = rgba.getbbox()
+        if bbox:
+            rgba = rgba.crop(bbox)
+        rgba = ImageEnhance.Sharpness(rgba).enhance(1.18)
         mime_type = "image/png"
         filename = f"{base_name}.png"
         output = io.BytesIO()
-        img.save(output, "PNG")
+        rgba.save(output, "PNG")
     else:
         mime_type = "image/jpeg"
         filename = f"{base_name}.jpg"
