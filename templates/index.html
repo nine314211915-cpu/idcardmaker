@@ -1151,6 +1151,7 @@
                   <strong id="previewSerial">—</strong>
                   Auto crop applied
                   <br><span class="change-photo" onclick="event.stopPropagation(); openGalleryPicker()">Change Photo</span>
+                  <br><span class="change-photo" onclick="event.stopPropagation(); removeCurrentPhoto()">Remove Photo</span>
                 </div>
               </div>
             </div>
@@ -1918,6 +1919,21 @@ function showPhotoPreviewFromBlob(blob) {
   document.getElementById('photoPreviewWrap').classList.add('visible');
   document.getElementById('photoArea').classList.add('has-photo');
   document.getElementById('cardPhotoWrap').innerHTML = `<img src="${previewUrl}" alt="Photo">`;
+}
+
+async function removeCurrentPhoto() {
+  const existingDraftKey = currentPhotoMeta.draft_photo_key || '';
+  document.getElementById('photoInput').value = '';
+  currentPhotoMeta = { url: '', drive_id: '', draft_photo_key: '' };
+  clearPhotoPreview();
+  if (existingDraftKey) {
+    try {
+      await deleteDraftPhotoBlob(existingDraftKey);
+    } catch (e) {}
+  }
+  refreshInstituteLock();
+  saveUiState();
+  updatePreview();
 }
 
 function toTitleCaseValue(value) {
