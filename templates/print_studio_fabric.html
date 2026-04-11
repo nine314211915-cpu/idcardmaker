@@ -302,11 +302,6 @@
       <div class="panel-body">
         <article class="group">
           <h3>Background</h3>
-          <div class="field">
-            <label>Background Library</label>
-            <select id="bgLibrarySelect" class="asset-select"></select>
-          </div>
-          <button class="btn" id="uploadBgQuickBtn" type="button">Upload New Background</button>
           <div class="row2">
             <div class="field">
               <label>Start</label>
@@ -416,7 +411,6 @@
   const cardPositionEl = document.getElementById("cardPosition");
   const bgStartEl = document.getElementById("bgStart");
   const bgEndEl = document.getElementById("bgEnd");
-  const bgLibrarySelectEl = document.getElementById("bgLibrarySelect");
   const layerXEl = document.getElementById("layerX");
   const layerYEl = document.getElementById("layerY");
   const layerScaleEl = document.getElementById("layerScale");
@@ -676,7 +670,6 @@
 
     canvas.renderAll();
     refreshLayers();
-    renderBackgroundSelect();
     renderAssetLibrary();
   }
 
@@ -708,14 +701,26 @@
           resolve(null);
           return;
         }
-        const scale = Math.min(width / img.width, height / img.height);
+        const isBackground = id === "background_image";
+        const scale = isBackground
+          ? Math.max(width / img.width, height / img.height)
+          : Math.min(width / img.width, height / img.height);
         img.set({
-          left,
-          top,
+          left: isBackground ? 0 : left,
+          top: isBackground ? 0 : top,
           scaleX: scale,
           scaleY: scale,
           customId: id,
         });
+        if (isBackground) {
+          img.clipPath = new fabric.Rect({
+            left: 0,
+            top: 0,
+            width,
+            height,
+            absolutePositioned: true,
+          });
+        }
         if (id === "employee_photo") {
           applyPhotoClip(img);
         }
@@ -811,7 +816,6 @@
       return;
     }
     renderAssetLibrary();
-    renderBackgroundSelect();
     setStatus("Saved to server settings.");
   }
 
@@ -857,7 +861,6 @@
         })
         .finally(() => {
           refreshLayers();
-          renderBackgroundSelect();
           renderAssetLibrary();
           setStatus("Loaded server design.");
         });
@@ -952,24 +955,9 @@
     assetLibraryEl.querySelectorAll('[data-asset-action="select-bg"]').forEach((selectEl) => {
       selectEl.addEventListener("change", async () => {
         await applyBackgroundFromLibrary(selectEl.value || "");
-        renderBackgroundSelect();
         renderAssetLibrary();
       });
     });
-  }
-
-  function renderBackgroundSelect() {
-    if (!bgLibrarySelectEl) return;
-    normalizeBackgroundLibrary();
-    const options = backgroundLibrary.map((url, idx) => {
-      const label = `BG ${idx + 1}`;
-      const selected = assetUrls.background_image === url ? " selected" : "";
-      return `<option value="${url}"${selected}>${label}</option>`;
-    }).join("");
-    bgLibrarySelectEl.innerHTML = options || '<option value="">No background</option>';
-    if (!options) {
-      bgLibrarySelectEl.value = "";
-    }
   }
 
   async function removeAsset(id) {
@@ -1005,7 +993,6 @@
         canvas.requestRenderAll();
       }
       renderAssetLibrary();
-      renderBackgroundSelect();
       setStatus(`${assetConfig[id].label} removed.`);
     } catch {
       setStatus("Unable to remove asset.", true);
@@ -1179,7 +1166,6 @@
           normalizeBackgroundLibrary();
         }
         renderAssetLibrary();
-        renderBackgroundSelect();
         setStatus(`${targetType} uploaded and linked.`);
       } catch (err) {
         setStatus(`${targetType} upload failed: ${err && err.message ? err.message : "unknown error"}`, true);
@@ -1298,13 +1284,6 @@
       selectedEmployee = employees[currentCardIndex];
       await applyEmployeeDataToCanvas(selectedEmployee);
       updateCardPosition();
-    });
-    document.getElementById("uploadBgQuickBtn").addEventListener("click", () => bgInputEl.click());
-    bgLibrarySelectEl.addEventListener("change", async () => {
-      const nextUrl = bgLibrarySelectEl.value || "";
-      await applyBackgroundFromLibrary(nextUrl);
-      renderBackgroundSelect();
-      renderAssetLibrary();
     });
     document.getElementById("applyBgBtn").addEventListener("click", () => {
       const bg = findById("background");
