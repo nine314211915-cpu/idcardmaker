@@ -2091,6 +2091,60 @@ def save_signature_image(file_storage, institute_name):
     return drive_url or f"/generated-assets/{filename}", drive_id
 
 
+def save_print_studio_asset(file_storage, institute_name, asset_type):
+    valid_types = {"background", "photo", "logo", "signature"}
+    kind = str(asset_type or "").strip().lower()
+    if kind not in valid_types:
+        raise ValueError("Invalid asset type")
+
+    try:
+        file_storage.stream.seek(0)
+    except Exception:
+        pass
+    file_bytes = file_storage.read()
+    if not file_bytes:
+        raise ValueError("Empty image upload")
+
+    try:
+        img = Image.open(io.BytesIO(file_bytes))
+        img = ImageOps.exif_transpose(img)
+    except UnidentifiedImageError as exc:
+        raise ValueError("Unsupported image format") from exc
+
+    safe_institute = make_asset_slug(institute_name)
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    base_name = f"print_studio_{kind}_{safe_institute}_{timestamp}"
+
+    if kind == "signature" and "A" in img.getbands():
+        mime_type = "image/png"
+        filename = f"{base_name}.png"
+        output = io.BytesIO()
+        img.save(output, "PNG")
+    else:
+        mime_type = "image/jpeg"
+        filename = f"{base_name}.jpg"
+        output = io.BytesIO()
+        img.convert("RGB").save(output, "JPEG", quality=94)
+
+    output_bytes = output.getvalue()
+    local_path = os.path.join(ASSET_DIR, filename)
+    with open(local_path, "wb") as image_file:
+        image_file.write(output_bytes)
+
+    if is_supabase_enabled():
+        object_path = f"{make_storage_slug(institute_name or 'default')}/print-studio/{kind}/{filename}"
+        return upload_bytes_to_supabase_storage(output_bytes, object_path, mime_type), ""
+
+    drive_id = None
+    drive_url = None
+    if is_drive_enabled():
+        try:
+            drive_id, drive_url = upload_bytes_to_drive(output_bytes, filename, mime_type, "assets")
+        except Exception:
+            app.logger.warning("Drive upload failed for print studio asset %s", filename, exc_info=True)
+    return drive_url or f"/generated-assets/{filename}", drive_id
+
+
 def build_placeholder_avatar_bytes(record=None, sequence_no=None):
     width, height = 300, 400
     image = Image.new("RGB", (width, height), "#f3efe7")
@@ -2357,6 +2411,32 @@ def fabric_design():
     settings["fabric_design"] = design
     save_settings(settings, institute)
     return jsonify({"saved": True, "institute": institute})
+
+
+@app.route("/api/fabric-assets/upload", methods=["POST"])
+@admin_required
+def fabric_asset_upload():
+    institute = canonicalize_institute_name(request.form.get("institute"))
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    if "asset" not in request.files:
+        return jsonify({"error": "No file"}), 400
+    file_storage = request.files["asset"]
+    if not secure_filename(file_storage.filename):
+        return jsonify({"error": "Invalid filename"}), 400
+    asset_type = (request.form.get("asset_type") or "").strip().lower()
+    try:
+        asset_url, _ = save_print_studio_asset(file_storage, institute, asset_type)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception:
+        return jsonify({"error": "Unable to upload print studio asset"}), 500
+    return jsonify({
+        "status": "saved",
+        "institute": institute,
+        "asset_type": asset_type,
+        "url": asset_url,
+    })
 
 
 @app.route("/admin/login", methods=["POST"])

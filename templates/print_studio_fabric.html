@@ -318,6 +318,7 @@
   });
   let selectedEmployee = employees[0];
   let isBatchExporting = false;
+  let assetUrls = {};
 
   function setStatus(text, error = false) {
     statusLineEl.textContent = text;
@@ -379,6 +380,25 @@
 
   function findById(id) {
     return canvas.getObjects().find((obj) => obj.customId === id) || null;
+  }
+
+  function getSlotForAssetId(id) {
+    if (id === "background_image") {
+      return { left: 0, top: 0, width: canvas.getWidth(), height: canvas.getHeight() };
+    }
+    if (id === "employee_photo") {
+      const slot = findById("photo_slot");
+      if (slot) return { left: slot.left || 0, top: slot.top || 0, width: slot.width || 150, height: slot.height || 180 };
+    }
+    if (id === "logo_image") {
+      const slot = findById("logo_slot");
+      if (slot) return { left: slot.left || 0, top: slot.top || 0, width: slot.width || 120, height: slot.height || 70 };
+    }
+    if (id === "sign_image") {
+      const slot = findById("signature_slot");
+      if (slot) return { left: slot.left || 0, top: slot.top || 0, width: slot.width || 150, height: slot.height || 45 };
+    }
+    return { left: 10, top: 10, width: 120, height: 80 };
   }
 
   function addText(id, text, left, top, color, size, weight = "normal") {
@@ -449,8 +469,23 @@
     });
     canvas.add(sign);
 
-    if (selectedEmployee.photo_url) {
+    if (assetUrls.employee_photo) {
+      const s = getSlotForAssetId("employee_photo");
+      await placeImageFromUrl(assetUrls.employee_photo, "employee_photo", s.left, s.top, s.width, s.height);
+    } else if (selectedEmployee.photo_url) {
       await placeImageFromUrl(selectedEmployee.photo_url, "employee_photo", photoSlot.left, photoSlot.top, photoSlot.width, photoSlot.height);
+    }
+    if (assetUrls.background_image) {
+      const s = getSlotForAssetId("background_image");
+      await placeImageFromUrl(assetUrls.background_image, "background_image", s.left, s.top, s.width, s.height);
+    }
+    if (assetUrls.logo_image) {
+      const s = getSlotForAssetId("logo_image");
+      await placeImageFromUrl(assetUrls.logo_image, "logo_image", s.left, s.top, s.width, s.height);
+    }
+    if (assetUrls.sign_image) {
+      const s = getSlotForAssetId("sign_image");
+      await placeImageFromUrl(assetUrls.sign_image, "sign_image", s.left, s.top, s.width, s.height);
     }
 
     canvas.renderAll();
@@ -554,6 +589,7 @@
     const payload = {
       templateType: templateTypeEl.value,
       photoShape: photoShapeEl.value,
+      assetUrls,
       json: canvas.toJSON(["customId"])
     };
     localStorage.setItem("fabric_print_studio_design", JSON.stringify(payload));
@@ -564,6 +600,7 @@
     const payload = {
       templateType: templateTypeEl.value,
       photoShape: photoShapeEl.value,
+      asset_urls: assetUrls,
       json: canvas.toJSON(["customId"])
     };
     const res = await fetch(`/api/fabric-design?institute=${encodeURIComponent(institute || "")}`, {
@@ -593,12 +630,46 @@
     }
     templateTypeEl.value = design.templateType || "horizontal";
     photoShapeEl.value = design.photoShape || "rectangle";
+    assetUrls = (design.asset_urls && typeof design.asset_urls === "object") ? design.asset_urls : {};
     setTemplateSize(templateTypeEl.value);
     canvas.loadFromJSON(design.json, () => {
       canvas.renderAll();
-      refreshLayers();
-      setStatus("Loaded server design.");
+      Promise.resolve()
+        .then(async () => {
+          const mappings = [
+            "background_image",
+            "logo_image",
+            "sign_image",
+            "employee_photo",
+          ];
+          for (const id of mappings) {
+            const url = assetUrls[id];
+            if (!url) continue;
+            const s = getSlotForAssetId(id);
+            await placeImageFromUrl(url, id, s.left, s.top, s.width, s.height);
+          }
+        })
+        .finally(() => {
+          refreshLayers();
+          setStatus("Loaded server design.");
+        });
     });
+  }
+
+  async function uploadAssetToServer(file, assetType) {
+    const form = new FormData();
+    form.append("asset", file);
+    form.append("asset_type", assetType);
+    form.append("institute", institute || "");
+    const res = await fetch("/api/fabric-assets/upload", {
+      method: "POST",
+      body: form,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || "Upload failed");
+    }
+    return data.url || "";
   }
 
   function exportPng() {
@@ -755,18 +826,33 @@
 
   function wireUpload(buttonId, inputEl, id, fallbackRectId) {
     document.getElementById(buttonId).addEventListener("click", () => inputEl.click());
-    inputEl.addEventListener("change", () => {
+    inputEl.addEventListener("change", async () => {
       const file = inputEl.files && inputEl.files[0];
       if (!file) return;
-      const url = URL.createObjectURL(file);
-      const slot = findById(fallbackRectId);
-      const left = slot ? slot.left : 10;
-      const top = slot ? slot.top : 10;
-      const width = slot ? slot.width : 180;
-      const height = slot ? slot.height : 110;
-      placeImageFromUrl(url, id, left, top, width, height).then(() => {
-        URL.revokeObjectURL(url);
-      });
+      const typeMap = {
+        background_image: "background",
+        employee_photo: "photo",
+        logo_image: "logo",
+        sign_image: "signature",
+      };
+      const targetType = typeMap[id] || "photo";
+      try {
+        setStatus(`Uploading ${targetType}...`);
+        const persistentUrl = await uploadAssetToServer(file, targetType);
+        if (!persistentUrl) {
+          throw new Error("No URL returned");
+        }
+        assetUrls[id] = persistentUrl;
+        const slot = findById(fallbackRectId);
+        const left = slot ? slot.left : 10;
+        const top = slot ? slot.top : 10;
+        const width = slot ? slot.width : 180;
+        const height = slot ? slot.height : 110;
+        await placeImageFromUrl(persistentUrl, id, left, top, width, height);
+        setStatus(`${targetType} uploaded and linked.`);
+      } catch (err) {
+        setStatus(`${targetType} upload failed: ${err && err.message ? err.message : "unknown error"}`, true);
+      }
       inputEl.value = "";
     });
   }
