@@ -1230,9 +1230,15 @@
               <option>3rd Year</option>
             </select>
           </div>
-          <div class="form-group anm-field" style="display:none">
-            <label>Father's Name <span class="req">*</span></label>
-            <input type="text" id="fatherName" placeholder="Enter father's name" oninput="updatePreview()">
+          <div class="form-group">
+            <label id="familyNameLabel">Father's / Spouse Name</label>
+            <div class="employee-custom-grid">
+              <select id="familyNameType" onchange="handleFamilyNameTypeChange()">
+                <option value="Father's Name">Father's Name</option>
+                <option value="Spouse Name">Spouse Name</option>
+              </select>
+              <input type="text" id="fatherName" placeholder="Enter father's or spouse name" oninput="updatePreview()">
+            </div>
           </div>
 
           <!-- Lecturer Fields (hidden by default) -->
@@ -1319,7 +1325,7 @@
                 <div class="cf-row"><span class="cf-label">DOB</span><span class="cf-val" id="prevDob">—</span></div>
                 <div class="cf-row"><span class="cf-label">Contact</span><span class="cf-val" id="prevContact">—</span></div>
                 <div class="cf-row anm-preview-row" style="display:none"><span class="cf-label">Batch</span><span class="cf-val" id="prevBatch">—</span></div>
-                <div class="cf-row anm-preview-row" style="display:none"><span class="cf-label">Father</span><span class="cf-val" id="prevFather">—</span></div>
+                <div class="cf-row"><span class="cf-label" id="prevFamilyLabel">Father</span><span class="cf-val" id="prevFather">—</span></div>
                 <div class="cf-row anm-preview-row" style="display:none"><span class="cf-label">Aadhaar</span><span class="cf-val" id="prevAadhaar">—</span></div>
                 <div class="cf-row lecturer-field" style="display:none"><span class="cf-label">Dept</span><span class="cf-val" id="prevDept">—</span></div>
                 <div class="cf-row lecturer-field" style="display:none" id="prevEmployeeIdRow"><span class="cf-label">Emp ID</span><span class="cf-val" id="prevEmployeeId">—</span></div>
@@ -1428,6 +1434,7 @@ const TEACHER_DESIGNATIONS = {
   'Govt. Medical College, Jhunjhunu': ['Professor & HOD', 'Professor', 'Associate Professor', 'Assistant Professor', 'Senior Lecturer', 'Lecturer', 'Tutor / Demonstrator', 'Senior Resident', 'Junior Resident'],
   'Govt. Nursing College, Jhunjhunu': ['Principal', 'Vice Principal', 'Professor', 'Associate Professor', 'Assistant Professor', 'Tutor', 'Clinical Instructor', 'Lecturer']
 };
+const COMMON_EXTRA_DESIGNATION = 'Medical Officer In-Charge (MOIC)';
 const FACILITY_LOCATIONS = {
   'Govt. Community Health Centre (CHC), Jhunjhunu': ['Jhunjhunu', 'Chirawa', 'Khetri', 'Udaipurwati', 'Nawalgarh', 'Buhana', 'Malsisar', 'Mandawa', 'Surajgarh'],
   'Govt. Primary Health Centre (PHC), Jhunjhunu': ['All PHCs', 'Jhunjhunu', 'Chirawa', 'Surajgarh', 'Khetri', 'Buhana', 'Nawalgarh', 'Udaipurwati', 'Malsisar'],
@@ -1629,6 +1636,16 @@ const EMPLOYEE_DESIGNATIONS = {
     'Junior Engineer'
   ]
 };
+Object.keys(TEACHER_DESIGNATIONS).forEach((key) => {
+  if (!TEACHER_DESIGNATIONS[key].includes(COMMON_EXTRA_DESIGNATION)) {
+    TEACHER_DESIGNATIONS[key].push(COMMON_EXTRA_DESIGNATION);
+  }
+});
+Object.keys(EMPLOYEE_DESIGNATIONS).forEach((key) => {
+  if (!EMPLOYEE_DESIGNATIONS[key].includes(COMMON_EXTRA_DESIGNATION)) {
+    EMPLOYEE_DESIGNATIONS[key].push(COMMON_EXTRA_DESIGNATION);
+  }
+});
 
 let currentType = 'student';
 let appSettings = { background_url: '', signature_url: '' };
@@ -1663,6 +1680,7 @@ function saveUiState() {
   const payload = {
     instituteName: document.getElementById('instituteName').value,
     otherInstituteName: document.getElementById('otherInstituteName').value,
+    familyNameType: getFamilyNameType(),
     facilityLocation: document.getElementById('facilityLocation').value,
     facilitySubLocation: getFacilitySubLocationValue(),
     serialNo: document.getElementById('serialNo').value,
@@ -1864,6 +1882,17 @@ function formatTypedDateValue(value) {
   if (digits.length <= 2) return digits;
   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function getFamilyNameType() {
+  return document.getElementById('familyNameType').value || "Father's Name";
+}
+
+function handleFamilyNameTypeChange() {
+  const selected = getFamilyNameType();
+  document.getElementById('familyNameLabel').textContent = selected;
+  document.getElementById('fatherName').placeholder = `Enter ${selected.toLowerCase()}`;
+  updatePreview();
 }
 
 function installFieldFormatters() {
@@ -2657,9 +2686,13 @@ function updatePreview() {
   const contact = document.getElementById('contact').value;
   const validUpto = document.getElementById('validUpto').value;
   const insertedDate = document.getElementById('insertedDate').value;
+  const familyNameType = getFamilyNameType();
+  const familyPreviewLabel = familyNameType === 'Spouse Name' ? 'Spouse' : 'Father';
+  const familyNameValue = document.getElementById('fatherName').value || '—';
 
   document.getElementById('prevInstitute').textContent = previewInstitute;
   document.getElementById('prevName').textContent = name;
+  document.getElementById('prevFamilyLabel').textContent = familyPreviewLabel;
   document.getElementById('prevDob').textContent = dob ? formatDate(dob) : '—';
   document.getElementById('prevContact').textContent = contact || '—';
   document.getElementById('prevValid').textContent = effectiveType === 'student' && !anmMode && validUpto ? formatDate(validUpto) : '—';
@@ -2674,7 +2707,7 @@ function updatePreview() {
     document.getElementById('prevRole').textContent = trainingYear ? `ANM ${trainingYear}` : 'ANM Student';
     document.getElementById('prevBlood').textContent = blood || '—';
     document.getElementById('prevBatch').textContent = batchSession || '—';
-    document.getElementById('prevFather').textContent = document.getElementById('fatherName').value || '—';
+    document.getElementById('prevFather').textContent = familyNameValue;
     document.getElementById('prevAadhaar').textContent = document.getElementById('aadhaarNo').value || '—';
     document.getElementById('prevDept').textContent = '—';
     document.getElementById('prevEmployeeId').textContent = '—';
@@ -2687,7 +2720,7 @@ function updatePreview() {
     document.getElementById('prevRole').textContent = course || 'Course';
     document.getElementById('prevBlood').textContent = blood || '—';
     document.getElementById('prevBatch').textContent = '—';
-    document.getElementById('prevFather').textContent = '—';
+    document.getElementById('prevFather').textContent = familyNameValue;
     document.getElementById('prevAadhaar').textContent = '—';
     document.getElementById('prevDept').textContent = '—';
     document.getElementById('prevEmployeeId').textContent = '—';
@@ -2700,7 +2733,7 @@ function updatePreview() {
     document.getElementById('prevRole').textContent = desig || 'Designation';
     document.getElementById('prevBlood').textContent = '—';
     document.getElementById('prevBatch').textContent = '—';
-    document.getElementById('prevFather').textContent = '—';
+    document.getElementById('prevFather').textContent = familyNameValue;
     document.getElementById('prevAadhaar').textContent = '—';
     document.getElementById('prevDept').textContent = dept || '—';
     document.getElementById('prevEmployeeId').textContent = '—';
@@ -2716,7 +2749,7 @@ function updatePreview() {
     document.getElementById('prevRole').textContent = desig || 'Employee Designation';
     document.getElementById('prevBlood').textContent = isFacilityLocationInstitute() ? (blood || '—') : '—';
     document.getElementById('prevBatch').textContent = '—';
-    document.getElementById('prevFather').textContent = '—';
+    document.getElementById('prevFather').textContent = familyNameValue;
     document.getElementById('prevAadhaar').textContent = '—';
     document.getElementById('prevDept').textContent = dept || '—';
     document.getElementById('prevEmployeeId').textContent = document.getElementById('employeeId').value || '—';
@@ -2810,6 +2843,7 @@ async function legacySaveCurrentCard() {
     payload.batch_session = document.getElementById('batchSession').value;
     payload.training_year = document.getElementById('trainingYear').value;
     payload.father_name = document.getElementById('fatherName').value;
+    payload.father_name_label = getFamilyNameType();
     payload.aadhaar_no = document.getElementById('aadhaarNo').value;
   } else {
     payload.designation = document.getElementById('designation').value;
@@ -2817,6 +2851,8 @@ async function legacySaveCurrentCard() {
     payload.facility_location = document.getElementById('facilityLocation').value;
     payload.facility_sub_location = getFacilitySubLocationValue();
     payload.department = '';
+    payload.father_name = document.getElementById('fatherName').value;
+    payload.father_name_label = getFamilyNameType();
     payload.employee_id = document.getElementById('employeeId').value;
     payload.custom_field_label = document.getElementById('customEmployeeFieldLabel').value;
     payload.custom_field_value = document.getElementById('customEmployeeFieldValue').value;
@@ -3017,6 +3053,8 @@ async function populateFormFromRecord(record) {
   document.getElementById('bloodGroup').value = record.blood_group || '';
   document.getElementById('batchSession').value = record.batch_session || '';
   document.getElementById('trainingYear').value = record.training_year || '';
+  document.getElementById('familyNameType').value = record.father_name_label || "Father's Name";
+  handleFamilyNameTypeChange();
   document.getElementById('fatherName').value = record.father_name || '';
   document.getElementById('aadhaarNo').value = record.aadhaar_no || '';
   document.getElementById('designation').value = record.designation || '';
@@ -3087,6 +3125,7 @@ async function saveCurrentCard() {
     payload.batch_session = document.getElementById('batchSession').value;
     payload.training_year = document.getElementById('trainingYear').value;
     payload.father_name = document.getElementById('fatherName').value;
+    payload.father_name_label = getFamilyNameType();
     payload.aadhaar_no = document.getElementById('aadhaarNo').value;
   } else {
     payload.designation = document.getElementById('designation').value;
@@ -3094,6 +3133,8 @@ async function saveCurrentCard() {
     payload.facility_location = document.getElementById('facilityLocation').value;
     payload.facility_sub_location = getFacilitySubLocationValue();
     payload.department = '';
+    payload.father_name = document.getElementById('fatherName').value;
+    payload.father_name_label = getFamilyNameType();
     payload.employee_id = document.getElementById('employeeId').value;
     payload.custom_field_label = document.getElementById('customEmployeeFieldLabel').value;
     payload.custom_field_value = document.getElementById('customEmployeeFieldValue').value;
@@ -3211,6 +3252,8 @@ function resetForm() {
   document.getElementById('contact').value = '';
   document.getElementById('address').value = '';
   document.getElementById('fatherName').value = '';
+  document.getElementById('familyNameType').value = "Father's Name";
+  handleFamilyNameTypeChange();
   document.getElementById('aadhaarNo').value = '';
   document.getElementById('batchSession').value = keepAnmBatch;
   document.getElementById('trainingYear').value = keepAnmYear;
@@ -3262,9 +3305,13 @@ if (persistedUiState.instituteName) {
 if (typeof persistedUiState.otherInstituteName === 'string') {
   document.getElementById('otherInstituteName').value = persistedUiState.otherInstituteName;
 }
+if (typeof persistedUiState.familyNameType === 'string' && persistedUiState.familyNameType.trim()) {
+  document.getElementById('familyNameType').value = persistedUiState.familyNameType;
+}
 if (typeof persistedUiState.selectedBatchSerial === 'string') {
   selectedBatchSerial = persistedUiState.selectedBatchSerial;
 }
+handleFamilyNameTypeChange();
 handleInstituteChange();
 if (typeof persistedUiState.facilityLocation === 'string') {
   document.getElementById('facilityLocation').value = persistedUiState.facilityLocation;
