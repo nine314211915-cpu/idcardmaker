@@ -2318,17 +2318,6 @@ def build_print_preview_context():
     }
 
 
-@app.route("/admin/print-lab")
-@admin_required
-def admin_print_lab():
-    response = make_response(render_template("print_studio_fabric.html", **build_print_preview_context()))
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    response.headers["X-App-Build"] = app.config.get("APP_BUILD_TAG", "")
-    return response
-
-
 @app.route("/admin/print-studio")
 @admin_required
 def admin_print_studio():
@@ -2338,22 +2327,6 @@ def admin_print_studio():
     response.headers["Expires"] = "0"
     response.headers["X-App-Build"] = app.config.get("APP_BUILD_TAG", "")
     return response
-
-
-@app.route("/api/build-info")
-def build_info():
-    fabric_path = os.path.join(BASE_DIR, "templates", "print_studio_fabric.html")
-    fabric_mtime = ""
-    if os.path.isfile(fabric_path):
-        fabric_mtime = datetime.utcfromtimestamp(os.path.getmtime(fabric_path)).isoformat() + "Z"
-    return jsonify({
-        "build_tag": app.config.get("APP_BUILD_TAG", ""),
-        "cwd": BASE_DIR,
-        "runtime_dir": RUNTIME_DIR,
-        "print_studio_fabric_template": fabric_path,
-        "print_studio_fabric_mtime_utc": fabric_mtime,
-        "now_utc": datetime.utcnow().isoformat() + "Z",
-    })
 
 
 @app.route("/api/fabric-design", methods=["GET", "POST"])

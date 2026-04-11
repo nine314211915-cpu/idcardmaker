@@ -311,7 +311,6 @@
     selection: true
   });
   let selectedEmployee = employees[0];
-  let nodeMap = {};
 
   function setStatus(text, error = false) {
     statusLineEl.textContent = text;
@@ -386,13 +385,11 @@
       customId: id
     });
     canvas.add(node);
-    nodeMap[id] = node;
   }
 
   async function drawLayout() {
     setTemplateSize(templateTypeEl.value);
     canvas.clear();
-    nodeMap = {};
     canvas.add(makeGradientRect());
 
     const w = canvas.getWidth();
@@ -402,7 +399,6 @@
       fill: "#8b0000", selectable: true, customId: "header_bar"
     });
     canvas.add(head);
-    nodeMap.header_bar = head;
 
     addText("institute", selectedEmployee.institute_name || "Institute", 18, 16, "#ffffff", 30, "bold");
     addText("name", selectedEmployee.name || "-", Math.round(w * 0.34), Math.round(h * 0.26), "#8b0000", 34, "bold");
@@ -421,7 +417,6 @@
       customId: "photo_slot"
     });
     canvas.add(photoSlot);
-    nodeMap.photo_slot = photoSlot;
 
     const logo = new fabric.Rect({
       left: Math.round(w - 145),
@@ -434,7 +429,6 @@
       customId: "logo_slot"
     });
     canvas.add(logo);
-    nodeMap.logo_slot = logo;
 
     const sign = new fabric.Rect({
       left: Math.round(w - 185),
@@ -447,7 +441,6 @@
       customId: "signature_slot"
     });
     canvas.add(sign);
-    nodeMap.signature_slot = sign;
 
     if (selectedEmployee.photo_url) {
       await placeImageFromUrl(selectedEmployee.photo_url, "employee_photo", photoSlot.left, photoSlot.top, photoSlot.width, photoSlot.height);
@@ -558,27 +551,6 @@
     };
     localStorage.setItem("fabric_print_studio_design", JSON.stringify(payload));
     setStatus("Saved to browser local storage.");
-  }
-
-  function loadLocal() {
-    const raw = localStorage.getItem("fabric_print_studio_design");
-    if (!raw) {
-      setStatus("No local design found.", true);
-      return;
-    }
-    try {
-      const parsed = JSON.parse(raw);
-      templateTypeEl.value = parsed.templateType || "horizontal";
-      photoShapeEl.value = parsed.photoShape || "rectangle";
-      setTemplateSize(templateTypeEl.value);
-      canvas.loadFromJSON(parsed.json, () => {
-        canvas.renderAll();
-        refreshLayers();
-        setStatus("Loaded local design.");
-      });
-    } catch {
-      setStatus("Invalid local design data.", true);
-    }
   }
 
   async function saveServer() {
