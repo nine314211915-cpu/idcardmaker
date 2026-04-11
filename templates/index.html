@@ -1660,11 +1660,13 @@ let batchInstituteLocked = false;
 let currentBatchRecords = [];
 let selectedBatchSerial = '';
 let activeCameraStream = null;
+let batchUnlockTimer = null;
 const UI_STATE_KEY = 'idcard_ui_state_v1';
 const DRAFT_BATCHES_KEY = 'idcard_draft_batches_v1';
 const DRAFT_PHOTO_DB_NAME = 'idcard_draft_photo_db';
 const DRAFT_PHOTO_STORE = 'photos';
 const FACILITY_CUSTOM_SUB_LOCATIONS_KEY = 'facility_custom_sub_locations_v1';
+const BATCH_UNLOCK_IDLE_MS = 15 * 60 * 1000;
 
 function currentDateText() {
   const now = new Date();
@@ -1748,6 +1750,56 @@ function saveDraftRecords(institute, records) {
     };
   }
   saveDraftBatches(drafts);
+}
+
+function clearBatchUnlockTimers() {
+  if (batchUnlockTimer) {
+    clearTimeout(batchUnlockTimer);
+    batchUnlockTimer = null;
+  }
+}
+
+function autoUnlockBatchSession() {
+  clearBatchUnlockTimers();
+  if (!batchInstituteLocked) return;
+  batchInstituteLocked = false;
+  setInstituteLocked(false);
+  const helper = document.getElementById('batchHelperNote');
+  if (helper) {
+    helper.textContent = 'Batch lock was removed after inactivity. Current typed data is kept, and you can now change institute, block, or village for the next batch.';
+  }
+  saveUiState();
+}
+
+function refreshBatchUnlockTimer() {
+  clearBatchUnlockTimers();
+  if (!batchInstituteLocked) return;
+  batchUnlockTimer = setTimeout(() => {
+    autoUnlockBatchSession();
+  }, BATCH_UNLOCK_IDLE_MS);
+}
+
+function noteBatchActivity(event) {
+  const activityTarget = event && event.target;
+  const relockSafeIds = new Set([
+    'instituteName',
+    'otherInstituteName',
+    'facilityLocation',
+    'facilitySubLocation',
+    'facilitySubLocationCustom'
+  ]);
+  if (!batchInstituteLocked) {
+    const institute = getInstituteValue();
+    const hasDraftRecords = !!getDraftRecords(institute).length;
+    const targetId = activityTarget && activityTarget.id ? activityTarget.id : '';
+    if (hasDraftRecords && !relockSafeIds.has(targetId)) {
+      batchInstituteLocked = true;
+      refreshInstituteLock();
+      refreshBatchUnlockTimer();
+    }
+    return;
+  }
+  refreshBatchUnlockTimer();
 }
 
 function makeStorageKey(value) {
@@ -2423,8 +2475,13 @@ async function loadBatchSummary() {
   document.getElementById('savedCardsCount').textContent = draftRecords.length;
   document.getElementById('batchStateLabel').textContent = draftRecords.length > 0 ? 'Draft Active' : 'Ready';
   document.getElementById('batchHelperNote').textContent = draftRecords.length > 0
-    ? 'Draft cards are saved on this device. They become permanent only after you click Submit Whole Data.'
+    ? 'Draft cards are saved on this device. They become permanent only after you click Submit Whole Data. This batch will auto-unlock after 15 minutes of inactivity.'
     : 'Draft cards stay on this device after refresh. They become permanent only after you click Submit Whole Data.';
+  if (batchInstituteLocked) {
+    refreshBatchUnlockTimer();
+  } else {
+    clearBatchUnlockTimers();
+  }
   await loadSubmittedCards();
 }
 
@@ -3178,6 +3235,7 @@ async function saveCurrentCard() {
     }
     saveDraftRecords(institute, existingRecords);
     batchInstituteLocked = true;
+    refreshBatchUnlockTimer();
     selectedBatchSerial = serial;
     showToast((existingIndex >= 0 ? 'Updated' : 'Draft saved') + ' ID card. Serial: ' + serial);
     await loadBatchSummary();
@@ -3227,6 +3285,7 @@ async function submitWholeBatch() {
     currentBatchRecords = [];
     selectedBatchSerial = '';
     batchInstituteLocked = false;
+    clearBatchUnlockTimers();
     setInstituteLocked(false);
     resetForm();
     await loadBatchSummary();
@@ -3336,6 +3395,9 @@ if (persistedUiState.currentPhotoMeta && typeof persistedUiState.currentPhotoMet
 batchInstituteLocked = false;
 setInstituteLocked(false);
 updatePreview();
+['pointerdown', 'keydown', 'input', 'change'].forEach((eventName) => {
+  document.addEventListener(eventName, noteBatchActivity, true);
+});
 loadSettings();
 loadBatchSummary().then(async () => {
   if (selectedBatchSerial && currentBatchRecords.some(record => record.serial_no === selectedBatchSerial)) {
