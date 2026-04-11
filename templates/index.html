@@ -1635,12 +1635,18 @@ let currentBatchRecords = [];
 let selectedBatchSerial = '';
 let activeCameraStream = null;
 let batchUnlockTimer = null;
+let autoDraftSaveTimer = null;
+let autoDraftSyncTimer = null;
+let autoDraftSyncInFlight = false;
+let autoDraftSyncQueued = false;
 const UI_STATE_KEY = 'idcard_ui_state_v1';
 const DRAFT_BATCHES_KEY = 'idcard_draft_batches_v1';
 const DRAFT_PHOTO_DB_NAME = 'idcard_draft_photo_db';
 const DRAFT_PHOTO_STORE = 'photos';
 const FACILITY_CUSTOM_SUB_LOCATIONS_KEY = 'facility_custom_sub_locations_v1';
 const BATCH_UNLOCK_IDLE_MS = 15 * 60 * 1000;
+const AUTO_DRAFT_SYNC_MS = 30 * 1000;
+const AUTO_DRAFT_SAVE_DEBOUNCE_MS = 1200;
 
 function currentDateText() {
   const now = new Date();
@@ -1657,8 +1663,24 @@ function saveUiState() {
     instituteName: document.getElementById('instituteName').value,
     otherInstituteName: document.getElementById('otherInstituteName').value,
     familyNameType: getFamilyNameType(),
+    currentType,
     facilityLocation: document.getElementById('facilityLocation').value,
     facilitySubLocation: getFacilitySubLocationValue(),
+    name: document.getElementById('name').value,
+    course: document.getElementById('course').value,
+    validUpto: document.getElementById('validUpto').value,
+    batchSession: document.getElementById('batchSession').value,
+    trainingYear: document.getElementById('trainingYear').value,
+    fatherName: document.getElementById('fatherName').value,
+    designation: document.getElementById('designation').value,
+    employeeId: document.getElementById('employeeId').value,
+    dob: document.getElementById('dob').value,
+    contact: document.getElementById('contact').value,
+    bloodGroup: document.getElementById('bloodGroup').value,
+    aadhaarNo: document.getElementById('aadhaarNo').value,
+    customEmployeeFieldLabel: document.getElementById('customEmployeeFieldLabel').value,
+    customEmployeeFieldValue: document.getElementById('customEmployeeFieldValue').value,
+    address: document.getElementById('address').value,
     serialNo: document.getElementById('serialNo').value,
     currentPhotoMeta,
     selectedBatchSerial,
@@ -1988,6 +2010,98 @@ function hasEntryData() {
     const el = document.getElementById(id);
     return el && String(el.value || '').trim();
   });
+}
+
+function buildCurrentDraftPayload() {
+  const anmMode = isAnmMode();
+  const effectiveType = anmMode ? 'student' : (isCollegeMode() ? currentType : 'employee');
+  const payload = {
+    institute_name: getInstituteValue(),
+    serial_no: document.getElementById('serialNo').value.trim(),
+    name: document.getElementById('name').value.trim(),
+    profile_type: effectiveType,
+    dob: document.getElementById('dob').value,
+    contact: document.getElementById('contact').value,
+    address: document.getElementById('address').value,
+    inserted_date: document.getElementById('insertedDate').value,
+    photo_url: currentPhotoMeta.url || '',
+    photo_drive_id: currentPhotoMeta.drive_id || '',
+    draft_photo_key: currentPhotoMeta.draft_photo_key || '',
+  };
+
+  if (effectiveType === 'student') {
+    payload.course = anmMode ? 'ANM Training' : document.getElementById('course').value;
+    payload.valid_upto = anmMode ? '' : document.getElementById('validUpto').value;
+    payload.blood_group = document.getElementById('bloodGroup').value;
+    payload.batch_session = document.getElementById('batchSession').value;
+    payload.training_year = document.getElementById('trainingYear').value;
+    payload.father_name = document.getElementById('fatherName').value;
+    payload.father_name_label = getFamilyNameType();
+    payload.aadhaar_no = document.getElementById('aadhaarNo').value;
+  } else {
+    payload.designation = document.getElementById('designation').value;
+    payload.blood_group = document.getElementById('bloodGroup').value;
+    payload.facility_location = document.getElementById('facilityLocation').value;
+    payload.facility_sub_location = getFacilitySubLocationValue();
+    payload.department = '';
+    payload.father_name = document.getElementById('fatherName').value;
+    payload.father_name_label = getFamilyNameType();
+    payload.employee_id = document.getElementById('employeeId').value;
+    payload.custom_field_label = document.getElementById('customEmployeeFieldLabel').value;
+    payload.custom_field_value = document.getElementById('customEmployeeFieldValue').value;
+  }
+
+  return payload;
+}
+
+function scheduleAutoDraftSave() {
+  if (autoDraftSaveTimer) {
+    clearTimeout(autoDraftSaveTimer);
+  }
+  autoDraftSaveTimer = setTimeout(() => {
+    saveUiState();
+    syncDraftToServerInBackground();
+  }, AUTO_DRAFT_SAVE_DEBOUNCE_MS);
+}
+
+function ensureAutoDraftSyncLoop() {
+  if (autoDraftSyncTimer) return;
+  autoDraftSyncTimer = setInterval(() => {
+    syncDraftToServerInBackground();
+  }, AUTO_DRAFT_SYNC_MS);
+}
+
+async function syncDraftToServerInBackground() {
+  if (autoDraftSyncInFlight) {
+    autoDraftSyncQueued = true;
+    return;
+  }
+  if (activeRetrievedSource === 'submitted') return;
+  if (!hasEntryData()) return;
+  const institute = getInstituteValue();
+  if (!institute || institute === 'Other') return;
+  ensureSerialGenerated(true);
+  const payload = buildCurrentDraftPayload();
+  if (!payload.serial_no) return;
+
+  autoDraftSyncInFlight = true;
+  try {
+    await fetch('/api/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    });
+  } catch (e) {
+  } finally {
+    autoDraftSyncInFlight = false;
+    if (autoDraftSyncQueued) {
+      autoDraftSyncQueued = false;
+      setTimeout(() => {
+        syncDraftToServerInBackground();
+      }, 300);
+    }
+  }
 }
 
 function shouldLockInstitute() {
@@ -2346,8 +2460,8 @@ async function loadBatchSummary() {
   document.getElementById('savedCardsCount').textContent = draftRecords.length;
   document.getElementById('batchStateLabel').textContent = draftRecords.length > 0 ? 'Draft Active' : 'Ready';
   document.getElementById('batchHelperNote').textContent = draftRecords.length > 0
-    ? 'Draft cards are saved on this device. They become permanent only after you click Submit Whole Data. This batch will auto-unlock after 15 minutes of inactivity.'
-    : 'Draft cards stay on this device after refresh. They become permanent only after you click Submit Whole Data.';
+    ? 'Draft cards are saved on this device and synced in background. They become permanent only after you click Submit Whole Data. This batch will auto-unlock after 15 minutes of inactivity.'
+    : 'Current form auto-saves in background after refresh, and final records become permanent only after you click Submit Whole Data.';
   if (batchInstituteLocked) {
     refreshBatchUnlockTimer();
   } else {
@@ -3243,6 +3357,9 @@ if (typeof persistedUiState.selectedBatchSerial === 'string') {
 }
 handleFamilyNameTypeChange();
 handleInstituteChange();
+if (typeof persistedUiState.currentType === 'string' && persistedUiState.currentType.trim()) {
+  setType(persistedUiState.currentType);
+}
 if (typeof persistedUiState.facilityLocation === 'string') {
   document.getElementById('facilityLocation').value = persistedUiState.facilityLocation;
 }
@@ -3250,6 +3367,17 @@ if (typeof persistedUiState.facilitySubLocation === 'string') {
   handleFacilityLocationChange();
   setFacilitySubLocationValue(persistedUiState.facilitySubLocation);
 }
+[
+  'name', 'course', 'validUpto', 'batchSession', 'trainingYear', 'fatherName',
+  'designation', 'employeeId', 'dob', 'contact', 'bloodGroup', 'aadhaarNo',
+  'customEmployeeFieldLabel', 'customEmployeeFieldValue', 'address'
+].forEach((id) => {
+  if (typeof persistedUiState[id] === 'string') {
+    const el = document.getElementById(id);
+    if (el) el.value = persistedUiState[id];
+  }
+});
+toggleEmployeeCustomField(!!((persistedUiState.customEmployeeFieldLabel || '').trim() || (persistedUiState.customEmployeeFieldValue || '').trim()));
 if (typeof persistedUiState.serialNo === 'string' && persistedUiState.serialNo.trim()) {
   setSerialValue(persistedUiState.serialNo);
 }
@@ -3268,7 +3396,10 @@ setInstituteLocked(false);
 updatePreview();
 ['pointerdown', 'keydown', 'input', 'change'].forEach((eventName) => {
   document.addEventListener(eventName, noteBatchActivity, true);
+  document.addEventListener(eventName, scheduleAutoDraftSave, true);
 });
+ensureAutoDraftSyncLoop();
+window.addEventListener('beforeunload', saveUiState);
 loadSettings();
 loadBatchSummary().then(async () => {
   if (selectedBatchSerial && currentBatchRecords.some(record => record.serial_no === selectedBatchSerial)) {
