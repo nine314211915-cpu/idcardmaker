@@ -1851,7 +1851,7 @@ function showPhotoPreviewFromBlob(blob) {
 }
 
 function toTitleCaseValue(value) {
-  return String(value || '').toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase());
+  return String(value || '').replace(/\b([a-z])/g, (m) => m.toUpperCase());
 }
 
 function formatAadhaarValue(value) {
@@ -1901,6 +1901,9 @@ function setInstituteLocked(locked) {
   instituteLocked = !!locked;
   document.getElementById('instituteName').disabled = instituteLocked;
   document.getElementById('otherInstituteName').readOnly = instituteLocked;
+  document.getElementById('facilityLocation').disabled = instituteLocked;
+  document.getElementById('facilitySubLocation').disabled = instituteLocked;
+  document.getElementById('facilitySubLocationCustom').readOnly = instituteLocked;
   saveUiState();
 }
 
