@@ -2439,6 +2439,40 @@ def fabric_asset_upload():
     })
 
 
+@app.route("/api/fabric-assets/delete", methods=["POST"])
+@admin_required
+def fabric_asset_delete():
+    payload = request.get_json(silent=True) or {}
+    institute = canonicalize_institute_name(payload.get("institute"))
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    file_url = str(payload.get("url") or "").strip()
+    if not file_url:
+        return jsonify({"error": "Asset URL is required"}), 400
+
+    deleted = False
+    if "/generated-assets/" in file_url:
+        filename = file_url.split("/generated-assets/", 1)[1].split("?", 1)[0].strip("/")
+        if not filename.startswith("print_studio_"):
+            return jsonify({"error": "Only print studio assets can be deleted"}), 400
+        delete_generated_asset_from_url(file_url)
+        deleted = True
+    else:
+        object_path = extract_supabase_object_path(file_url)
+        if object_path:
+            if "/print-studio/" not in object_path:
+                return jsonify({"error": "Only print studio assets can be deleted"}), 400
+            delete_supabase_storage_url(file_url)
+            deleted = True
+
+    return jsonify({
+        "status": "deleted" if deleted else "ignored",
+        "deleted": deleted,
+        "url": file_url,
+        "institute": institute,
+    })
+
+
 @app.route("/admin/login", methods=["POST"])
 def admin_login():
     password = request.form.get("password", "")

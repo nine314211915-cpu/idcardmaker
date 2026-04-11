@@ -148,6 +148,29 @@
       text-align: left;
     }
     .layer-item.active { border-color: #9b3b2d; background: #fff7f2; }
+    .asset-grid { display: grid; gap: 8px; }
+    .asset-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 7px;
+      background: #fff;
+      display: grid;
+      gap: 6px;
+    }
+    .asset-title { font-size: 12px; font-weight: 700; color: #5f4d40; }
+    .asset-preview {
+      width: 100%;
+      height: 66px;
+      border: 1px dashed #d4c4b4;
+      border-radius: 7px;
+      background: #f9f5ef;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      font-size: 11px;
+      color: #8a7b6e;
+    }
+    .asset-preview img { width: 100%; height: 100%; object-fit: cover; }
     @media (max-width: 1320px) {
       .top-grid { grid-template-columns: 1fr 1fr; }
       .btn-row { grid-template-columns: 1fr 1fr; }
@@ -257,6 +280,10 @@
             <button class="btn" id="toggleHideBtn" type="button">Hide/Show</button>
           </div>
         </article>
+        <article class="group">
+          <h3>Uploaded Assets</h3>
+          <div class="asset-grid" id="assetLibrary"></div>
+        </article>
       </div>
     </aside>
   </section>
@@ -299,6 +326,7 @@
   const layerYEl = document.getElementById("layerY");
   const layerScaleEl = document.getElementById("layerScale");
   const layerRotateEl = document.getElementById("layerRotate");
+  const assetLibraryEl = document.getElementById("assetLibrary");
 
   const bgInputEl = document.getElementById("bgFileInput");
   const photoInputEl = document.getElementById("photoFileInput");
@@ -319,6 +347,12 @@
   let selectedEmployee = employees[0];
   let isBatchExporting = false;
   let assetUrls = {};
+  const assetConfig = {
+    background_image: { label: "Background", inputId: "bgFileInput", type: "background" },
+    employee_photo: { label: "Photo", inputId: "photoFileInput", type: "photo" },
+    logo_image: { label: "Logo", inputId: "logoFileInput", type: "logo" },
+    sign_image: { label: "Signature", inputId: "signFileInput", type: "signature" },
+  };
 
   function setStatus(text, error = false) {
     statusLineEl.textContent = text;
@@ -490,6 +524,7 @@
 
     canvas.renderAll();
     refreshLayers();
+    renderAssetLibrary();
   }
 
   function replaceOrAddImage(id, img) {
@@ -613,6 +648,7 @@
       setStatus(data.error || "Server save failed.", true);
       return;
     }
+    renderAssetLibrary();
     setStatus("Saved to server settings.");
   }
 
@@ -651,6 +687,7 @@
         })
         .finally(() => {
           refreshLayers();
+          renderAssetLibrary();
           setStatus("Loaded server design.");
         });
     });
@@ -691,6 +728,72 @@
       .trim()
       .replace(/\s+/g, "_");
     return cleaned || fallback;
+  }
+
+  function renderAssetLibrary() {
+    if (!assetLibraryEl) return;
+    assetLibraryEl.innerHTML = Object.entries(assetConfig).map(([id, cfg]) => {
+      const url = assetUrls[id] || "";
+      const preview = url ? `<img src="${url}" alt="${cfg.label}">` : `<span>No file</span>`;
+      return `<div class="asset-card">
+        <div class="asset-title">${cfg.label}</div>
+        <div class="asset-preview">${preview}</div>
+        <div class="row2">
+          <button class="btn" type="button" data-asset-action="replace" data-asset-id="${id}">Replace</button>
+          <button class="btn" type="button" data-asset-action="remove" data-asset-id="${id}" ${url ? "" : "disabled"}>Remove</button>
+        </div>
+      </div>`;
+    }).join("");
+    assetLibraryEl.querySelectorAll("[data-asset-action]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const action = btn.getAttribute("data-asset-action");
+        const id = btn.getAttribute("data-asset-id");
+        if (!id || !assetConfig[id]) return;
+        if (action === "replace") {
+          const input = document.getElementById(assetConfig[id].inputId);
+          if (input) input.click();
+          return;
+        }
+        if (action === "remove") {
+          await removeAsset(id);
+        }
+      });
+    });
+  }
+
+  async function removeAsset(id) {
+    const existingUrl = assetUrls[id];
+    if (!existingUrl) {
+      renderAssetLibrary();
+      return;
+    }
+    try {
+      const res = await fetch("/api/fabric-assets/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ institute, url: existingUrl }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(data.error || "Unable to remove asset.", true);
+        return;
+      }
+      delete assetUrls[id];
+      const node = findById(id);
+      if (node) {
+        canvas.remove(node);
+      }
+      if (id === "employee_photo" && selectedEmployee.photo_url) {
+        const s = getSlotForAssetId("employee_photo");
+        await placeImageFromUrl(selectedEmployee.photo_url, "employee_photo", s.left, s.top, s.width, s.height);
+      } else {
+        canvas.requestRenderAll();
+      }
+      renderAssetLibrary();
+      setStatus(`${assetConfig[id].label} removed.`);
+    } catch {
+      setStatus("Unable to remove asset.", true);
+    }
   }
 
   async function applyEmployeeDataToCanvas(employee) {
@@ -849,6 +952,7 @@
         const width = slot ? slot.width : 180;
         const height = slot ? slot.height : 110;
         await placeImageFromUrl(persistentUrl, id, left, top, width, height);
+        renderAssetLibrary();
         setStatus(`${targetType} uploaded and linked.`);
       } catch (err) {
         setStatus(`${targetType} upload failed: ${err && err.message ? err.message : "unknown error"}`, true);
@@ -959,6 +1063,7 @@
     fillEmployees();
     await drawLayout();
     wireEvents();
+    renderAssetLibrary();
     setStatus("Fabric Print Studio ready.");
   }
 
