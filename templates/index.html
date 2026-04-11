@@ -1138,18 +1138,18 @@
         <div class="section-title" id="profileTitle">Select Profile Type</div>
         <div class="top-tools-row">
           <div class="form-group compact-field">
-            <label>Photo Upload <span class="req">*</span> — AI Powered Face-Only Crop</label>
+            <label>Photo Upload <span class="req">*</span> — Auto Crop Only</label>
             <div class="photo-upload-area" id="photoArea" onclick="openGalleryPicker()">
               <div class="photo-placeholder" id="photoPlaceholder">
                 <span class="icon">📷</span>
                 <span>Upload photo</span>
-                <span style="font-size:10px">AI will keep the face area only for ID card use</span>
+                <span style="font-size:10px">Photo will be auto-cropped only. No filter or enhancement will be applied.</span>
               </div>
               <div class="photo-preview-wrap" id="photoPreviewWrap">
                 <img id="photoPreviewImg" src="" alt="Preview">
                 <div class="photo-info">
                   <strong id="previewSerial">—</strong>
-                  Passport-style crop applied
+                  Auto crop applied
                   <br><span class="change-photo" onclick="event.stopPropagation(); openGalleryPicker()">Change Photo</span>
                 </div>
               </div>
@@ -1867,9 +1867,17 @@ function formatTypedDateValue(value) {
 }
 
 function installFieldFormatters() {
-  ['otherInstituteName', 'name', 'fatherName', 'address'].forEach((id) => {
-    const el = document.getElementById(id);
-    if (!el) return;
+  const titleCaseExclusions = new Set([
+    'aadhaarNo',
+    'dob',
+    'employeeId',
+    'insertedDate',
+    'retrieveSerialInput',
+    'shortSerialNo',
+    'validUpto'
+  ]);
+  document.querySelectorAll('.panel-body input[type="text"], .panel-body textarea').forEach((el) => {
+    if (titleCaseExclusions.has(el.id) || el.readOnly) return;
     el.addEventListener('input', () => {
       el.value = toTitleCaseValue(el.value);
     });
@@ -2529,7 +2537,7 @@ async function handleSignatureUpload(input) {
 
 async function uploadSelectedPhotoFile(file) {
   refreshInstituteLock();
-  showLoading('Uploading & cropping photoâ€¦');
+  showLoading('Uploading & auto-cropping photo...');
   ensureSerialGenerated(true);
   try {
     const institute = getInstituteValue();
@@ -2587,7 +2595,7 @@ async function handlePhotoUpload(input) {
   input.value = '';
   return;
   refreshInstituteLock();
-  showLoading('Uploading & cropping photo…');
+  showLoading('Uploading & auto-cropping photo...');
   ensureSerialGenerated(true);
   try {
     const institute = getInstituteValue();

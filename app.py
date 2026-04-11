@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from collections import deque
 from functools import wraps
 from urllib import request as urllib_request, parse as urllib_parse, error as urllib_error
-from PIL import Image, ImageOps, ImageEnhance, ImageFilter, ImageDraw, ImageStat, UnidentifiedImageError
+from PIL import Image, ImageOps, ImageEnhance, ImageDraw, UnidentifiedImageError
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
@@ -1935,7 +1935,6 @@ def autocrop_passport(img_path, out_path):
     face_box = detect_primary_face(img)
     img = crop_passport_frame(img, face_box)
     img = normalize_passport_resolution(img)
-    img = maybe_enhance_photo(img)
     img.save(out_path, "JPEG", quality=95, optimize=True, progressive=True)
 
 
@@ -1961,53 +1960,6 @@ def normalize_passport_resolution(img):
         return img.resize(new_size, Image.LANCZOS)
 
     return img
-
-
-def should_enhance_photo(img):
-    """
-    Apply enhancement only when image quality appears weak.
-    Uses simple brightness/contrast/edge metrics to avoid over-processing.
-    """
-    gray = img.convert("L")
-    base_stats = ImageStat.Stat(gray)
-    mean_luma = float(base_stats.mean[0]) if base_stats.mean else 128.0
-    contrast_std = float(base_stats.stddev[0]) if base_stats.stddev else 0.0
-
-    edge_img = gray.filter(ImageFilter.FIND_EDGES)
-    edge_stats = ImageStat.Stat(edge_img)
-    edge_strength = float(edge_stats.mean[0]) if edge_stats.mean else 0.0
-
-    too_dark_or_bright = mean_luma < 72 or mean_luma > 200
-    low_contrast = contrast_std < 42
-    soft_detail = edge_strength < 18
-    return too_dark_or_bright or low_contrast or soft_detail
-
-
-def maybe_enhance_photo(img):
-    if not should_enhance_photo(img):
-        return img
-
-    gray = img.convert("L")
-    stats = ImageStat.Stat(gray)
-    mean_luma = float(stats.mean[0]) if stats.mean else 128.0
-    contrast_std = float(stats.stddev[0]) if stats.stddev else 0.0
-    edge_strength = float(ImageStat.Stat(gray.filter(ImageFilter.FIND_EDGES)).mean[0])
-
-    brightness_boost = 1.0
-    if mean_luma < 90:
-        brightness_boost = 1.07
-    elif mean_luma > 190:
-        brightness_boost = 0.97
-
-    contrast_boost = 1.12 if contrast_std < 38 else 1.05
-    sharpness_boost = 1.16 if edge_strength < 18 else 1.08
-
-    img = ImageEnhance.Brightness(img).enhance(brightness_boost)
-    img = ImageEnhance.Contrast(img).enhance(contrast_boost)
-    img = ImageEnhance.Color(img).enhance(1.03)
-    img = ImageEnhance.Sharpness(img).enhance(sharpness_boost)
-    return img.filter(ImageFilter.UnsharpMask(radius=1.2, percent=105, threshold=2))
-
 
 def save_image_asset(file_storage, filename, kind):
     try:
