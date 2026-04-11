@@ -58,7 +58,7 @@
     }
     .btn-row {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(8, minmax(0, 1fr));
       gap: 8px;
     }
     .btn {
@@ -193,6 +193,8 @@
       <button class="btn" id="uploadSignBtn" type="button">Upload Signature</button>
       <button class="btn" id="saveLocalBtn" type="button">Save Local</button>
       <button class="btn primary" id="exportBtn" type="button">Export PNG (Hi-Res)</button>
+      <button class="btn" id="batchZipBtn" type="button">Batch ZIP (Hi-Res)</button>
+      <button class="btn primary" id="batchPdfBtn" type="button">Batch PDF (A4)</button>
     </div>
     <div class="status" id="statusLine">Ready.</div>
   </section>
@@ -266,11 +268,14 @@
 <input id="signFileInput" type="file" accept="image/*" hidden>
 
 <script src="https://cdn.jsdelivr.net/npm/fabric@5.3.0/dist/fabric.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script>
 (() => {
   const records = {{ records|tojson }};
   const fallbackRecord = {{ sample_record|tojson }};
   const institute = {{ institute|tojson }};
+  const batchId = {{ batch_id|tojson }};
   const employees = (Array.isArray(records) && records.length ? records : [fallbackRecord]).map((row, idx) => ({
     key: String(row.serial_no || row.employee_id || row.id || `EMP-${idx + 1}`),
     name: row.name || "Employee",
@@ -280,6 +285,7 @@
     institute_name: row.institute_name || institute || "Institute Name",
     photo_url: row.photo_url || "",
   }));
+  const batchEmployees = (Array.isArray(records) && records.length) ? employees : [];
 
   const templateTypeEl = document.getElementById("templateType");
   const photoShapeEl = document.getElementById("photoShape");
@@ -311,6 +317,7 @@
     selection: true
   });
   let selectedEmployee = employees[0];
+  let isBatchExporting = false;
 
   function setStatus(text, error = false) {
     statusLineEl.textContent = text;
@@ -607,6 +614,145 @@
     setStatus("Exported high resolution PNG.");
   }
 
+  function sanitizeFilePart(value, fallback = "batch") {
+    const cleaned = String(value || "")
+      .replace(/[^a-zA-Z0-9_\- ]+/g, "")
+      .trim()
+      .replace(/\s+/g, "_");
+    return cleaned || fallback;
+  }
+
+  async function applyEmployeeDataToCanvas(employee) {
+    const nameNode = findById("name");
+    const desNode = findById("designation");
+    const idNode = findById("employee_id");
+    const depNode = findById("department");
+    const instNode = findById("institute");
+    if (nameNode) nameNode.set("text", employee.name || "-");
+    if (desNode) desNode.set("text", employee.designation || "-");
+    if (idNode) idNode.set("text", `ID: ${employee.employee_id || "-"}`);
+    if (depNode) depNode.set("text", `Dept: ${employee.department || "-"}`);
+    if (instNode) instNode.set("text", employee.institute_name || institute || "Institute");
+
+    const existingPhoto = findById("employee_photo");
+    if (existingPhoto) canvas.remove(existingPhoto);
+    const slot = findById("photo_slot");
+    if (slot && employee.photo_url) {
+      await placeImageFromUrl(
+        employee.photo_url,
+        "employee_photo",
+        slot.left || 0,
+        slot.top || 0,
+        slot.width || 120,
+        slot.height || 120
+      );
+    } else {
+      canvas.requestRenderAll();
+    }
+  }
+
+  async function exportBatchZip() {
+    if (isBatchExporting) return;
+    if (!batchEmployees.length) {
+      setStatus("No batch records found for ZIP export.", true);
+      return;
+    }
+    isBatchExporting = true;
+    const originalEmployee = selectedEmployee;
+    const originalSelection = employeeSelectEl.value;
+    const zip = new JSZip();
+    setStatus(`Preparing ZIP for ${batchEmployees.length} cards...`);
+    try {
+      for (let i = 0; i < batchEmployees.length; i += 1) {
+        const employee = batchEmployees[i];
+        await applyEmployeeDataToCanvas(employee);
+        const dataUrl = canvas.toDataURL({ format: "png", multiplier: 4, quality: 1 });
+        const base64 = dataUrl.split(",")[1];
+        const filePart = sanitizeFilePart(employee.employee_id || employee.key || `card_${i + 1}`, `card_${i + 1}`);
+        zip.file(`${filePart}.png`, base64, { base64: true });
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      const institutePart = sanitizeFilePart(institute || "institute", "institute");
+      const batchPart = sanitizeFilePart(batchId || "batch", "batch");
+      link.download = `${institutePart}_${batchPart}_cards_hires.zip`;
+      link.click();
+      setStatus(`Batch ZIP exported (${batchEmployees.length} cards).`);
+    } catch (err) {
+      setStatus(`Batch ZIP failed: ${err && err.message ? err.message : "unknown error"}`, true);
+    } finally {
+      selectedEmployee = originalEmployee;
+      employeeSelectEl.value = originalSelection;
+      await applyEmployeeDataToCanvas(selectedEmployee);
+      isBatchExporting = false;
+    }
+  }
+
+  async function exportBatchPdfA4() {
+    if (isBatchExporting) return;
+    if (!batchEmployees.length) {
+      setStatus("No batch records found for PDF export.", true);
+      return;
+    }
+    isBatchExporting = true;
+    const originalEmployee = selectedEmployee;
+    const originalSelection = employeeSelectEl.value;
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+    const pageW = 210;
+    const pageH = 297;
+    const marginLeft = 10;
+    const marginTop = 10;
+    const marginRight = 10;
+    const marginBottom = 10;
+    const cols = 2;
+    const rows = 5;
+    const gapX = 3;
+    const gapY = 3;
+    const slotW = (pageW - marginLeft - marginRight - ((cols - 1) * gapX)) / cols;
+    const slotH = (pageH - marginTop - marginBottom - ((rows - 1) * gapY)) / rows;
+    const cardRatio = canvas.getWidth() / canvas.getHeight();
+    setStatus(`Preparing PDF for ${batchEmployees.length} cards...`);
+    try {
+      for (let i = 0; i < batchEmployees.length; i += 1) {
+        if (i > 0 && i % 10 === 0) {
+          pdf.addPage("a4", "portrait");
+        }
+        const employee = batchEmployees[i];
+        await applyEmployeeDataToCanvas(employee);
+        const dataUrl = canvas.toDataURL({ format: "png", multiplier: 3, quality: 1 });
+        const localIndex = i % 10;
+        const row = Math.floor(localIndex / cols);
+        const col = localIndex % cols;
+        const x0 = marginLeft + (col * (slotW + gapX));
+        const y0 = marginTop + (row * (slotH + gapY));
+
+        let drawW = slotW;
+        let drawH = drawW / cardRatio;
+        if (drawH > slotH) {
+          drawH = slotH;
+          drawW = drawH * cardRatio;
+        }
+        const drawX = x0 + ((slotW - drawW) / 2);
+        const drawY = y0 + ((slotH - drawH) / 2);
+        pdf.addImage(dataUrl, "PNG", drawX, drawY, drawW, drawH, undefined, "FAST");
+      }
+
+      const institutePart = sanitizeFilePart(institute || "institute", "institute");
+      const batchPart = sanitizeFilePart(batchId || "batch", "batch");
+      pdf.save(`${institutePart}_${batchPart}_cards_a4.pdf`);
+      setStatus(`Batch PDF exported (${batchEmployees.length} cards, A4 10/page).`);
+    } catch (err) {
+      setStatus(`Batch PDF failed: ${err && err.message ? err.message : "unknown error"}`, true);
+    } finally {
+      selectedEmployee = originalEmployee;
+      employeeSelectEl.value = originalSelection;
+      await applyEmployeeDataToCanvas(selectedEmployee);
+      isBatchExporting = false;
+    }
+  }
+
   function wireUpload(buttonId, inputEl, id, fallbackRectId) {
     document.getElementById(buttonId).addEventListener("click", () => inputEl.click());
     inputEl.addEventListener("change", () => {
@@ -710,6 +856,8 @@
     document.getElementById("saveServerBtn").addEventListener("click", saveServer);
     document.getElementById("loadServerBtn").addEventListener("click", loadServer);
     document.getElementById("exportBtn").addEventListener("click", exportPng);
+    document.getElementById("batchZipBtn").addEventListener("click", exportBatchZip);
+    document.getElementById("batchPdfBtn").addEventListener("click", exportBatchPdfA4);
 
     wireUpload("uploadBgBtn", bgInputEl, "background_image", "background");
     wireUpload("uploadPhotoBtn", photoInputEl, "employee_photo", "photo_slot");
