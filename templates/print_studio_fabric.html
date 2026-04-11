@@ -18,58 +18,69 @@
       font-family: "Segoe UI", Tahoma, Arial, sans-serif;
       background: linear-gradient(180deg, #faf7f2 0%, var(--bg) 100%);
       color: var(--text);
-      padding: 12px;
+      padding: 8px;
+      height: 100vh;
+      overflow: hidden;
     }
-    .app { max-width: 1480px; margin: 0 auto; display: grid; gap: 10px; }
+    .app {
+      max-width: 1600px;
+      height: calc(100vh - 16px);
+      margin: 0 auto;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 8px;
+      min-height: 0;
+    }
     .banner {
       border: 1px solid #e2b25f;
       background: #fff1cc;
       color: #5a3a00;
       border-radius: 10px;
-      padding: 7px 10px;
-      font-size: 12px;
+      padding: 5px 8px;
+      font-size: 11px;
       font-weight: 700;
     }
     .top {
       border: 1px solid var(--line);
       border-radius: 12px;
       background: var(--panel);
-      padding: 10px;
+      padding: 7px;
       display: grid;
-      gap: 8px;
+      gap: 6px;
     }
     .top-grid {
       display: grid;
-      grid-template-columns: 170px 170px 170px 1fr 160px 160px;
-      gap: 8px;
+      grid-template-columns: 150px 150px 150px 1fr 130px 130px;
+      gap: 6px;
       align-items: end;
     }
-    .title { font-size: 30px; font-weight: 800; color: #3a2b20; }
+    .title { font-size: 24px; font-weight: 800; color: #3a2b20; line-height: 1; }
     .field { display: grid; gap: 4px; }
-    .field label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .6px; }
+    .field label { font-size: 10px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
     .field select, .field input {
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 8px;
-      padding: 8px 9px;
+      padding: 6px 8px;
       background: #fff;
-      font-size: 13px;
+      font-size: 12px;
       color: var(--text);
     }
     .btn-row {
       display: grid;
       grid-template-columns: repeat(8, minmax(0, 1fr));
-      gap: 8px;
+      gap: 6px;
     }
     .btn {
       border: 1px solid var(--line);
       border-radius: 8px;
-      padding: 8px 10px;
+      padding: 6px 8px;
       background: #fff;
       color: var(--text);
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       cursor: pointer;
+      line-height: 1.2;
     }
     .btn.primary {
       background: var(--accent);
@@ -78,36 +89,48 @@
     }
     .shell {
       display: grid;
-      grid-template-columns: 300px minmax(0, 1fr) 290px;
-      gap: 10px;
+      grid-template-columns: 250px minmax(0, 1fr) 250px;
+      gap: 8px;
+      min-height: 0;
+      height: 100%;
     }
     .panel {
       border: 1px solid var(--line);
       border-radius: 12px;
       background: var(--panel);
       overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 0;
     }
     .panel-head {
-      padding: 9px 10px;
+      padding: 7px 8px;
       border-bottom: 1px solid var(--line);
       text-transform: uppercase;
       letter-spacing: .8px;
-      font-size: 11px;
+      font-size: 10px;
       color: #68584c;
       font-weight: 800;
       background: #fff;
     }
-    .panel-body { padding: 9px; display: grid; gap: 10px; }
+    .panel-body {
+      padding: 7px;
+      display: grid;
+      gap: 8px;
+      overflow: auto;
+      min-height: 0;
+      align-content: start;
+    }
     .group {
       border: 1px solid var(--line);
       border-radius: 10px;
       background: #fff;
-      padding: 8px;
+      padding: 7px;
       display: grid;
-      gap: 8px;
+      gap: 7px;
     }
-    .group h3 { font-size: 13px; color: #4a3629; }
-    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .group h3 { font-size: 12px; color: #4a3629; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .canvas-wrap {
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -115,10 +138,12 @@
         linear-gradient(180deg, rgba(255,255,255,.9), rgba(255,255,255,.95)),
         repeating-linear-gradient(0deg, transparent, transparent 24px, rgba(139,0,0,.035) 24px, rgba(139,0,0,.035) 25px),
         repeating-linear-gradient(90deg, transparent, transparent 24px, rgba(139,0,0,.035) 24px, rgba(139,0,0,.035) 25px);
-      min-height: 620px;
+      min-height: 0;
+      height: 100%;
       display: grid;
       place-items: center;
-      padding: 10px;
+      padding: 6px;
+      overflow: auto;
     }
     #canvasFrame {
       border: 1px solid #cbb8a4;
@@ -127,14 +152,14 @@
       overflow: hidden;
       box-shadow: 0 18px 30px rgba(59, 34, 20, 0.08);
     }
-    .status { font-size: 12px; color: var(--muted); min-height: 16px; }
+    .status { font-size: 11px; color: var(--muted); min-height: 14px; }
     .layer-list {
       border: 1px solid var(--line);
       border-radius: 8px;
-      max-height: 280px;
+      max-height: 180px;
       overflow: auto;
       background: #fff;
-      padding: 6px;
+      padding: 4px;
       display: grid;
       gap: 4px;
     }
@@ -143,7 +168,7 @@
       border-radius: 7px;
       background: #fff;
       font-size: 12px;
-      padding: 6px 8px;
+      padding: 5px 7px;
       cursor: pointer;
       text-align: left;
     }
@@ -160,7 +185,7 @@
     .asset-title { font-size: 12px; font-weight: 700; color: #5f4d40; }
     .asset-preview {
       width: 100%;
-      height: 66px;
+      height: 52px;
       border: 1px dashed #d4c4b4;
       border-radius: 7px;
       background: #f9f5ef;
@@ -173,9 +198,12 @@
     .asset-preview img { width: 100%; height: 100%; object-fit: cover; }
     @media (max-width: 1320px) {
       .top-grid { grid-template-columns: 1fr 1fr; }
-      .btn-row { grid-template-columns: 1fr 1fr; }
+      .btn-row { grid-template-columns: 1fr 1fr 1fr; }
       .shell { grid-template-columns: 1fr; }
-      .canvas-wrap { min-height: 500px; }
+      body { overflow: auto; }
+      .app { height: auto; min-height: 0; }
+      .canvas-wrap { min-height: 380px; height: auto; }
+      .panel-body { overflow: visible; }
     }
   </style>
 </head>
