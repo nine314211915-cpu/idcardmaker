@@ -913,11 +913,17 @@
     if (!assetLibraryEl) return;
     assetLibraryEl.innerHTML = Object.entries(assetConfig).map(([id, cfg]) => {
       const url = assetUrls[id] || "";
-      const primaryLabel = url ? "Replace" : "Upload";
+      const primaryLabel = id === "background_image" ? "Add" : (url ? "Replace" : "Upload");
       const preview = url ? `<img src="${url}" alt="${cfg.label}">` : `<span>No file</span>`;
+      const bgSelect = id === "background_image"
+        ? `<select class="asset-select" data-asset-action="select-bg">
+             ${backgroundLibrary.map((bgUrl, idx) => `<option value="${bgUrl}"${assetUrls.background_image === bgUrl ? " selected" : ""}>BG ${idx + 1}</option>`).join("") || '<option value="">No background</option>'}
+           </select>`
+        : "";
       return `<div class="asset-card">
         <div class="asset-title">${cfg.label}</div>
         <div class="asset-preview">${preview}</div>
+        ${bgSelect}
         <div class="row2">
           <button class="btn" type="button" data-asset-action="replace" data-asset-id="${id}">${primaryLabel}</button>
           <button class="btn" type="button" data-asset-action="remove" data-asset-id="${id}" ${url ? "" : "disabled"}>Remove</button>
@@ -931,12 +937,23 @@
         if (!id || !assetConfig[id]) return;
         if (action === "replace") {
           const input = document.getElementById(assetConfig[id].inputId);
-          if (input) input.click();
+          if (input) {
+            input.click();
+          } else {
+            setStatus("Upload input not found. Refresh page once.", true);
+          }
           return;
         }
         if (action === "remove") {
           await removeAsset(id);
         }
+      });
+    });
+    assetLibraryEl.querySelectorAll('[data-asset-action="select-bg"]').forEach((selectEl) => {
+      selectEl.addEventListener("change", async () => {
+        await applyBackgroundFromLibrary(selectEl.value || "");
+        renderBackgroundSelect();
+        renderAssetLibrary();
       });
     });
   }
