@@ -2389,6 +2389,7 @@ async function handleBulkPhotoUpload(input) {
 
 async function loadBatchSummary() {
   const draftRecords = getDraftRecords(getInstituteValue());
+  batchInstituteLocked = draftRecords.length > 0;
   setInstituteLocked(shouldLockInstitute());
   document.getElementById('savedCardsCount').textContent = draftRecords.length;
   document.getElementById('batchStateLabel').textContent = draftRecords.length > 0 ? 'Draft Active' : 'Ready';
@@ -3135,6 +3136,7 @@ async function saveCurrentCard() {
       existingRecords.push(payload);
     }
     saveDraftRecords(institute, existingRecords);
+    batchInstituteLocked = true;
     selectedBatchSerial = serial;
     showToast((existingIndex >= 0 ? 'Updated' : 'Draft saved') + ' ID card. Serial: ' + serial);
     await loadBatchSummary();
@@ -3196,6 +3198,8 @@ async function submitWholeBatch() {
 function resetForm() {
   const institute = document.getElementById('instituteName').value;
   const otherInstitute = document.getElementById('otherInstituteName').value;
+  const facilityLocation = document.getElementById('facilityLocation').value;
+  const facilitySubLocation = getFacilitySubLocationValue();
   const type = isCollegeMode() ? currentType : 'employee';
   const keepAnmBatch = isAnmMode() ? document.getElementById('batchSession').value : '';
   const keepAnmYear = isAnmMode() ? document.getElementById('trainingYear').value : '';
@@ -3238,6 +3242,11 @@ function resetForm() {
   document.getElementById('otherInstituteName').value = otherInstitute;
   setInstituteLocked(false);
   handleInstituteChange();
+  if (batchInstituteLocked && isFacilityLocationInstitute()) {
+    document.getElementById('facilityLocation').value = facilityLocation;
+    handleFacilityLocationChange();
+    setFacilitySubLocationValue(facilitySubLocation);
+  }
   updatePreview();
   setInstituteLocked(batchInstituteLocked);
   saveUiState();
