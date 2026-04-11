@@ -306,6 +306,7 @@
             <label>Background Library</label>
             <select id="bgLibrarySelect" class="asset-select"></select>
           </div>
+          <button class="btn" id="uploadBgQuickBtn" type="button">Upload New Background</button>
           <div class="row2">
             <div class="field">
               <label>Start</label>
@@ -367,6 +368,7 @@
         </article>
         <article class="group">
           <h3>Uploaded Assets</h3>
+          <div class="status">Use Upload to add Photo, Logo, Signature and manage them here.</div>
           <div class="asset-grid" id="assetLibrary"></div>
         </article>
       </div>
@@ -911,12 +913,13 @@
     if (!assetLibraryEl) return;
     assetLibraryEl.innerHTML = Object.entries(assetConfig).map(([id, cfg]) => {
       const url = assetUrls[id] || "";
+      const primaryLabel = url ? "Replace" : "Upload";
       const preview = url ? `<img src="${url}" alt="${cfg.label}">` : `<span>No file</span>`;
       return `<div class="asset-card">
         <div class="asset-title">${cfg.label}</div>
         <div class="asset-preview">${preview}</div>
         <div class="row2">
-          <button class="btn" type="button" data-asset-action="replace" data-asset-id="${id}">Replace</button>
+          <button class="btn" type="button" data-asset-action="replace" data-asset-id="${id}">${primaryLabel}</button>
           <button class="btn" type="button" data-asset-action="remove" data-asset-id="${id}" ${url ? "" : "disabled"}>Remove</button>
         </div>
       </div>`;
@@ -1279,6 +1282,7 @@
       await applyEmployeeDataToCanvas(selectedEmployee);
       updateCardPosition();
     });
+    document.getElementById("uploadBgQuickBtn").addEventListener("click", () => bgInputEl.click());
     bgLibrarySelectEl.addEventListener("change", async () => {
       const nextUrl = bgLibrarySelectEl.value || "";
       await applyBackgroundFromLibrary(nextUrl);
