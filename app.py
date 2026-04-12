@@ -1,9 +1,11 @@
-from flask import Flask, request, jsonify, render_template, send_file, send_from_directory, session, redirect, url_for, make_response
+from flask import Flask, request, jsonify, render_template, send_file, send_from_directory, session, redirect, url_for, make_response, g
 import json, os, random, string, zipfile, io, tempfile, csv, re
+import logging, time, uuid
 from html import escape
 from datetime import datetime, timedelta
 from collections import deque
 from functools import wraps
+from logging.handlers import RotatingFileHandler
 from urllib import request as urllib_request, parse as urllib_parse, error as urllib_error
 from PIL import Image, ImageOps, ImageEnhance, ImageDraw, UnidentifiedImageError
 from werkzeug.utils import secure_filename
@@ -21,11 +23,15 @@ STORE_DIR = os.path.join(RUNTIME_DIR, "data_store")
 RECORDS_DIR = os.path.join(STORE_DIR, "records")
 CERTIFICATES_DIR = os.path.join(STORE_DIR, "certificates")
 SETTINGS_DIR = os.path.join(STORE_DIR, "settings")
+LOGS_DIR = os.path.join(RUNTIME_DIR, "logs")
+APP_LOG_FILE = os.path.join(LOGS_DIR, "app.log")
+AUDIT_LOG_FILE = os.path.join(LOGS_DIR, "audit.log")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(ASSET_DIR, exist_ok=True)
 os.makedirs(RECORDS_DIR, exist_ok=True)
 os.makedirs(CERTIFICATES_DIR, exist_ok=True)
 os.makedirs(SETTINGS_DIR, exist_ok=True)
+os.makedirs(LOGS_DIR, exist_ok=True)
 app.config["SIGNATURE_UPLOAD_PASSWORD"] = os.environ.get("SIGNATURE_UPLOAD_PASSWORD", "admin123")
 app.config["ADMIN_PANEL_PASSWORD"] = os.environ.get("ADMIN_PANEL_PASSWORD", "admin123")
 app.config["SUPABASE_URL"] = os.environ.get("SUPABASE_URL", "").strip()
@@ -35,6 +41,37 @@ app.config["APP_BUILD_TAG"] = os.environ.get("APP_BUILD_TAG", "").strip() or dat
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "medical-id-card-secret")
 HEX_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def configure_project_logging():
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
+    has_app_file_handler = any(
+        isinstance(handler, RotatingFileHandler) and getattr(handler, "baseFilename", "") == APP_LOG_FILE
+        for handler in app.logger.handlers
+    )
+    if not has_app_file_handler:
+        app_file_handler = RotatingFileHandler(APP_LOG_FILE, maxBytes=2 * 1024 * 1024, backupCount=5, encoding="utf-8")
+        app_file_handler.setLevel(logging.INFO)
+        app_file_handler.setFormatter(formatter)
+        app.logger.addHandler(app_file_handler)
+    app.logger.setLevel(logging.INFO)
+
+    audit_logger = logging.getLogger("medical_id.audit")
+    audit_logger.setLevel(logging.INFO)
+    audit_logger.propagate = False
+    has_audit_handler = any(
+        isinstance(handler, RotatingFileHandler) and getattr(handler, "baseFilename", "") == AUDIT_LOG_FILE
+        for handler in audit_logger.handlers
+    )
+    if not has_audit_handler:
+        audit_handler = RotatingFileHandler(AUDIT_LOG_FILE, maxBytes=4 * 1024 * 1024, backupCount=10, encoding="utf-8")
+        audit_handler.setLevel(logging.INFO)
+        audit_handler.setFormatter(logging.Formatter("%(message)s"))
+        audit_logger.addHandler(audit_handler)
+    return audit_logger
+
+
+audit_logger = configure_project_logging()
 
 for bundled_dir, runtime_dir in [
     (os.path.join(BASE_DIR, "static", "uploads"), UPLOAD_DIR),
@@ -58,6 +95,94 @@ for bundled_file, runtime_file in [
         continue
     with open(bundled_file, "rb") as src_file, open(runtime_file, "wb") as dst_file:
         dst_file.write(src_file.read())
+
+
+def get_client_ip():
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.remote_addr or ""
+
+
+def read_recent_log_entries(path, limit=200):
+    max_lines = max(1, min(int(limit or 200), 1000))
+    if not os.path.exists(path):
+        return []
+    lines = deque(maxlen=max_lines)
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as file_obj:
+            for line in file_obj:
+                cleaned = line.strip()
+                if cleaned:
+                    lines.append(cleaned)
+    except Exception:
+        return []
+    return list(lines)
+
+
+def build_day_wise_audit(entries, per_day=20):
+    grouped = {}
+    daily_limit = max(1, min(int(per_day or 20), 100))
+    for entry in entries:
+        time_value = str(entry.get("time", ""))
+        day_key = time_value[:10] if len(time_value) >= 10 else "unknown"
+        bucket = grouped.setdefault(day_key, {"date": day_key, "count": 0, "recent": []})
+        bucket["count"] += 1
+        if len(bucket["recent"]) < daily_limit:
+            bucket["recent"].append(entry)
+    ordered_days = sorted(grouped.keys(), reverse=True)
+    return [grouped[day] for day in ordered_days]
+
+
+def log_audit_event(event_type, **extra):
+    payload = {
+        "time": datetime.utcnow().isoformat() + "Z",
+        "event": event_type,
+        "request_id": getattr(g, "request_id", ""),
+    }
+    payload.update(extra)
+    try:
+        audit_logger.info(json.dumps(payload, ensure_ascii=False, default=str))
+    except Exception:
+        app.logger.warning("Failed to write audit event", exc_info=True)
+
+
+@app.before_request
+def begin_request_trace():
+    g.request_started_at = time.perf_counter()
+    g.request_id = uuid.uuid4().hex[:12]
+
+
+@app.after_request
+def end_request_trace(response):
+    started = getattr(g, "request_started_at", None)
+    duration_ms = round((time.perf_counter() - started) * 1000, 2) if started is not None else None
+    log_audit_event(
+        "http_request",
+        method=request.method,
+        path=request.path,
+        query=request.query_string.decode("utf-8", errors="ignore"),
+        status=response.status_code,
+        duration_ms=duration_ms,
+        ip=get_client_ip(),
+        user_agent=request.headers.get("User-Agent", ""),
+        admin_authenticated=bool(session.get("admin_authenticated")),
+    )
+    response.headers["X-Request-Id"] = g.request_id
+    return response
+
+
+@app.teardown_request
+def trace_request_exception(exc):
+    if not exc:
+        return
+    log_audit_event(
+        "request_exception",
+        method=request.method,
+        path=request.path,
+        error=str(exc),
+        ip=get_client_ip(),
+    )
 
 def default_institute_settings(institute=None):
     return {
@@ -2536,14 +2661,54 @@ def admin_login():
     password = request.form.get("password", "")
     if password == app.config["ADMIN_PANEL_PASSWORD"]:
         session["admin_authenticated"] = True
+        log_audit_event("admin_login", success=True, ip=get_client_ip())
         return redirect(url_for("admin"))
+    log_audit_event("admin_login", success=False, ip=get_client_ip())
     return render_template("admin_login.html", error="Incorrect admin password"), 401
 
 
 @app.route("/admin/logout", methods=["POST"])
 def admin_logout():
+    log_audit_event("admin_logout", ip=get_client_ip())
     session.pop("admin_authenticated", None)
     return redirect(url_for("admin"))
+
+
+@app.route("/api/admin-activity-log")
+@admin_required
+def admin_activity_log():
+    limit = request.args.get("limit", 200)
+    per_day = request.args.get("per_day", 20)
+    try:
+        limit_value = max(1, min(int(limit), 1000))
+    except Exception:
+        limit_value = 200
+    try:
+        per_day_value = max(1, min(int(per_day), 100))
+    except Exception:
+        per_day_value = 20
+
+    def parse_lines(lines):
+        parsed = []
+        for line in reversed(lines):
+            try:
+                parsed.append(json.loads(line))
+            except Exception:
+                parsed.append({"raw": line})
+        return parsed
+
+    audit_entries = parse_lines(read_recent_log_entries(AUDIT_LOG_FILE, limit_value))
+    day_wise = build_day_wise_audit(audit_entries, per_day=per_day_value)
+
+    return jsonify({
+        "audit_log": audit_entries,
+        "day_wise_audit": day_wise,
+        "app_log": read_recent_log_entries(APP_LOG_FILE, limit_value),
+        "files": {
+            "audit": AUDIT_LOG_FILE,
+            "app": APP_LOG_FILE,
+        },
+    })
 
 
 @app.route("/api/settings")
