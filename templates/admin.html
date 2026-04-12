@@ -552,6 +552,7 @@
     text-decoration: none;
   }
   .btn-dl { background: var(--green); color: white; }
+  .btn-edit { background: #b7791f; color: white; }
   .btn-view { background: var(--red); color: white; }
   .btn-del { background: #ddd; color: #666; }
   .modal-overlay, .confirm-dialog, .lightbox {
@@ -593,6 +594,55 @@
   }
   .modal-close { font-size: 18px; }
   .modal-body { padding: 16px; }
+  .modal.edit-modal { max-width: 900px; }
+  .edit-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .edit-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .edit-form-group.full {
+    grid-column: 1 / -1;
+  }
+  .edit-form-group label {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .edit-form-group input,
+  .edit-form-group select,
+  .edit-form-group textarea {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 11px;
+    font: inherit;
+    background: white;
+    color: var(--ink);
+  }
+  .edit-form-group textarea {
+    min-height: 88px;
+    resize: vertical;
+  }
+  .edit-section-title {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .edit-actions {
+    margin-top: 14px;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
   .id-card {
     border: 2px solid var(--red);
     border-radius: 10px;
@@ -924,42 +974,6 @@
   </div>
 </div>
 
-<div class="asset-panel">
-  <div class="asset-grid">
-    <div class="asset-box compact">
-      <h3>ID Card Background</h3>
-      <p>Compact institute-specific background control.</p>
-      <div class="asset-actions">
-        <button class="btn btn-red" type="button" onclick="document.getElementById('backgroundInput').click()">Upload</button>
-        <button class="btn btn-outline" type="button" onclick="deleteBackground()">Remove</button>
-        <span class="asset-status" id="backgroundStatus">No background uploaded yet.</span>
-      </div>
-      <input type="file" id="backgroundInput" accept="image/*" style="display:none" onchange="handleBackgroundUpload(this)">
-      <div class="asset-preview card-ratio" id="backgroundPreview">No preview</div>
-    </div>
-    <div class="asset-box compact">
-      <h3>Certificate Background</h3>
-      <p>Compact certificate background control for the selected institute.</p>
-      <div class="asset-actions">
-        <button class="btn btn-green" type="button" onclick="document.getElementById('certificateBackgroundInput').click()">Upload</button>
-        <button class="btn btn-outline" type="button" onclick="deleteCertificateBackground()">Remove</button>
-        <span class="asset-status" id="certificateBackgroundStatus">No certificate background uploaded yet.</span>
-      </div>
-      <input type="file" id="certificateBackgroundInput" accept="image/*" style="display:none" onchange="handleCertificateBackgroundUpload(this)">
-      <div class="asset-preview" id="certificateBackgroundPreview">No preview</div>
-    </div>
-    <div class="asset-box compact">
-      <h3>Institute Signature</h3>
-      <p>Quick signature preview and removal for the selected institute.</p>
-      <div class="asset-actions">
-        <button class="btn btn-outline" type="button" onclick="deleteSignature()">Remove</button>
-        <span class="asset-status" id="signatureStatus">No signature uploaded yet.</span>
-      </div>
-      <div class="asset-preview" id="signaturePreview">No signature preview</div>
-    </div>
-  </div>
-</div>
-
 <div class="modal-overlay" id="viewModal">
   <div class="modal">
     <div class="modal-header">
@@ -967,6 +981,120 @@
       <button class="modal-close" onclick="closeModal()">x</button>
     </div>
     <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editModal">
+  <div class="modal edit-modal">
+    <div class="modal-header">
+      <span>Edit Record</span>
+      <button class="modal-close" onclick="closeEditModal()">x</button>
+    </div>
+    <div class="modal-body">
+      <div class="edit-form-grid">
+        <div class="edit-form-group">
+          <label>Institute</label>
+          <input type="text" id="editInstituteName" readonly>
+        </div>
+        <div class="edit-form-group">
+          <label>Serial No</label>
+          <input type="text" id="editSerialNo" readonly>
+        </div>
+        <div class="edit-form-group">
+          <label>Profile Type</label>
+          <select id="editProfileType" onchange="toggleEditFields()">
+            <option value="student">Student</option>
+            <option value="lecturer">Teacher</option>
+            <option value="employee">Employee</option>
+          </select>
+        </div>
+        <div class="edit-form-group full">
+          <label>Full Name</label>
+          <input type="text" id="editName">
+        </div>
+
+        <div class="edit-section-title">General</div>
+        <div class="edit-form-group">
+          <label>Date of Birth</label>
+          <input type="text" id="editDob" placeholder="dd/mm/yyyy">
+        </div>
+        <div class="edit-form-group">
+          <label>Contact</label>
+          <input type="text" id="editContact">
+        </div>
+        <div class="edit-form-group">
+          <label>Blood Group</label>
+          <input type="text" id="editBloodGroup">
+        </div>
+        <div class="edit-form-group">
+          <label>Family Label</label>
+          <select id="editFatherNameLabel">
+            <option value="Father's Name">Father's Name</option>
+            <option value="Spouse Name">Spouse Name</option>
+          </select>
+        </div>
+        <div class="edit-form-group">
+          <label>Father / Spouse Name</label>
+          <input type="text" id="editFatherName">
+        </div>
+        <div class="edit-form-group">
+          <label>Aadhaar No.</label>
+          <input type="text" id="editAadhaarNo">
+        </div>
+        <div class="edit-form-group full">
+          <label>Address</label>
+          <textarea id="editAddress"></textarea>
+        </div>
+
+        <div class="edit-section-title">Student / ANM</div>
+        <div class="edit-form-group" data-edit-group="student">
+          <label>Course</label>
+          <input type="text" id="editCourse">
+        </div>
+        <div class="edit-form-group" data-edit-group="student">
+          <label>Valid Upto</label>
+          <input type="text" id="editValidUpto" placeholder="dd/mm/yyyy">
+        </div>
+        <div class="edit-form-group" data-edit-group="student">
+          <label>Batch Session</label>
+          <input type="text" id="editBatchSession">
+        </div>
+        <div class="edit-form-group" data-edit-group="student">
+          <label>Training Year</label>
+          <input type="text" id="editTrainingYear">
+        </div>
+
+        <div class="edit-section-title">Teacher / Employee</div>
+        <div class="edit-form-group" data-edit-group="staff">
+          <label>Designation</label>
+          <input type="text" id="editDesignation">
+        </div>
+        <div class="edit-form-group" data-edit-group="staff">
+          <label>Department / Facility Location</label>
+          <input type="text" id="editFacilityLocation">
+        </div>
+        <div class="edit-form-group" data-edit-group="staff">
+          <label>Facility Sub Location</label>
+          <input type="text" id="editFacilitySubLocation">
+        </div>
+        <div class="edit-form-group" data-edit-group="staff">
+          <label>Employee ID</label>
+          <input type="text" id="editEmployeeId">
+        </div>
+        <div class="edit-form-group" data-edit-group="staff">
+          <label>Custom Field Label</label>
+          <input type="text" id="editCustomFieldLabel">
+        </div>
+        <div class="edit-form-group" data-edit-group="staff">
+          <label>Custom Field Value</label>
+          <input type="text" id="editCustomFieldValue">
+        </div>
+      </div>
+      <div class="edit-actions">
+        <button class="btn btn-outline" type="button" onclick="closeEditModal()">Cancel</button>
+        <button class="btn btn-red" type="button" onclick="saveEditedRecord()">Save Changes</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -995,6 +1123,7 @@ let appSettings = { background_url: '', signature_url: '', certificate_backgroun
 let supabaseStatus = null;
 let batchOverviewItems = [];
 let selectedOverviewBatchIds = [];
+let editTarget = null;
 const COLLEGE_INSTITUTES = ['Govt. Medical College, Jhunjhunu', 'Govt. Nursing College, Jhunjhunu', 'Govt. ANM Training Center, Jhunjhunu'];
 let attachPhotoTarget = null;
 const ADMIN_UI_STATE_KEY = 'admin_ui_state_v1';
@@ -1223,7 +1352,6 @@ async function readJsonResponse(res, fallbackMessage) {
 async function loadSettings() {
   if (!getSelectedInstitute()) {
     appSettings = { background_url: '', signature_url: '', certificate_background_url: '' };
-    renderBackgroundPreview();
     renderBatchOverview();
     return;
   }
@@ -1239,10 +1367,8 @@ async function loadSettings() {
       ...cardSettings,
       certificate_background_url: certificateSettings.background_url || ''
     };
-    renderBackgroundPreview();
   } catch (e) {
     appSettings = { background_url: '', signature_url: '', certificate_background_url: '' };
-    renderBackgroundPreview();
   }
   renderBatchOverview();
 }
@@ -1470,110 +1596,6 @@ async function mergeSelectedBatches() {
   }
 }
 
-function renderBackgroundPreview() {
-  const preview = document.getElementById('backgroundPreview');
-  const status = document.getElementById('backgroundStatus');
-  const certificatePreview = document.getElementById('certificateBackgroundPreview');
-  const certificateStatus = document.getElementById('certificateBackgroundStatus');
-  const signaturePreview = document.getElementById('signaturePreview');
-  const signatureStatus = document.getElementById('signatureStatus');
-  if (!getSelectedInstitute()) {
-    preview.textContent = 'Select an institute';
-    status.textContent = 'Choose an institute to view or upload its background.';
-    certificatePreview.textContent = 'Select an institute';
-    certificateStatus.textContent = 'Choose an institute to view or upload its certificate background.';
-  } else if (appSettings.background_url) {
-    preview.innerHTML = `<img src="${appSettings.background_url}?t=${Date.now()}" alt="Card background preview">`;
-    status.textContent = 'Background uploaded and active.';
-  } else {
-    preview.textContent = 'No preview';
-    status.textContent = 'No background uploaded yet.';
-  }
-
-  if (!getSelectedInstitute()) {
-    certificatePreview.textContent = 'Select an institute';
-    certificateStatus.textContent = 'Choose an institute to view or upload its certificate background.';
-  } else if (appSettings.certificate_background_url) {
-    certificatePreview.innerHTML = `<img src="${appSettings.certificate_background_url}?t=${Date.now()}" alt="Certificate background preview">`;
-    certificateStatus.textContent = 'Certificate background uploaded and active.';
-  } else {
-    certificatePreview.textContent = 'No preview';
-    certificateStatus.textContent = 'No certificate background uploaded yet.';
-  }
-
-  if (appSettings.signature_url) {
-    signaturePreview.innerHTML = `<img src="${appSettings.signature_url}?t=${Date.now()}" alt="Signature preview">`;
-    signatureStatus.textContent = 'Signature uploaded and active.';
-  } else {
-    signaturePreview.textContent = 'No signature preview';
-    signatureStatus.textContent = 'No signature uploaded yet.';
-  }
-}
-
-async function handleBackgroundUpload(input) {
-  if (!input.files.length) return;
-  const institute = getSelectedInstitute();
-  if (!institute) {
-    alert('Please select an institute first.');
-    input.value = '';
-    return;
-  }
-  const formData = new FormData();
-  formData.append('background', input.files[0]);
-  formData.append('institute', institute);
-  try {
-    const res = await fetch('/api/upload-background', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Upload failed');
-    appSettings.background_url = data.background_url;
-    renderBackgroundPreview();
-  } catch (e) {
-    alert(e.message || 'Background upload failed.');
-  }
-  input.value = '';
-}
-
-async function deleteBackground() {
-  const institute = getSelectedInstitute();
-  if (!institute) {
-    alert('Please select an institute first.');
-    return;
-  }
-  if (!confirm(`Remove the ID card background for "${institute}"?`)) return;
-  try {
-    const res = await fetch(`/api/delete-background?institute=${encodeURIComponent(institute)}`, { method: 'DELETE' });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Delete failed');
-    appSettings.background_url = '';
-    renderBackgroundPreview();
-  } catch (e) {
-    alert(e.message || 'Unable to remove background.');
-  }
-}
-
-async function handleCertificateBackgroundUpload(input) {
-  if (!input.files.length) return;
-  const institute = getSelectedInstitute();
-  if (!institute) {
-    alert('Please select an institute first.');
-    input.value = '';
-    return;
-  }
-  const formData = new FormData();
-  formData.append('background', input.files[0]);
-  formData.append('institute', institute);
-  try {
-    const res = await fetch('/api/upload-certificate-background', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Upload failed');
-    appSettings.certificate_background_url = data.background_url;
-    renderBackgroundPreview();
-  } catch (e) {
-    alert(e.message || 'Certificate background upload failed.');
-  }
-  input.value = '';
-}
-
 async function handleCsvImport(input) {
   if (!input.files.length) return;
   const formData = new FormData();
@@ -1589,42 +1611,6 @@ async function handleCsvImport(input) {
     alert(e.message || 'CSV import failed.');
   }
   input.value = '';
-}
-
-async function deleteCertificateBackground() {
-  const institute = getSelectedInstitute();
-  if (!institute) {
-    alert('Please select an institute first.');
-    return;
-  }
-  if (!confirm(`Remove the certificate background for "${institute}"?`)) return;
-  try {
-    const res = await fetch(`/api/delete-certificate-background?institute=${encodeURIComponent(institute)}`, { method: 'DELETE' });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Delete failed');
-    appSettings.certificate_background_url = '';
-    renderBackgroundPreview();
-  } catch (e) {
-    alert(e.message || 'Unable to remove certificate background.');
-  }
-}
-
-async function deleteSignature() {
-  const institute = getSelectedInstitute();
-  if (!institute) {
-    alert('Please select an institute first.');
-    return;
-  }
-  if (!confirm(`Remove the HOD signature for "${institute}"?`)) return;
-  try {
-    const res = await fetch(`/api/delete-signature?institute=${encodeURIComponent(institute)}`, { method: 'DELETE' });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Delete failed');
-    appSettings.signature_url = '';
-    renderBackgroundPreview();
-  } catch (e) {
-    alert(e.message || 'Unable to remove signature.');
-  }
 }
 
 function startManualPhotoAttach(serial, institute) {
@@ -1899,6 +1885,7 @@ function renderTable(records) {
         <td>
           <div class="action-btns">
             <button class="btn-sm btn-view" onclick="viewRecordFromEncoded('${safeRecord}')">View</button>
+            <button class="btn-sm btn-edit" onclick="editRecordFromEncoded('${safeRecord}')">Edit</button>
             ${photoUrl ? `<a class="btn-sm btn-dl" href="${photoUrl}" download="${r.serial_no}.jpg">Photo</a>` : ''}
             <button class="btn-sm btn-del" onclick="confirmDelete('${r.serial_no}', ${JSON.stringify(r.name || '')})">Delete</button>
           </div>
@@ -1939,6 +1926,96 @@ function formatDateTime(value) {
 
 function viewRecordFromEncoded(encoded) {
   viewRecord(JSON.parse(decodeURIComponent(encoded)));
+}
+
+function editRecordFromEncoded(encoded) {
+  openEditModal(JSON.parse(decodeURIComponent(encoded)));
+}
+
+function toggleEditFields() {
+  const type = document.getElementById('editProfileType').value;
+  document.querySelectorAll('[data-edit-group="student"]').forEach((el) => {
+    el.style.display = type === 'student' ? '' : 'none';
+  });
+  document.querySelectorAll('[data-edit-group="staff"]').forEach((el) => {
+    el.style.display = type === 'student' ? 'none' : '';
+  });
+}
+
+function openEditModal(record) {
+  editTarget = { ...(record || {}) };
+  document.getElementById('editInstituteName').value = record.institute_name || '';
+  document.getElementById('editSerialNo').value = record.serial_no || '';
+  document.getElementById('editProfileType').value = record.profile_type || 'student';
+  document.getElementById('editName').value = record.name || '';
+  document.getElementById('editDob').value = record.dob || '';
+  document.getElementById('editContact').value = record.contact || '';
+  document.getElementById('editBloodGroup').value = record.blood_group || '';
+  document.getElementById('editFatherNameLabel').value = record.father_name_label || "Father's Name";
+  document.getElementById('editFatherName').value = record.father_name || '';
+  document.getElementById('editAadhaarNo').value = record.aadhaar_no || '';
+  document.getElementById('editAddress').value = record.address || '';
+  document.getElementById('editCourse').value = record.course || '';
+  document.getElementById('editValidUpto').value = record.valid_upto || '';
+  document.getElementById('editBatchSession').value = record.batch_session || '';
+  document.getElementById('editTrainingYear').value = record.training_year || '';
+  document.getElementById('editDesignation').value = record.designation || '';
+  document.getElementById('editFacilityLocation').value = record.facility_location || record.department || '';
+  document.getElementById('editFacilitySubLocation').value = record.facility_sub_location || '';
+  document.getElementById('editEmployeeId').value = record.employee_id || '';
+  document.getElementById('editCustomFieldLabel').value = record.custom_field_label || '';
+  document.getElementById('editCustomFieldValue').value = record.custom_field_value || '';
+  toggleEditFields();
+  document.getElementById('editModal').classList.add('show');
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').classList.remove('show');
+  editTarget = null;
+}
+
+async function saveEditedRecord() {
+  if (!editTarget) return;
+  const profileType = document.getElementById('editProfileType').value;
+  const payload = {
+    ...editTarget,
+    institute_name: document.getElementById('editInstituteName').value.trim(),
+    serial_no: document.getElementById('editSerialNo').value.trim(),
+    profile_type: profileType,
+    name: document.getElementById('editName').value.trim(),
+    dob: document.getElementById('editDob').value.trim(),
+    contact: document.getElementById('editContact').value.trim(),
+    blood_group: document.getElementById('editBloodGroup').value.trim(),
+    father_name_label: document.getElementById('editFatherNameLabel').value,
+    father_name: document.getElementById('editFatherName').value.trim(),
+    aadhaar_no: document.getElementById('editAadhaarNo').value.trim(),
+    address: document.getElementById('editAddress').value.trim(),
+    course: document.getElementById('editCourse').value.trim(),
+    valid_upto: document.getElementById('editValidUpto').value.trim(),
+    batch_session: document.getElementById('editBatchSession').value.trim(),
+    training_year: document.getElementById('editTrainingYear').value.trim(),
+    designation: document.getElementById('editDesignation').value.trim(),
+    facility_location: document.getElementById('editFacilityLocation').value.trim(),
+    facility_sub_location: document.getElementById('editFacilitySubLocation').value.trim(),
+    department: document.getElementById('editFacilityLocation').value.trim(),
+    employee_id: document.getElementById('editEmployeeId').value.trim(),
+    custom_field_label: document.getElementById('editCustomFieldLabel').value.trim(),
+    custom_field_value: document.getElementById('editCustomFieldValue').value.trim(),
+  };
+  try {
+    const res = await fetch('/api/update-card', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    await readJsonResponse(res, 'Unable to update record');
+    closeEditModal();
+    await loadRecords();
+    await loadBatchOverview();
+    alert('Record updated successfully.');
+  } catch (e) {
+    alert(e.message || 'Unable to update record.');
+  }
 }
 
 function viewRecord(r) {
