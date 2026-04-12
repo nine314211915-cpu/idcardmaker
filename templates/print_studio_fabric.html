@@ -1175,7 +1175,8 @@
     });
   }
 
-  async function loadRecordsForSelection() {
+  async function loadRecordsForSelection(options = {}) {
+    const autoLoadDesign = !!options.autoLoadDesign;
     const activeInstitute = getActiveInstitute();
     const activeBatch = getActiveBatch();
     currentInstitute = activeInstitute || "";
@@ -1186,6 +1187,9 @@
       currentCardIndex = 0;
       selectedEmployee = employees[0];
       await drawLayout();
+      if (autoLoadDesign) {
+        await loadServer({ silent: true });
+      }
       updateCardPosition();
       setStatus("Select institute and batch.");
       return;
@@ -1201,7 +1205,9 @@
       currentCardIndex = 0;
       selectedEmployee = employees[0];
       await drawLayout();
-      await loadServer({ silent: true });
+      if (autoLoadDesign) {
+        await loadServer({ silent: true });
+      }
       updateCardPosition();
       setStatus(rows.length ? `${rows.length} card records loaded.` : "No records in this batch.");
     } catch {
@@ -1248,7 +1254,7 @@
       instituteSelectEl.value = currentInstitute;
       populateBatchOptions();
       currentBatchId = batchSelectEl.value || "";
-      await loadRecordsForSelection();
+      await loadRecordsForSelection({ autoLoadDesign: true });
     } catch {
       setStatus("Unable to load institute/batch list.", true);
     }
@@ -1267,11 +1273,11 @@
       currentInstitute = instituteSelectEl.value || "";
       currentBatchId = "";
       populateBatchOptions();
-      await loadRecordsForSelection();
+      await loadRecordsForSelection({ autoLoadDesign: true });
     });
     batchSelectEl.addEventListener("change", async () => {
       currentBatchId = batchSelectEl.value || "";
-      await loadRecordsForSelection();
+      await loadRecordsForSelection({ autoLoadDesign: false });
     });
     document.getElementById("prevCardBtn").addEventListener("click", async () => {
       if (!employees.length) return;
