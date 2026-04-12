@@ -55,7 +55,7 @@
     }
     .top-grid {
       display: grid;
-      grid-template-columns: 130px 130px 130px 1fr 1fr 110px 110px 120px 120px;
+      grid-template-columns: 130px 130px 130px 1fr 1fr 110px 110px 120px 120px 130px;
       gap: 6px;
       align-items: end;
     }
@@ -415,6 +415,7 @@
       </div>
       <button class="btn primary" id="saveServerBtn" type="button">Save To Server</button>
       <button class="btn" id="loadServerBtn" type="button">Load From Server</button>
+      <button class="btn" id="saveCardDesignBtn" type="button">Save Card Design</button>
     </div>
     <div class="btn-row">
       <button class="btn" id="saveLocalBtn" type="button">Save Local</button>
@@ -678,6 +679,8 @@
   let collectionBackgrounds = [];
   let selectedCollectionBackgroundId = "";
   let batchBoundBackgroundUrl = "";
+  let undoHistory = { front: [], back: [] };
+  let undoRestoring = false;
   const assetConfig = {
     background_image: { label: "Background", inputId: "bgFileInput", type: "background" },
     employee_photo: { label: "Photo", inputId: "photoFileInput", type: "photo" },
@@ -1246,8 +1249,57 @@
     };
   }
 
+  function getSnapshotSignature(snapshot) {
+    return JSON.stringify(snapshot || {});
+  }
+
+  function pushUndoSnapshot(snapshot, side = currentSide) {
+    const target = side === "back" ? "back" : "front";
+    const snap = cloneData(snapshot, null);
+    if (!snap) return;
+    const sig = getSnapshotSignature(snap);
+    const stack = undoHistory[target] || [];
+    if (stack.length && stack[stack.length - 1].sig === sig) return;
+    stack.push({ sig, snapshot: snap });
+    if (stack.length > 80) {
+      stack.splice(0, stack.length - 80);
+    }
+    undoHistory[target] = stack;
+  }
+
   function captureCurrentSideState() {
-    sideDesigns[currentSide] = buildCurrentSnapshot();
+    const snapshot = buildCurrentSnapshot();
+    sideDesigns[currentSide] = snapshot;
+    if (!undoRestoring) {
+      pushUndoSnapshot(snapshot, currentSide);
+    }
+  }
+
+  async function undoCurrentSide() {
+    const side = currentSide === "back" ? "back" : "front";
+    const stack = undoHistory[side] || [];
+    if (stack.length < 2) {
+      setStatus("Nothing to undo.");
+      return;
+    }
+    undoRestoring = true;
+    try {
+      stack.pop();
+      const previous = cloneData(stack[stack.length - 1].snapshot, null);
+      if (!previous) {
+        setStatus("Nothing to undo.");
+        return;
+      }
+      sideDesigns[side] = previous;
+      const loaded = await loadSnapshotToCanvas(previous);
+      if (!loaded) {
+        await drawLayout();
+      }
+      await applyEmployeeDataToCanvas(selectedEmployee);
+      setStatus(`Undo applied (${side} side).`);
+    } finally {
+      undoRestoring = false;
+    }
   }
 
   async function loadSnapshotToCanvas(snapshot) {
@@ -1639,6 +1691,7 @@
       await drawLayout();
     }
     await applyEmployeeDataToCanvas(selectedEmployee);
+    captureCurrentSideState();
     if (!silent) setStatus(`Loaded ${sourceLabel} design.`);
     return true;
   }
@@ -1659,7 +1712,7 @@
     const activeInstitute = getActiveInstitute();
     if (!activeInstitute) {
       setStatus("Select institute first.", true);
-      return;
+      return false;
     }
     const res = await fetch(`/api/fabric-design?institute=${encodeURIComponent(activeInstitute)}`, {
       method: "POST",
@@ -1669,15 +1722,24 @@
     const data = await res.json();
     if (!res.ok) {
       setStatus(data.error || "Server save failed.", true);
-      return;
+      return false;
     }
     renderAssetLibrary();
     setStatus("Saved");
+    return true;
   }
 
   async function saveAssetBinding(assetId) {
-    await saveServer();
-    setStatus("Saved");
+    const ok = await saveServer();
+    if (ok) setStatus("Saved");
+  }
+
+  async function saveCardDesign() {
+    saveLocal();
+    const ok = await saveServer();
+    if (ok) {
+      setStatus("Card design saved (local + server).");
+    }
   }
 
   async function loadServer(options = {}) {
@@ -1846,15 +1908,9 @@
       const url = assetUrls[id] || "";
       const primaryLabel = id === "background_image" ? "Add" : (url ? "Replace" : "Upload");
       const preview = url ? `<img src="${url}" alt="${cfg.label}">` : `<span>No file</span>`;
-      const bgSelect = id === "background_image"
-        ? `<select class="asset-select" data-asset-action="select-bg">
-             ${backgroundLibrary.map((bgUrl, idx) => `<option value="${bgUrl}"${assetUrls.background_image === bgUrl ? " selected" : ""}>BG ${idx + 1}</option>`).join("") || '<option value="">No background</option>'}
-           </select>`
-        : "";
       return `<div class="asset-card">
         <div class="asset-title">${cfg.label}</div>
         <div class="asset-preview" data-asset-action="quick-add" data-asset-id="${id}">${preview}</div>
-        ${bgSelect}
         <div class="row2">
           <button class="btn" type="button" data-asset-action="replace" data-asset-id="${id}">${primaryLabel}</button>
           <button class="btn" type="button" data-asset-action="remove" data-asset-id="${id}" ${url ? "" : "disabled"}>Remove</button>
@@ -1892,12 +1948,6 @@
         if (action === "remove") {
           await removeAsset(id);
         }
-      });
-    });
-    assetLibraryEl.querySelectorAll('[data-asset-action="select-bg"]').forEach((selectEl) => {
-      selectEl.addEventListener("change", async () => {
-        await applyBackgroundFromLibrary(selectEl.value || "");
-        renderAssetLibrary();
       });
     });
   }
@@ -2477,6 +2527,7 @@
     document.getElementById("saveLocalBtn").addEventListener("click", saveLocal);
     document.getElementById("loadLocalBtn").addEventListener("click", () => loadLocal({ silent: false }));
     document.getElementById("saveServerBtn").addEventListener("click", saveServer);
+    document.getElementById("saveCardDesignBtn").addEventListener("click", saveCardDesign);
     document.getElementById("loadServerBtn").addEventListener("click", loadServer);
     document.getElementById("exportBtn").addEventListener("click", exportPng);
     document.getElementById("batchZipBtn").addEventListener("click", exportBatchZip);
@@ -2508,6 +2559,25 @@
       syncSelectedControls();
     });
     canvas.on("object:modified", () => { syncSelectedControls(); refreshLayers(); captureCurrentSideState(); });
+
+    document.addEventListener("keydown", async (event) => {
+      const key = String(event.key || "").toLowerCase();
+      const isModifier = event.ctrlKey || event.metaKey;
+      if (!isModifier) return;
+      const target = event.target;
+      const tag = target && target.tagName ? String(target.tagName).toLowerCase() : "";
+      const isTypingField = tag === "input" || tag === "textarea" || tag === "select" || (target && target.isContentEditable);
+      if (key === "z" && !event.shiftKey) {
+        if (isTypingField) return;
+        event.preventDefault();
+        await undoCurrentSide();
+        return;
+      }
+      if (key === "s") {
+        event.preventDefault();
+        await saveCardDesign();
+      }
+    });
   }
 
   async function init() {
