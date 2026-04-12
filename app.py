@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, render_template, send_file, send_from
 import json, os, random, string, zipfile, io, tempfile, csv, re
 import logging, time, uuid
 from html import escape
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import deque
 from functools import wraps
 from logging.handlers import RotatingFileHandler
@@ -39,6 +39,7 @@ app.config["SUPABASE_SERVICE_ROLE_KEY"] = os.environ.get("SUPABASE_SERVICE_ROLE_
 app.config["SUPABASE_PHOTOS_BUCKET"] = os.environ.get("SUPABASE_PHOTOS_BUCKET", "id-card-photos").strip() or "id-card-photos"
 app.config["APP_BUILD_TAG"] = os.environ.get("APP_BUILD_TAG", "").strip() or datetime.utcnow().strftime("%Y%m%d-%H%M%S")
 app.config["TEMPLATES_AUTO_RELOAD"] = True
+app.config["CRON_BACKUP_TOKEN"] = os.environ.get("CRON_BACKUP_TOKEN", "").strip()
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "medical-id-card-secret")
 HEX_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
 
@@ -132,6 +133,226 @@ def build_day_wise_audit(entries, per_day=20):
             bucket["recent"].append(entry)
     ordered_days = sorted(grouped.keys(), reverse=True)
     return [grouped[day] for day in ordered_days]
+
+
+def parse_audit_lines(lines):
+    parsed = []
+    for line in reversed(lines):
+        try:
+            parsed.append(json.loads(line))
+        except Exception:
+            parsed.append({"raw": line})
+    return parsed
+
+
+def parse_iso_utc(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    if raw.endswith("Z"):
+        raw = raw[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except Exception:
+        return None
+    if parsed.tzinfo is not None:
+        try:
+            parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        except Exception:
+            parsed = parsed.replace(tzinfo=None)
+    return parsed
+
+
+def filter_audit_entries_since_days(entries, since_days):
+    days = max(1, min(int(since_days or 3), 30))
+    cutoff_date = (datetime.utcnow() - timedelta(days=days - 1)).date()
+    filtered = []
+    for entry in entries:
+        dt = parse_iso_utc(entry.get("time"))
+        if dt and dt.date() >= cutoff_date:
+            filtered.append(entry)
+    return filtered
+
+
+def filter_app_entries_since_days(lines, since_days):
+    days = max(1, min(int(since_days or 3), 30))
+    cutoff_date = (datetime.utcnow() - timedelta(days=days - 1)).date()
+    filtered = []
+    for line in lines:
+        date_part = str(line or "")[:10]
+        try:
+            day = datetime.strptime(date_part, "%Y-%m-%d").date()
+        except Exception:
+            continue
+        if day >= cutoff_date:
+            filtered.append(line)
+    return filtered
+
+
+def filter_audit_entries_for_day(entries, day_key):
+    target = str(day_key or "")
+    return [entry for entry in entries if str(entry.get("time", ""))[:10] == target]
+
+
+def filter_app_entries_for_day(lines, day_key):
+    target = str(day_key or "")
+    return [line for line in lines if str(line or "")[:10] == target]
+
+
+def day_keys_for_range(since_days):
+    days = max(1, min(int(since_days or 3), 30))
+    today = datetime.utcnow().date()
+    keys = []
+    for index in range(days):
+        keys.append((today - timedelta(days=index)).strftime("%Y-%m-%d"))
+    return keys
+
+
+def build_supabase_storage_object_url(object_path, bucket_name=None):
+    bucket = (bucket_name or app.config["SUPABASE_PHOTOS_BUCKET"]).strip() or app.config["SUPABASE_PHOTOS_BUCKET"]
+    object_path = (object_path or "").strip("/")
+    base = app.config["SUPABASE_URL"].rstrip("/")
+    return f"{base}/storage/v1/object/{urllib_parse.quote(bucket, safe='')}/{urllib_parse.quote(object_path, safe='/')}"
+
+
+def download_supabase_storage_object_text(object_path, bucket_name=None):
+    if not is_supabase_enabled():
+        raise RuntimeError("Supabase is not configured")
+    url = build_supabase_storage_object_url(object_path, bucket_name)
+    req = urllib_request.Request(url, method="GET")
+    for key, value in supabase_headers().items():
+        if key.lower() == "content-type":
+            continue
+        req.add_header(key, value)
+    with urllib_request.urlopen(req, timeout=60) as response:
+        return response.read().decode("utf-8", errors="replace")
+
+
+def sync_readable_logs_to_supabase(since_days=3, limit=5000, per_day=50):
+    if not is_supabase_enabled():
+        raise RuntimeError("Supabase is not configured")
+
+    limit_value = max(1, min(int(limit or 5000), 20000))
+    per_day_value = max(1, min(int(per_day or 50), 300))
+    day_keys = day_keys_for_range(since_days)
+    audit_entries = parse_audit_lines(read_recent_log_entries(AUDIT_LOG_FILE, limit_value))
+    app_entries = read_recent_log_entries(APP_LOG_FILE, limit_value)
+
+    uploaded_days = []
+    total_audit = 0
+    total_app = 0
+    for day_key in day_keys:
+        day_audit = filter_audit_entries_for_day(audit_entries, day_key)
+        day_app = filter_app_entries_for_day(app_entries, day_key)
+        day_summary = {
+            "date": day_key,
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "audit_count": len(day_audit),
+            "app_count": len(day_app),
+            "day_wise_audit": build_day_wise_audit(day_audit, per_day=per_day_value),
+        }
+        prefix = f"system-logs/readable/{day_key}"
+        upload_bytes_to_supabase_storage(
+            "\n".join(json.dumps(item, ensure_ascii=False) for item in day_audit).encode("utf-8"),
+            f"{prefix}/audit.jsonl",
+            "application/json",
+        )
+        upload_bytes_to_supabase_storage(
+            "\n".join(day_app).encode("utf-8"),
+            f"{prefix}/app.log",
+            "text/plain",
+        )
+        upload_bytes_to_supabase_storage(
+            json.dumps(day_summary, ensure_ascii=False, indent=2).encode("utf-8"),
+            f"{prefix}/summary.json",
+            "application/json",
+        )
+        uploaded_days.append(day_key)
+        total_audit += len(day_audit)
+        total_app += len(day_app)
+
+    return {
+        "uploaded_days": uploaded_days,
+        "since_days": len(uploaded_days),
+        "total_audit_events": total_audit,
+        "total_app_lines": total_app,
+    }
+
+
+def load_readable_logs_from_supabase(since_days=3, per_day=20, limit=1000):
+    if not is_supabase_enabled():
+        raise RuntimeError("Supabase is not configured")
+    limit_value = max(1, min(int(limit or 1000), 5000))
+    per_day_value = max(1, min(int(per_day or 20), 100))
+    selected_days = set(day_keys_for_range(since_days))
+    audit_entries = []
+    app_entries = []
+    for day_key in sorted(selected_days, reverse=True):
+        prefix = f"system-logs/readable/{day_key}"
+        try:
+            audit_text = download_supabase_storage_object_text(f"{prefix}/audit.jsonl")
+            for line in audit_text.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    audit_entries.append(json.loads(line))
+                except Exception:
+                    continue
+        except Exception:
+            pass
+        try:
+            app_text = download_supabase_storage_object_text(f"{prefix}/app.log")
+            for line in app_text.splitlines():
+                cleaned = line.strip()
+                if cleaned:
+                    app_entries.append(cleaned)
+        except Exception:
+            pass
+
+    audit_entries = audit_entries[:limit_value]
+    app_entries = app_entries[:limit_value]
+    return {
+        "audit_log": audit_entries,
+        "day_wise_audit": build_day_wise_audit(audit_entries, per_day=per_day_value),
+        "app_log": app_entries,
+        "source": "supabase_readable",
+    }
+
+
+def build_activity_logs_archive(limit=1000, per_day=25, since_days=3):
+    limit_value = max(1, min(int(limit or 1000), 2000))
+    per_day_value = max(1, min(int(per_day or 25), 200))
+    since_days_value = max(1, min(int(since_days or 3), 30))
+    audit_entries = filter_audit_entries_since_days(
+        parse_audit_lines(read_recent_log_entries(AUDIT_LOG_FILE, limit_value)),
+        since_days_value,
+    )
+    app_entries = filter_app_entries_since_days(read_recent_log_entries(APP_LOG_FILE, limit_value), since_days_value)
+    day_wise = build_day_wise_audit(audit_entries, per_day=per_day_value)
+    summary = {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "limit": limit_value,
+        "per_day": per_day_value,
+        "since_days": since_days_value,
+        "total_audit_events": len(audit_entries),
+        "total_app_lines": len(app_entries),
+        "days": [
+            {"date": item.get("date", ""), "count": item.get("count", 0)}
+            for item in day_wise
+        ],
+        "day_wise_audit": day_wise,
+    }
+
+    archive_buffer = io.BytesIO()
+    with zipfile.ZipFile(archive_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("activity_summary.json", json.dumps(summary, indent=2, ensure_ascii=False))
+        zf.writestr(
+            "audit_recent.jsonl",
+            "\n".join(json.dumps(item, ensure_ascii=False) for item in audit_entries),
+        )
+        zf.writestr("app_recent.log", "\n".join(app_entries))
+    return archive_buffer.getvalue(), summary
 
 
 def log_audit_event(event_type, **extra):
@@ -727,6 +948,91 @@ def list_supabase_storage_objects(prefix="", limit=1000):
         raise RuntimeError(raw or f"Supabase storage list failed with status {exc.code}") from exc
 
 
+def delete_supabase_storage_object_path(object_path, bucket_name=None):
+    if not is_supabase_enabled():
+        return False
+    object_path = (object_path or "").strip("/")
+    if not object_path:
+        return False
+    bucket = (bucket_name or app.config["SUPABASE_PHOTOS_BUCKET"]).strip() or app.config["SUPABASE_PHOTOS_BUCKET"]
+    base = app.config["SUPABASE_URL"].rstrip("/")
+    url = f"{base}/storage/v1/object/{urllib_parse.quote(bucket, safe='')}/{urllib_parse.quote(object_path, safe='/')}"
+    req = urllib_request.Request(url, method="DELETE")
+    for key, value in supabase_headers().items():
+        req.add_header(key, value)
+    try:
+        with urllib_request.urlopen(req, timeout=30):
+            return True
+    except urllib_error.HTTPError:
+        return False
+
+
+def list_supabase_storage_file_paths(prefix=""):
+    queue = deque([(prefix or "").strip("/")])
+    visited = set()
+    file_paths = []
+    while queue:
+        current_prefix = queue.popleft()
+        if current_prefix in visited:
+            continue
+        visited.add(current_prefix)
+        items = list_supabase_storage_objects(current_prefix)
+        for item in items:
+            name = str(item.get("name") or "").strip()
+            if not name:
+                continue
+            metadata = item.get("metadata") or {}
+            is_folder = item.get("id") is None and not metadata.get("size")
+            if is_folder:
+                next_prefix = f"{current_prefix}/{name}".strip("/") if current_prefix else name
+                queue.append(next_prefix)
+                continue
+            object_path = f"{current_prefix}/{name}".strip("/") if current_prefix else name
+            file_paths.append(object_path)
+    return file_paths
+
+
+def extract_storage_day_key(object_path):
+    value = str(object_path or "").strip()
+    if not value:
+        return None
+    match = re.search(r"(?:^|/)(\d{4}-\d{2}-\d{2})(?:/|$)", value)
+    if not match:
+        return None
+    try:
+        return datetime.strptime(match.group(1), "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+def cleanup_supabase_log_archives(auto_delete_days):
+    result = {
+        "deleted_log_archives": 0,
+        "log_archive_errors": 0,
+    }
+    if not is_supabase_enabled():
+        return result
+
+    days_value = max(1, int(auto_delete_days or 15))
+    cutoff_date = (datetime.utcnow() - timedelta(days=days_value)).date()
+    try:
+        all_files = list_supabase_storage_file_paths("system-logs")
+    except Exception:
+        result["log_archive_errors"] += 1
+        return result
+
+    for object_path in all_files:
+        day_key = extract_storage_day_key(object_path)
+        if not day_key or day_key >= cutoff_date:
+            continue
+        deleted = delete_supabase_storage_object_path(object_path)
+        if deleted:
+            result["deleted_log_archives"] += 1
+        else:
+            result["log_archive_errors"] += 1
+    return result
+
+
 def collect_supabase_storage_usage(prefix=""):
     total_bytes = 0
     object_count = 0
@@ -1298,12 +1604,15 @@ def save_photo_on_record(target_record, file_storage, institute):
 
 def run_supabase_auto_cleanup(force=False):
     prefs = load_admin_prefs()
+    auto_days = max(1, int(prefs.get("auto_delete_days", 15) or 15))
     result = {
         "enabled": prefs.get("auto_delete_enabled", False),
-        "auto_delete_days": prefs.get("auto_delete_days", 15),
+        "auto_delete_days": auto_days,
         "deleted_batches": 0,
         "deleted_records": 0,
         "deleted_photos": 0,
+        "deleted_log_archives": 0,
+        "log_archive_errors": 0,
         "last_run_at": prefs.get("last_auto_cleanup_at", ""),
     }
     if not is_supabase_enabled() or not prefs.get("auto_delete_enabled"):
@@ -1313,7 +1622,7 @@ def run_supabase_auto_cleanup(force=False):
     if not force and last_run and (datetime.now() - last_run) < timedelta(hours=1):
         return result
 
-    cutoff = datetime.now() - timedelta(days=max(1, int(prefs.get("auto_delete_days", 15) or 15)))
+    cutoff = datetime.now() - timedelta(days=auto_days)
     batches = list_all_supabase_batches()
     for batch in batches:
         batch_time = parse_timestamp_display(batch.get("submitted_at") or batch.get("created_at"))
@@ -1326,6 +1635,10 @@ def run_supabase_auto_cleanup(force=False):
         result["deleted_batches"] += 1
         result["deleted_records"] += int(deleted.get("deleted_records", 0) or 0)
         result["deleted_photos"] += int(deleted.get("deleted_photos", 0) or 0)
+
+    log_cleanup = cleanup_supabase_log_archives(auto_days)
+    result["deleted_log_archives"] = int(log_cleanup.get("deleted_log_archives", 0) or 0)
+    result["log_archive_errors"] = int(log_cleanup.get("log_archive_errors", 0) or 0)
 
     result["last_run_at"] = current_timestamp_display()
     prefs["last_auto_cleanup_at"] = result["last_run_at"]
@@ -2032,6 +2345,19 @@ def admin_required(view_func):
     return wrapped
 
 
+def verify_cron_request():
+    configured = (app.config.get("CRON_BACKUP_TOKEN") or "").strip()
+    auth_header = (request.headers.get("authorization") or "").strip()
+    bearer_value = ""
+    if auth_header.lower().startswith("bearer "):
+        bearer_value = auth_header[7:].strip()
+    # If no token is configured, only allow Vercel Cron-originated calls.
+    if not configured:
+        return request.headers.get("x-vercel-cron") == "1"
+    provided = (request.headers.get("x-cron-token") or request.args.get("token") or bearer_value).strip()
+    return provided == configured
+
+
 def make_asset_slug(value):
     safe = secure_filename((value or "").strip())
     return safe or "default"
@@ -2679,6 +3005,8 @@ def admin_logout():
 def admin_activity_log():
     limit = request.args.get("limit", 200)
     per_day = request.args.get("per_day", 20)
+    since_days = request.args.get("since_days", 3)
+    source = (request.args.get("source") or "supabase").strip().lower()
     try:
         limit_value = max(1, min(int(limit), 1000))
     except Exception:
@@ -2687,27 +3015,139 @@ def admin_activity_log():
         per_day_value = max(1, min(int(per_day), 100))
     except Exception:
         per_day_value = 20
+    try:
+        since_days_value = max(1, min(int(since_days), 30))
+    except Exception:
+        since_days_value = 3
 
-    def parse_lines(lines):
-        parsed = []
-        for line in reversed(lines):
-            try:
-                parsed.append(json.loads(line))
-            except Exception:
-                parsed.append({"raw": line})
-        return parsed
+    if source in ("supabase", "readable", "remote") and is_supabase_enabled():
+        try:
+            remote_data = load_readable_logs_from_supabase(
+                since_days=since_days_value,
+                per_day=per_day_value,
+                limit=limit_value,
+            )
+            return jsonify({
+                "audit_log": remote_data.get("audit_log", []),
+                "day_wise_audit": remote_data.get("day_wise_audit", []),
+                "app_log": remote_data.get("app_log", []),
+                "since_days": since_days_value,
+                "source": remote_data.get("source", "supabase_readable"),
+                "files": {
+                    "audit": "supabase://system-logs/readable/<date>/audit.jsonl",
+                    "app": "supabase://system-logs/readable/<date>/app.log",
+                },
+            })
+        except Exception:
+            pass
 
-    audit_entries = parse_lines(read_recent_log_entries(AUDIT_LOG_FILE, limit_value))
+    audit_entries = filter_audit_entries_since_days(
+        parse_audit_lines(read_recent_log_entries(AUDIT_LOG_FILE, limit_value)),
+        since_days_value,
+    )
     day_wise = build_day_wise_audit(audit_entries, per_day=per_day_value)
+    app_entries = filter_app_entries_since_days(read_recent_log_entries(APP_LOG_FILE, limit_value), since_days_value)
 
     return jsonify({
         "audit_log": audit_entries,
         "day_wise_audit": day_wise,
-        "app_log": read_recent_log_entries(APP_LOG_FILE, limit_value),
+        "app_log": app_entries,
+        "since_days": since_days_value,
+        "source": "local_files",
         "files": {
             "audit": AUDIT_LOG_FILE,
             "app": APP_LOG_FILE,
         },
+    })
+
+
+@app.route("/api/admin-activity-log/download")
+@admin_required
+def admin_activity_log_download():
+    limit = request.args.get("limit", 1000)
+    per_day = request.args.get("per_day", 25)
+    since_days = request.args.get("since_days", 3)
+    try:
+        limit_value = max(1, min(int(limit), 2000))
+    except Exception:
+        limit_value = 1000
+    try:
+        per_day_value = max(1, min(int(per_day), 200))
+    except Exception:
+        per_day_value = 25
+    try:
+        since_days_value = max(1, min(int(since_days), 30))
+    except Exception:
+        since_days_value = 3
+
+    archive_bytes, summary = build_activity_logs_archive(limit=limit_value, per_day=per_day_value, since_days=since_days_value)
+    timestamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    filename = f"activity_logs_last_{since_days_value}d_{timestamp}.zip"
+
+    backup_url = ""
+    backup_error = ""
+    if is_supabase_enabled():
+        object_path = f"system-logs/activity/{datetime.utcnow().strftime('%Y-%m-%d')}/{filename}"
+        try:
+            backup_url = upload_bytes_to_supabase_storage(archive_bytes, object_path, "application/zip")
+        except Exception as exc:
+            backup_error = str(exc) or "Unable to backup logs to Supabase"
+            app.logger.warning("Log backup upload failed", exc_info=True)
+
+    log_audit_event(
+        "admin_activity_log_download",
+        filename=filename,
+        limit=limit_value,
+        per_day=per_day_value,
+        since_days=since_days_value,
+        total_audit_events=summary.get("total_audit_events", 0),
+        backup_url=backup_url,
+        backup_error=backup_error,
+    )
+
+    response = send_file(
+        io.BytesIO(archive_bytes),
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=filename,
+    )
+    if backup_url:
+        response.headers["X-Log-Backup-Url"] = backup_url
+    if backup_error:
+        response.headers["X-Log-Backup-Error"] = backup_error
+    return response
+
+
+@app.route("/api/cron/daily-log-backup")
+def cron_daily_log_backup():
+    if not verify_cron_request():
+        return jsonify({"error": "Unauthorized"}), 401
+
+    if not is_supabase_enabled():
+        log_audit_event("cron_daily_log_backup", success=False, error="Supabase is not configured")
+        return jsonify({"error": "Supabase is not configured"}), 500
+
+    try:
+        summary = sync_readable_logs_to_supabase(since_days=3, limit=5000, per_day=50)
+    except Exception as exc:
+        message = str(exc) or "Unable to sync daily readable logs"
+        log_audit_event("cron_daily_log_backup", success=False, error=message)
+        return jsonify({"error": message}), 500
+
+    log_audit_event(
+        "cron_daily_log_backup",
+        success=True,
+        mode="readable_jsonl",
+        uploaded_days=summary.get("uploaded_days", []),
+        total_audit_events=summary.get("total_audit_events", 0),
+        total_app_lines=summary.get("total_app_lines", 0),
+    )
+    return jsonify({
+        "status": "ok",
+        "mode": "readable_jsonl",
+        "uploaded_days": summary.get("uploaded_days", []),
+        "total_audit_events": summary.get("total_audit_events", 0),
+        "total_app_lines": summary.get("total_app_lines", 0),
     })
 
 

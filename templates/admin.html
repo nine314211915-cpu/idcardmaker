@@ -940,6 +940,12 @@
     <input class="status-mini-input" type="number" id="storageQuotaMb" min="1" step="1" placeholder="Quota MB" style="width:92px">
     <button class="btn btn-outline" type="button" onclick="saveStoragePolicy()">Save Policy</button>
     <button class="btn btn-outline" type="button" onclick="runSupabaseStorageTest()">Test Storage</button>
+    <select class="status-mini-select" id="logRangeDays" style="min-width:92px">
+      <option value="1">Last 1 day</option>
+      <option value="2">Last 2 days</option>
+      <option value="3" selected>Last 3 days</option>
+    </select>
+    <button class="btn btn-outline" type="button" onclick="downloadActivityLogs()">Download Logs</button>
     <span class="status-note" id="autoDeleteInfo"></span>
   </div>
 </div>
@@ -1499,6 +1505,56 @@ async function runSupabaseStorageTest() {
     alert('Supabase storage test completed successfully.');
   } catch (e) {
     alert(e.message || 'Storage test failed.');
+  }
+}
+
+async function downloadActivityLogs() {
+  try {
+    const selectedDays = Number((document.getElementById('logRangeDays') || {}).value || 3);
+    const sinceDays = Number.isFinite(selectedDays) ? Math.max(1, Math.min(3, selectedDays)) : 3;
+    const summaryEl = document.getElementById('supabaseStatusSummary');
+    if (summaryEl) {
+      summaryEl.textContent = 'Preparing logs...';
+    }
+    const res = await fetch(`/api/admin-activity-log/download?limit=1000&per_day=25&since_days=${sinceDays}`);
+    if (!res.ok) {
+      let errorText = 'Unable to download logs.';
+      try {
+        const data = await res.json();
+        errorText = data.error || errorText;
+      } catch (e) {}
+      throw new Error(errorText);
+    }
+
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename=\"?([^\";]+)\"?/i);
+    const filename = match && match[1] ? match[1] : `activity_logs_${Date.now()}.zip`;
+    const backupUrl = res.headers.get('X-Log-Backup-Url') || '';
+    const backupError = res.headers.get('X-Log-Backup-Error') || '';
+
+    const link = document.createElement('a');
+    const blobUrl = URL.createObjectURL(blob);
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(blobUrl);
+
+    await loadSupabaseStatus();
+    if (backupUrl) {
+      alert(`Logs downloaded.\nSupabase backup saved successfully.`);
+      return;
+    }
+    if (backupError) {
+      alert(`Logs downloaded.\nSupabase backup failed: ${backupError}`);
+      return;
+    }
+    alert('Logs downloaded.');
+  } catch (e) {
+    alert(e.message || 'Unable to download logs.');
+    await loadSupabaseStatus();
   }
 }
 
