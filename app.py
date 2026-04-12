@@ -948,6 +948,35 @@ def get_supabase_batch(institute, batch_id):
     return None
 
 
+def build_batch_location_label(records):
+    records = records or []
+    if not records:
+        return ""
+    first = records[0] or {}
+    facility_location = str(first.get("facility_location", "") or first.get("department", "") or "").strip()
+    facility_sub_location = str(first.get("facility_sub_location", "") or "").strip()
+    if facility_location and facility_sub_location:
+        return f"{facility_location} / {facility_sub_location}"
+    return facility_location or facility_sub_location
+
+
+def enrich_batches_for_overview(batches):
+    enriched = []
+    for batch in batches or []:
+        item = dict(batch or {})
+        batch_id = str(item.get("id", "") or "").strip()
+        institute = canonicalize_institute_name(item.get("institute_name"))
+        location_label = ""
+        if batch_id and institute:
+            try:
+                location_label = build_batch_location_label(list_supabase_records(institute, batch_id))
+            except Exception:
+                location_label = ""
+        item["location_label"] = location_label
+        enriched.append(item)
+    return enriched
+
+
 def merge_supabase_batches(institute, batch_ids):
     institute = canonicalize_institute_name(institute)
     unique_batch_ids = []
@@ -2989,6 +3018,7 @@ def batch_overview():
         return jsonify({"batches": [], "warning": "Supabase is not configured"})
     try:
         batches = list_supabase_batches(institute) if institute else list_all_supabase_batches()
+        batches = enrich_batches_for_overview(batches)
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to load batch overview"}), 500
     return jsonify({"batches": batches, "institute": institute or ""})

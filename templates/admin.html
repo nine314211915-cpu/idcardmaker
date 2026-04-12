@@ -1161,6 +1161,7 @@ function renderBatchOverview() {
           const batchId = batch.id || '';
           const batchName = batch.batch_name || batchId || 'Unnamed batch';
           const batchTime = batch.submitted_at || batch.created_at || '-';
+          const locationLabel = batch.location_label || '';
           const checked = selectedOverviewBatchIds.includes(batchId) ? 'checked' : '';
           const selectControl = selectedInstitute ? `
             <label class="overview-check">
@@ -1171,7 +1172,9 @@ function renderBatchOverview() {
           return `
             <li>
               <div class="overview-batch-row">
-                <span class="overview-batch-label">${escapeHtml(batchName)} <span style="color:var(--muted)">| ${escapeHtml(batchTime)}</span></span>
+                <span class="overview-batch-label">
+                  ${escapeHtml(batchName)}${locationLabel ? ` <span style="color:var(--red)">| ${escapeHtml(locationLabel)}</span>` : ''} <span style="color:var(--muted)">| ${escapeHtml(batchTime)}</span>
+                </span>
                 ${selectControl}
                 <button class="btn-xs" type="button" onclick="openBatchFromOverview(${JSON.stringify(institute)}, ${JSON.stringify(batchId)})">Open</button>
               </div>
