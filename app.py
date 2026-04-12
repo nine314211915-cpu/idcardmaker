@@ -974,9 +974,9 @@ def build_batch_location_label(records):
     first = records[0] or {}
     facility_location = str(first.get("facility_location", "") or first.get("department", "") or "").strip()
     facility_sub_location = str(first.get("facility_sub_location", "") or "").strip()
-    if facility_location and facility_sub_location:
-        return f"{facility_location} / {facility_sub_location}"
-    return facility_location or facility_sub_location
+    if facility_sub_location and facility_location:
+        return f"{facility_sub_location}, {facility_location}"
+    return facility_sub_location or facility_location
 
 
 def enrich_batches_for_overview(batches):
@@ -1286,6 +1286,39 @@ def canonicalize_institute_name(value):
     if value == "Govt. ANM Training, Jhunjhunu":
         return "Govt. ANM Training Center, Jhunjhunu"
     return value
+
+
+FACILITY_INSTITUTE_DISPLAY_NAMES = {
+    "Govt. Community Health Centre (CHC), Jhunjhunu": "Govt. Community Health Centre (CHC)",
+    "Govt. Primary Health Centre (PHC), Jhunjhunu": "Govt. Primary Health Centre (PHC)",
+    "Govt. Health Sub Centre, Jhunjhunu": "Govt. Health Sub Centre",
+}
+
+
+def get_display_institute_name(value):
+    institute = canonicalize_institute_name(value)
+    return FACILITY_INSTITUTE_DISPLAY_NAMES.get(institute, institute)
+
+
+def format_record_institute_display(record):
+    record = record or {}
+    institute = get_display_institute_name(record.get("institute_name"))
+    facility_location = str(record.get("facility_location", "") or record.get("department", "") or "").strip()
+    facility_sub_location = str(record.get("facility_sub_location", "") or "").strip()
+    if institute in FACILITY_INSTITUTE_DISPLAY_NAMES.values():
+        parts = [institute]
+        if facility_sub_location:
+            parts.append(facility_sub_location)
+        if facility_location:
+            parts.append(facility_location)
+        return ", ".join(part for part in parts if part)
+    return institute
+
+
+def decorate_record_display(record):
+    item = dict(record or {})
+    item["display_institute_name"] = format_record_institute_display(item)
+    return item
 
 
 def load_drive_service_account_info():
@@ -1886,6 +1919,7 @@ def get_filtered_records():
         records = list_supabase_records(institute, batch_id or None)
     else:
         records = load_records(institute)
+    records = [decorate_record_display(record) for record in records]
     return records, institute
 
 
@@ -2360,6 +2394,7 @@ def admin_print_cards():
         "print_cards.html",
         records=records,
         institute=institute,
+        display_institute_name=get_display_institute_name(institute),
         batch_id=batch_id,
         settings=settings,
         auto_print=auto_print,

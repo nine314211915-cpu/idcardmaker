@@ -901,9 +901,9 @@
     <option value="Dist. Collector, Jhunjhunu">Dist. Collector, Jhunjhunu</option>
     <option value="PHED Water Works Jhunjhunu">PHED Water Works Jhunjhunu</option>
     <option value="Govt. Nursing College, Jhunjhunu">Govt. Nursing College, Jhunjhunu</option>
-    <option value="Govt. Community Health Centre (CHC), Jhunjhunu">Govt. Community Health Centre (CHC), Jhunjhunu</option>
-    <option value="Govt. Primary Health Centre (PHC), Jhunjhunu">Govt. Primary Health Centre (PHC), Jhunjhunu</option>
-    <option value="Govt. Health Sub Centre, Jhunjhunu">Govt. Health Sub Centre, Jhunjhunu</option>
+          <option value="Govt. Community Health Centre (CHC), Jhunjhunu">Govt. Community Health Centre (CHC)</option>
+          <option value="Govt. Primary Health Centre (PHC), Jhunjhunu">Govt. Primary Health Centre (PHC)</option>
+          <option value="Govt. Health Sub Centre, Jhunjhunu">Govt. Health Sub Centre</option>
     <option value="Govt. ANM Training Center, Jhunjhunu">Govt. ANM Training Center, Jhunjhunu</option>
     <option value="Other">Other</option>
   </select>
@@ -1125,6 +1125,16 @@ let batchOverviewItems = [];
 let selectedOverviewBatchIds = [];
 let editTarget = null;
 const COLLEGE_INSTITUTES = ['Govt. Medical College, Jhunjhunu', 'Govt. Nursing College, Jhunjhunu', 'Govt. ANM Training Center, Jhunjhunu'];
+const FACILITY_INSTITUTE_DISPLAY_NAMES = {
+  'Govt. Community Health Centre (CHC), Jhunjhunu': 'Govt. Community Health Centre (CHC)',
+  'Govt. Primary Health Centre (PHC), Jhunjhunu': 'Govt. Primary Health Centre (PHC)',
+  'Govt. Health Sub Centre, Jhunjhunu': 'Govt. Health Sub Centre'
+};
+
+function getDisplayInstituteName(institute) {
+  const cleanedInstitute = String(institute || '').trim();
+  return FACILITY_INSTITUTE_DISPLAY_NAMES[cleanedInstitute] || cleanedInstitute;
+}
 let attachPhotoTarget = null;
 const ADMIN_UI_STATE_KEY = 'admin_ui_state_v1';
 
@@ -1279,12 +1289,13 @@ function renderBatchOverview() {
   const grouped = {};
   visibleBatches.forEach((batch) => {
     const institute = batch.institute_name || 'Unknown Institute';
+    const displayInstitute = getDisplayInstituteName(institute);
     if (!grouped[institute]) grouped[institute] = [];
-    grouped[institute].push(batch);
+    grouped[institute].push({ ...batch, display_institute_name: displayInstitute });
   });
   grid.innerHTML = Object.entries(grouped).map(([institute, batches]) => `
     <div class="overview-line">
-      <strong>${escapeHtml(institute)}</strong>
+      <strong>${escapeHtml((batches[0] && batches[0].display_institute_name) || institute)}</strong>
       <ol class="overview-list">
         ${batches.map((batch) => {
           const batchId = batch.id || '';
@@ -1809,7 +1820,10 @@ function renderTable(records) {
       key: 'institute_name',
       label: 'Institute',
       show: (rows) => rows.some((row) => hasMeaningfulValue(row.institute_name)),
-      render: (row) => `<span style="display:inline-block;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${row.institute_name || ''}">${row.institute_name || '-'}</span>`,
+      render: (row) => {
+        const displayName = row.display_institute_name || getDisplayInstituteName(row.institute_name || '');
+        return `<span style="display:inline-block;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(displayName || '')}">${escapeHtml(displayName || '-')}</span>`;
+      },
     },
     {
       key: 'saved_at',
@@ -2048,7 +2062,7 @@ function viewRecord(r) {
       <div class="card-header">
         <div style="width:28px;height:28px;background:rgba(255,255,255,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">MC</div>
         <div class="ch-text" style="flex:1;margin-left:8px">
-          <div class="institute-name">${r.institute_name || 'Medical College'}</div>
+        <div class="institute-name">${r.display_institute_name || getDisplayInstituteName(r.institute_name || '') || 'Medical College'}</div>
           <div class="sub">${typeLabel}</div>
         </div>
       </div>

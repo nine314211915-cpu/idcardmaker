@@ -1083,9 +1083,9 @@
               <option value="Dist. Collector, Jhunjhunu">Dist. Collector, Jhunjhunu</option>
               <option value="PHED Water Works Jhunjhunu">PHED Water Works, Jhunjhunu</option>
               <option value="Govt. Nursing College, Jhunjhunu">Govt. Nursing College, Jhunjhunu</option>
-              <option value="Govt. Community Health Centre (CHC), Jhunjhunu">Govt. Community Health Centre (CHC)</option>
-              <option value="Govt. Primary Health Centre (PHC), Jhunjhunu">Govt. Primary Health Centre (PHC)</option>
-              <option value="Govt. Health Sub Centre, Jhunjhunu">Govt. Health Sub Centre</option>
+          <option value="Govt. Community Health Centre (CHC), Jhunjhunu">Govt. Community Health Centre (CHC)</option>
+          <option value="Govt. Primary Health Centre (PHC), Jhunjhunu">Govt. Primary Health Centre (PHC)</option>
+          <option value="Govt. Health Sub Centre, Jhunjhunu">Govt. Health Sub Centre</option>
               <option value="Govt. ANM Training Center, Jhunjhunu">Govt. ANM Training Center, Jhunjhunu</option>
               <option value="Other">Other</option>
             </select>
@@ -1395,6 +1395,11 @@
 <script>
 const COLLEGE_INSTITUTES = ['Govt. Medical College, Jhunjhunu', 'Govt. Nursing College, Jhunjhunu'];
 const ANM_INSTITUTE = 'Govt. ANM Training Center, Jhunjhunu';
+const FACILITY_INSTITUTE_DISPLAY_NAMES = {
+  'Govt. Community Health Centre (CHC), Jhunjhunu': 'Govt. Community Health Centre (CHC)',
+  'Govt. Primary Health Centre (PHC), Jhunjhunu': 'Govt. Primary Health Centre (PHC)',
+  'Govt. Health Sub Centre, Jhunjhunu': 'Govt. Health Sub Centre'
+};
 const FACILITY_LOCATION_INSTITUTES = [
   'Govt. Community Health Centre (CHC), Jhunjhunu',
   'Govt. Primary Health Centre (PHC), Jhunjhunu',
@@ -1492,9 +1497,10 @@ function saveFacilitySubLocationOption(institute, block, value) {
   const currentItems = getFacilitySubLocations(cleanedInstitute, cleanedBlock);
   if (currentItems.includes(cleanedValue)) return;
   const customMap = loadCustomFacilitySubLocations();
-  if (!Array.isArray(customMap[cleanedBlock])) customMap[cleanedBlock] = [];
-  customMap[cleanedBlock].push(cleanedValue);
-  customMap[cleanedBlock] = customMap[cleanedBlock]
+  if (!customMap[cleanedInstitute] || typeof customMap[cleanedInstitute] !== 'object') customMap[cleanedInstitute] = {};
+  if (!Array.isArray(customMap[cleanedInstitute][cleanedBlock])) customMap[cleanedInstitute][cleanedBlock] = [];
+  customMap[cleanedInstitute][cleanedBlock].push(cleanedValue);
+  customMap[cleanedInstitute][cleanedBlock] = customMap[cleanedInstitute][cleanedBlock]
     .filter((item, index, arr) => item && arr.indexOf(item) === index)
     .sort((a, b) => a.localeCompare(b));
   saveCustomFacilitySubLocations(customMap);
@@ -2255,7 +2261,20 @@ function getInstitutePreviewLabel() {
   if (selectedOption.value === 'Other') {
     return document.getElementById('otherInstituteName').value.trim() || 'Other';
   }
-  return (selectedOption.textContent || selectedOption.value || '').trim();
+  const selectedValue = (selectedOption.value || '').trim();
+  return FACILITY_INSTITUTE_DISPLAY_NAMES[selectedValue] || (selectedOption.textContent || selectedOption.value || '').trim();
+}
+
+function formatInstituteDisplay(institute, facilitySubLocation = '', facilityLocation = '') {
+  const cleanedInstitute = String(institute || '').trim();
+  const displayInstitute = FACILITY_INSTITUTE_DISPLAY_NAMES[cleanedInstitute] || cleanedInstitute;
+  if (!FACILITY_LOCATION_INSTITUTES.includes(cleanedInstitute)) {
+    return displayInstitute;
+  }
+  const parts = [displayInstitute];
+  if (facilitySubLocation) parts.push(facilitySubLocation);
+  if (facilityLocation) parts.push(facilityLocation);
+  return parts.join(', ');
 }
 
 function isCollegeMode() {
@@ -2808,12 +2827,11 @@ function updatePreview() {
   const anmMode = isAnmMode();
   const effectiveType = anmMode ? 'student' : (isCollegeMode() ? currentType : 'employee');
   const name = document.getElementById('name').value || 'Full Name';
+  const instituteValue = getInstituteValue();
   const institute = getInstitutePreviewLabel() || 'Institute Name';
   const facilityLocation = document.getElementById('facilityLocation').value;
   const facilitySubLocation = getFacilitySubLocationValue();
-  const previewInstitute = facilityLocation && isFacilityLocationInstitute()
-    ? `${institute} - ${facilityLocation}${facilitySubLocation ? ` / ${facilitySubLocation}` : ''}`
-    : institute;
+  const previewInstitute = formatInstituteDisplay(instituteValue, facilitySubLocation, facilityLocation) || institute;
   const dob = document.getElementById('dob').value;
   const contact = document.getElementById('contact').value;
   const validUpto = document.getElementById('validUpto').value;

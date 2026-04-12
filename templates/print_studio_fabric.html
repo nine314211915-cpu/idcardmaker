@@ -392,7 +392,7 @@
       designation: row.designation || row.training_year || row.course || "",
       employee_id: row.employee_id || row.serial_no || row.id || `EMP-${idx + 1}`,
       department: row.department || "",
-      institute_name: row.institute_name || institute || "Institute Name",
+      institute_name: row.display_institute_name || row.institute_name || institute || "Institute Name",
       photo_url: row.photo_url || "",
       __fallback: !!fallback,
     };
