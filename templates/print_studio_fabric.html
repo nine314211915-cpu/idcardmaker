@@ -948,13 +948,12 @@
       return;
     }
     renderAssetLibrary();
-    setStatus("Saved to server settings.");
+    setStatus("Saved");
   }
 
   async function saveAssetBinding(assetId) {
     await saveServer();
-    const label = (assetConfig[assetId] && assetConfig[assetId].label) ? assetConfig[assetId].label : "Asset";
-    setStatus(`${label} saved to server.`);
+    setStatus("Saved");
   }
 
   async function loadServer(options = {}) {
