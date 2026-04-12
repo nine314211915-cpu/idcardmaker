@@ -71,6 +71,7 @@ def default_institute_settings(institute=None):
         "signature_url": "",
         "signature_drive_id": "",
         "print_templates": [],
+        "facility_custom_sub_locations": {},
     }
 
 
@@ -287,6 +288,24 @@ def save_settings(settings, institute):
     payload["institute_name"] = institute
     ensure_print_background_state(payload)
     save_json_store(make_storage_path("settings", institute), make_storage_filename("settings", institute), payload)
+
+
+def sanitize_facility_custom_sub_locations(data):
+    cleaned = {}
+    if not isinstance(data, dict):
+        return cleaned
+    for block, values in data.items():
+        block_name = str(block or "").strip()
+        if not block_name or not isinstance(values, list):
+            continue
+        items = []
+        for value in values:
+            text = str(value or "").strip()
+            if text and text not in items and text != "Add New":
+                items.append(text)
+        if items:
+            cleaned[block_name] = sorted(items)
+    return cleaned
 
 
 def clamp_int(value, fallback, minimum, maximum):
@@ -2499,6 +2518,7 @@ def get_settings():
     return jsonify({
         "background_url": settings.get("background_url", ""),
         "signature_url": settings.get("signature_url", ""),
+        "facility_custom_sub_locations": sanitize_facility_custom_sub_locations(settings.get("facility_custom_sub_locations", {})),
         "institute": institute
     })
 
@@ -2510,6 +2530,35 @@ def get_certificate_settings():
     return jsonify({
         "background_url": settings.get("certificate_background_url", ""),
         "institute": institute
+    })
+
+
+@app.route("/api/facility-sub-locations", methods=["POST"])
+def save_facility_sub_locations():
+    payload = request.get_json(silent=True) or {}
+    institute = canonicalize_institute_name(payload.get("institute"))
+    block = str(payload.get("block") or "").strip()
+    value = str(payload.get("value") or "").strip()
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    if not block:
+        return jsonify({"error": "Block is required"}), 400
+    if not value or value == "Add New":
+        return jsonify({"error": "Village / Town is required"}), 400
+
+    settings = load_settings(institute)
+    custom_map = sanitize_facility_custom_sub_locations(settings.get("facility_custom_sub_locations", {}))
+    current_items = list(custom_map.get(block, []))
+    if value not in current_items:
+        current_items.append(value)
+    custom_map[block] = sorted({str(item).strip() for item in current_items if str(item).strip() and str(item).strip() != "Add New"})
+    settings["facility_custom_sub_locations"] = custom_map
+    save_settings(settings, institute)
+    return jsonify({
+        "status": "saved",
+        "institute": institute,
+        "block": block,
+        "items": custom_map.get(block, []),
     })
 
 

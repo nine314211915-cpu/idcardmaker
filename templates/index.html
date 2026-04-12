@@ -1349,7 +1349,7 @@
             <div class="batch-pill">Pending Drafts<strong id="savedCardsCount">0</strong></div>
           </div>
           <button class="btn-submit" type="button" onclick="submitWholeBatch()">Submit Whole Data</button>
-          <div class="batch-note" id="batchHelperNote">While you are entering data, this page stays locked to the current institute and card flow so details do not mix accidentally. It unlocks after you save and reset the form, or after Submit Whole Data finishes for that batch.</div>
+          <div class="batch-note" id="batchHelperNote">While you are entering data, this page stays locked to the current institute and card flow so details do not mix accidentally. It auto-saves in background and will auto-submit then reset after 30 minutes of inactivity.</div>
           <div class="batch-toolbar">
             <select id="savedCardPicker" onchange="jumpToSelectedCard()">
               <option value="">Select an entered card</option>
@@ -1492,10 +1492,9 @@ function saveFacilitySubLocationOption(institute, block, value) {
   const currentItems = getFacilitySubLocations(cleanedInstitute, cleanedBlock);
   if (currentItems.includes(cleanedValue)) return;
   const customMap = loadCustomFacilitySubLocations();
-  if (!customMap[cleanedInstitute]) customMap[cleanedInstitute] = {};
-  if (!Array.isArray(customMap[cleanedInstitute][cleanedBlock])) customMap[cleanedInstitute][cleanedBlock] = [];
-  customMap[cleanedInstitute][cleanedBlock].push(cleanedValue);
-  customMap[cleanedInstitute][cleanedBlock] = customMap[cleanedInstitute][cleanedBlock]
+  if (!Array.isArray(customMap[cleanedBlock])) customMap[cleanedBlock] = [];
+  customMap[cleanedBlock].push(cleanedValue);
+  customMap[cleanedBlock] = customMap[cleanedBlock]
     .filter((item, index, arr) => item && arr.indexOf(item) === index)
     .sort((a, b) => a.localeCompare(b));
   saveCustomFacilitySubLocations(customMap);
@@ -1503,11 +1502,16 @@ function saveFacilitySubLocationOption(institute, block, value) {
 
 function persistCurrentFacilitySubLocation() {
   if (!isFacilityLocationInstitute()) return;
-  saveFacilitySubLocationOption(
-    document.getElementById('instituteName').value,
-    document.getElementById('facilityLocation').value,
-    getFacilitySubLocationValue()
-  );
+  const institute = document.getElementById('instituteName').value;
+  const block = document.getElementById('facilityLocation').value;
+  const value = getFacilitySubLocationValue();
+  saveFacilitySubLocationOption(institute, block, value);
+  if (!institute || !block || !value || value === 'Add New') return;
+  fetch('/api/facility-sub-locations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ institute, block, value })
+  }).catch(() => {});
 }
 
 function getFacilityLocationLabel(institute) {
@@ -1516,8 +1520,6 @@ function getFacilityLocationLabel(institute) {
 }
 
 function getFacilitySubLocationLabel(institute) {
-  if (institute === 'Govt. Community Health Centre (CHC), Jhunjhunu') return 'Community Health Centres (CHCs)';
-  if (FACILITY_LOCATION_INSTITUTES.includes(institute)) return 'Panchayat Samiti / Village';
   return 'Village / Town';
 }
 
@@ -1527,8 +1529,6 @@ function getFacilityLocationPlaceholder(institute) {
 }
 
 function getFacilitySubLocationPlaceholder(institute) {
-  if (institute === 'Govt. Community Health Centre (CHC), Jhunjhunu') return 'Select Community Health Centre (CHC)';
-  if (FACILITY_LOCATION_INSTITUTES.includes(institute)) return 'Select Panchayat Samiti / Village';
   return 'Select Village / Town';
 }
 
@@ -1623,6 +1623,7 @@ Object.keys(EMPLOYEE_DESIGNATIONS).forEach((key) => {
 
 let currentType = 'student';
 let appSettings = { background_url: '', signature_url: '' };
+let facilityCustomSubLocations = {};
 let pendingSignaturePassword = '';
 let lastLoadedSubmittedSerial = '';
 let editingSerialNo = '';
@@ -1643,8 +1644,7 @@ const UI_STATE_KEY = 'idcard_ui_state_v1';
 const DRAFT_BATCHES_KEY = 'idcard_draft_batches_v1';
 const DRAFT_PHOTO_DB_NAME = 'idcard_draft_photo_db';
 const DRAFT_PHOTO_STORE = 'photos';
-const FACILITY_CUSTOM_SUB_LOCATIONS_KEY = 'facility_custom_sub_locations_v1';
-const BATCH_UNLOCK_IDLE_MS = 15 * 60 * 1000;
+const BATCH_UNLOCK_IDLE_MS = 30 * 60 * 1000;
 const AUTO_DRAFT_SYNC_MS = 30 * 1000;
 const AUTO_DRAFT_SAVE_DEBOUNCE_MS = 1200;
 
@@ -1713,17 +1713,11 @@ function saveDraftBatches(drafts) {
 }
 
 function loadCustomFacilitySubLocations() {
-  try {
-    return JSON.parse(localStorage.getItem(FACILITY_CUSTOM_SUB_LOCATIONS_KEY) || '{}');
-  } catch (e) {
-    return {};
-  }
+  return (facilityCustomSubLocations && typeof facilityCustomSubLocations === 'object') ? facilityCustomSubLocations : {};
 }
 
 function saveCustomFacilitySubLocations(data) {
-  try {
-    localStorage.setItem(FACILITY_CUSTOM_SUB_LOCATIONS_KEY, JSON.stringify(data || {}));
-  } catch (e) {}
+  facilityCustomSubLocations = data && typeof data === 'object' ? data : {};
 }
 
 function getDraftRecords(institute) {
@@ -1755,23 +1749,30 @@ function clearBatchUnlockTimers() {
   }
 }
 
-function autoUnlockBatchSession() {
+async function expireSessionAfterInactivity() {
   clearBatchUnlockTimers();
-  if (!batchInstituteLocked) return;
-  batchInstituteLocked = false;
-  setInstituteLocked(false);
-  const helper = document.getElementById('batchHelperNote');
-  if (helper) {
-    helper.textContent = 'Batch lock was removed after inactivity. Current typed data is kept, and you can now change institute, block, or village for the next batch.';
+  const institute = getInstituteValue();
+  if (!institute || institute === 'Other') {
+    startFreshSession();
+    return;
   }
-  saveUiState();
+  if (hasEntryData()) {
+    saveCurrentFormAsLocalDraft();
+    await syncDraftToServerInBackground();
+  }
+  const draftRecords = getDraftRecords(institute);
+  if (!draftRecords.length) {
+    startFreshSession();
+    return;
+  }
+  await submitWholeBatch({ silent: true, freshStart: true, reason: 'session-expired' });
 }
 
 function refreshBatchUnlockTimer() {
   clearBatchUnlockTimers();
   if (!batchInstituteLocked) return;
   batchUnlockTimer = setTimeout(() => {
-    autoUnlockBatchSession();
+    expireSessionAfterInactivity();
   }, BATCH_UNLOCK_IDLE_MS);
 }
 
@@ -2054,6 +2055,30 @@ function buildCurrentDraftPayload() {
   return payload;
 }
 
+function saveCurrentFormAsLocalDraft() {
+  const institute = getInstituteValue();
+  if (!institute || institute === 'Other') return false;
+  const name = document.getElementById('name').value.trim();
+  if (!name) return false;
+  ensureSerialGenerated(true);
+  const payload = buildCurrentDraftPayload();
+  if (!payload.serial_no) return false;
+  const existingRecords = getDraftRecords(institute);
+  const existingIndex = existingRecords.findIndex((record) => record.serial_no === payload.serial_no);
+  payload.saved_at = currentTimestampText();
+  payload.submitted_at = null;
+  if (existingIndex >= 0) {
+    existingRecords[existingIndex] = payload;
+  } else {
+    existingRecords.push(payload);
+  }
+  saveDraftRecords(institute, existingRecords);
+  batchInstituteLocked = true;
+  selectedBatchSerial = payload.serial_no;
+  saveUiState();
+  return true;
+}
+
 function scheduleAutoDraftSave() {
   if (autoDraftSaveTimer) {
     clearTimeout(autoDraftSaveTimer);
@@ -2101,6 +2126,63 @@ async function syncDraftToServerInBackground() {
         syncDraftToServerInBackground();
       }, 300);
     }
+  }
+}
+
+function clearUiStateStorage() {
+  try {
+    localStorage.removeItem(UI_STATE_KEY);
+  } catch (e) {}
+}
+
+function startFreshSession() {
+  clearBatchUnlockTimers();
+  batchInstituteLocked = false;
+  selectedBatchSerial = '';
+  activeRetrievedSerial = '';
+  activeRetrievedSource = '';
+  currentPhotoMeta = { url: '', drive_id: '', draft_photo_key: '' };
+  document.getElementById('instituteName').value = '';
+  document.getElementById('otherInstituteName').value = '';
+  document.getElementById('facilityLocation').innerHTML = '<option value="">Select Block</option>';
+  document.getElementById('facilityLocation').value = '';
+  document.getElementById('facilitySubLocation').innerHTML = '<option value="">Select Village / Town</option>';
+  document.getElementById('facilitySubLocation').value = '';
+  document.getElementById('facilitySubLocationCustom').value = '';
+  document.getElementById('facilitySubLocationCustom').style.display = 'none';
+  currentType = 'student';
+  document.getElementById('name').value = '';
+  document.getElementById('serialNo').value = '';
+  document.getElementById('shortSerialNo').value = '';
+  document.getElementById('course').value = '';
+  document.getElementById('validUpto').value = '';
+  document.getElementById('batchSession').value = '';
+  document.getElementById('trainingYear').value = '';
+  document.getElementById('fatherName').value = '';
+  document.getElementById('familyNameType').value = "Father's Name";
+  document.getElementById('designation').value = '';
+  document.getElementById('employeeId').value = '';
+  document.getElementById('dob').value = '';
+  document.getElementById('contact').value = '';
+  document.getElementById('bloodGroup').value = '';
+  document.getElementById('aadhaarNo').value = '';
+  document.getElementById('customEmployeeFieldLabel').value = '';
+  document.getElementById('customEmployeeFieldValue').value = '';
+  document.getElementById('address').value = '';
+  document.getElementById('insertedDate').value = currentDateText();
+  document.getElementById('photoInput').value = '';
+  document.getElementById('retrieveSerialInput').value = '';
+  clearPhotoPreview();
+  toggleEmployeeCustomField(false);
+  handleFamilyNameTypeChange();
+  setInstituteLocked(false);
+  handleInstituteChange();
+  setType('student');
+  updatePreview();
+  clearUiStateStorage();
+  const helper = document.getElementById('batchHelperNote');
+  if (helper) {
+    helper.textContent = 'Previous session expired and was auto-submitted. The page is now ready for a fresh start.';
   }
 }
 
@@ -2235,9 +2317,10 @@ function handleFacilityLocationChange() {
   const institute = document.getElementById('instituteName').value;
   const block = document.getElementById('facilityLocation').value;
   const subLocationSelect = document.getElementById('facilitySubLocation');
+  const currentSubLocation = getFacilitySubLocationValue();
   const items = getFacilitySubLocations(institute, block);
   subLocationSelect.innerHTML = `<option value="">${getFacilitySubLocationPlaceholder(institute)}</option>` + items.map((item) => `<option value="${item}">${item}</option>`).join('');
-  setFacilitySubLocationValue('');
+  setFacilitySubLocationValue(currentSubLocation);
   updatePreview();
   saveUiState();
 }
@@ -2460,7 +2543,7 @@ async function loadBatchSummary() {
   document.getElementById('savedCardsCount').textContent = draftRecords.length;
   document.getElementById('batchStateLabel').textContent = draftRecords.length > 0 ? 'Draft Active' : 'Ready';
   document.getElementById('batchHelperNote').textContent = draftRecords.length > 0
-    ? 'Draft cards are saved on this device and synced in background. They become permanent only after you click Submit Whole Data. This batch will auto-unlock after 15 minutes of inactivity.'
+    ? 'Draft cards are saved on this device and synced in background. They become permanent only after you click Submit Whole Data. This session will auto-submit and reset after 30 minutes of inactivity.'
     : 'Current form auto-saves in background after refresh, and final records become permanent only after you click Submit Whole Data.';
   if (batchInstituteLocked) {
     refreshBatchUnlockTimer();
@@ -2556,9 +2639,16 @@ async function loadSettings() {
     const institute = encodeURIComponent(getInstituteValue());
     const res = await fetch(`/api/settings?institute=${institute}`);
     appSettings = await res.json();
+    facilityCustomSubLocations = (appSettings && appSettings.facility_custom_sub_locations && typeof appSettings.facility_custom_sub_locations === 'object')
+      ? appSettings.facility_custom_sub_locations
+      : {};
+    if (isFacilityLocationInstitute() && document.getElementById('facilityLocation').value) {
+      handleFacilityLocationChange();
+    }
     applyCardAssets();
   } catch (e) {
     appSettings = { background_url: '', signature_url: '' };
+    facilityCustomSubLocations = {};
   }
 }
 
@@ -3231,19 +3321,20 @@ async function saveCurrentCard() {
   hideLoading();
 }
 
-async function submitWholeBatch() {
+async function submitWholeBatch(options = {}) {
+  const { silent = false, freshStart = false, reason = '' } = options || {};
   const institute = getInstituteValue();
   if (!institute || institute === 'Other') {
-    alert('Please select or enter the institute first.');
+    if (!silent) alert('Please select or enter the institute first.');
     return;
   }
   const draftRecords = getDraftRecords(institute);
   if (!draftRecords.length) {
-    alert('No draft cards are pending submission for this institute.');
+    if (!silent) alert('No draft cards are pending submission for this institute.');
     return;
   }
 
-  showLoading('Submitting whole batch...');
+  showLoading(silent && reason === 'session-expired' ? 'Saving and submitting session...' : 'Submitting whole batch...');
   try {
     const recordsForSubmit = [];
     for (const draftRecord of draftRecords) {
@@ -3262,7 +3353,9 @@ async function submitWholeBatch() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Batch submit failed');
-    showToast('Submitted ' + data.total_cards + ' card(s) for ' + institute);
+    if (!silent) {
+      showToast('Submitted ' + data.total_cards + ' card(s) for ' + institute);
+    }
     for (const draftRecord of draftRecords) {
       await deleteDraftPhotoBlob(draftRecord.draft_photo_key);
     }
@@ -3272,10 +3365,18 @@ async function submitWholeBatch() {
     batchInstituteLocked = false;
     clearBatchUnlockTimers();
     setInstituteLocked(false);
-    resetForm();
+    if (freshStart) {
+      startFreshSession();
+    } else {
+      resetForm();
+    }
     await loadBatchSummary();
   } catch (e) {
-    alert(e.message || 'Batch submit failed.');
+    if (!silent) {
+      alert(e.message || 'Batch submit failed.');
+    } else {
+      startFreshSession();
+    }
   }
   hideLoading();
 }
