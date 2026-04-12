@@ -190,6 +190,55 @@
       box-shadow: 0 18px 30px rgba(59, 34, 20, 0.08);
     }
     .status { font-size: 11px; color: var(--muted); min-height: 14px; }
+    .storage-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 11px;
+      color: #65574b;
+    }
+    .storage-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      display: inline-block;
+      background: #c78a00;
+    }
+    .storage-dot.green { background: #1a7f37; }
+    .storage-dot.red { background: #c0392b; }
+    .storage-dot.yellow { background: #c78a00; }
+    .usage-battery {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 6px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+    }
+    .usage-battery-shell {
+      width: 70px;
+      height: 10px;
+      border: 1px solid #bca78f;
+      border-radius: 999px;
+      position: relative;
+      overflow: hidden;
+      background: #f5ede3;
+    }
+    .usage-battery-fill {
+      height: 100%;
+      width: 12%;
+      background: #c78a00;
+      transition: width .18s ease;
+    }
+    .usage-battery-label {
+      font-size: 10px;
+      font-weight: 800;
+      color: #5f4e42;
+      min-width: 34px;
+      text-align: right;
+    }
     .layer-list {
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -292,6 +341,14 @@
       <button class="btn primary" id="exportBtn" type="button">Export PNG (Hi-Res)</button>
       <button class="btn" id="batchZipBtn" type="button">Batch ZIP (Hi-Res)</button>
       <button class="btn primary" id="batchPdfBtn" type="button">Batch PDF (A4)</button>
+    </div>
+    <div class="storage-strip">
+      <span class="storage-dot yellow" id="studioStorageDot"></span>
+      <span id="studioStorageSummary">Checking storage...</span>
+      <span class="usage-battery" id="studioUsageMeta">
+        <span class="usage-battery-shell"><span class="usage-battery-fill" id="studioUsageFill"></span></span>
+        <span class="usage-battery-label" id="studioUsageLabel">--%</span>
+      </span>
     </div>
     <div class="status" id="statusLine">Ready.</div>
   </section>
@@ -409,6 +466,11 @@
   const layerListEl = document.getElementById("layerList");
   const statusLineEl = document.getElementById("statusLine");
   const cardPositionEl = document.getElementById("cardPosition");
+  const studioStorageDotEl = document.getElementById("studioStorageDot");
+  const studioStorageSummaryEl = document.getElementById("studioStorageSummary");
+  const studioUsageMetaEl = document.getElementById("studioUsageMeta");
+  const studioUsageFillEl = document.getElementById("studioUsageFill");
+  const studioUsageLabelEl = document.getElementById("studioUsageLabel");
   const bgStartEl = document.getElementById("bgStart");
   const bgEndEl = document.getElementById("bgEnd");
   const layerXEl = document.getElementById("layerX");
@@ -441,6 +503,7 @@
   let isBatchExporting = false;
   let assetUrls = {};
   let backgroundLibrary = [];
+  let studioStorageStatus = null;
   const assetConfig = {
     background_image: { label: "Background", inputId: "bgFileInput", type: "background" },
     employee_photo: { label: "Photo", inputId: "photoFileInput", type: "photo" },
@@ -458,6 +521,67 @@
     const total = Math.max(1, employees.length);
     const current = Math.min(total, Math.max(1, currentCardIndex + 1));
     cardPositionEl.textContent = `Card ${current}/${total}`;
+  }
+
+  function renderStudioStorageStatus() {
+    if (!studioStorageDotEl || !studioStorageSummaryEl || !studioUsageFillEl || !studioUsageLabelEl || !studioUsageMetaEl) return;
+    if (!studioStorageStatus) {
+      studioStorageDotEl.className = "storage-dot yellow";
+      studioStorageSummaryEl.textContent = "Checking storage...";
+      studioUsageFillEl.style.width = "12%";
+      studioUsageFillEl.style.background = "#c78a00";
+      studioUsageLabelEl.textContent = "--%";
+      studioUsageMetaEl.title = "Usage: checking...";
+      return;
+    }
+    if (!studioStorageStatus.enabled) {
+      studioStorageDotEl.className = "storage-dot red";
+      studioStorageSummaryEl.textContent = studioStorageStatus.bucket_error || "Supabase not configured";
+      studioUsageFillEl.style.width = "100%";
+      studioUsageFillEl.style.background = "#c0392b";
+      studioUsageLabelEl.textContent = "N/A";
+      studioUsageMetaEl.title = "Usage: unavailable";
+      return;
+    }
+    const usagePercent = Math.max(0, Math.min(100, Number(studioStorageStatus.usage_percent || 0)));
+    const usageSummary = studioStorageStatus.usage_summary || "Usage available";
+    if (studioStorageStatus.bucket_ready) {
+      studioStorageDotEl.className = "storage-dot green";
+      studioStorageSummaryEl.textContent = "Storage connected";
+      studioUsageFillEl.style.width = `${usagePercent}%`;
+      studioUsageFillEl.style.background = usagePercent >= 85 ? "#c0392b" : (usagePercent >= 60 ? "#c78a00" : "#1a7f37");
+      studioUsageLabelEl.textContent = `${usagePercent.toFixed(0)}%`;
+      studioUsageMetaEl.title = `Usage: ${usageSummary}`;
+      return;
+    }
+    studioStorageDotEl.className = "storage-dot red";
+    studioStorageSummaryEl.textContent = studioStorageStatus.bucket_error || "Storage unavailable";
+    studioUsageFillEl.style.width = "100%";
+    studioUsageFillEl.style.background = "#c0392b";
+    studioUsageLabelEl.textContent = "ERR";
+    studioUsageMetaEl.title = "Usage: unavailable";
+  }
+
+  async function loadStudioStorageStatus() {
+    const activeInstitute = getActiveInstitute();
+    try {
+      const res = await fetch(`/api/supabase-storage-status?institute=${encodeURIComponent(activeInstitute || "")}`);
+      const text = await res.text();
+      let data = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { enabled: false, bucket_error: "Invalid storage response" };
+      }
+      if (!res.ok) {
+        studioStorageStatus = { enabled: false, bucket_error: data.error || "Unable to load storage status" };
+      } else {
+        studioStorageStatus = data;
+      }
+    } catch {
+      studioStorageStatus = { enabled: false, bucket_error: "Unable to load storage status" };
+    }
+    renderStudioStorageStatus();
   }
 
   function getActiveInstitute() {
@@ -1274,6 +1398,7 @@
       currentBatchId = "";
       populateBatchOptions();
       await loadRecordsForSelection({ autoLoadDesign: true });
+      await loadStudioStorageStatus();
     });
     batchSelectEl.addEventListener("change", async () => {
       currentBatchId = batchSelectEl.value || "";
@@ -1375,9 +1500,11 @@
 
   async function init() {
     updateCardPosition();
+    renderStudioStorageStatus();
     await drawLayout();
     wireEvents();
     await loadInstituteBatchOptions();
+    await loadStudioStorageStatus();
     renderAssetLibrary();
     setStatus("Fabric Print Studio ready. Use institute + batch and Backward/Forward.");
   }
