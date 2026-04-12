@@ -819,21 +819,22 @@
     setStatus("Saved to server settings.");
   }
 
-  async function loadServer() {
+  async function loadServer(options = {}) {
+    const silent = !!options.silent;
     const activeInstitute = getActiveInstitute();
     if (!activeInstitute) {
-      setStatus("Select institute first.", true);
+      if (!silent) setStatus("Select institute first.", true);
       return;
     }
     const res = await fetch(`/api/fabric-design?institute=${encodeURIComponent(activeInstitute)}`);
     const data = await res.json();
     if (!res.ok) {
-      setStatus(data.error || "Server load failed.", true);
+      if (!silent) setStatus(data.error || "Server load failed.", true);
       return;
     }
     const design = data.design || {};
     if (!design.json) {
-      setStatus("No server design saved yet.");
+      if (!silent) setStatus("No server design saved yet.");
       return;
     }
     templateTypeEl.value = design.templateType || "horizontal";
@@ -862,7 +863,7 @@
         .finally(() => {
           refreshLayers();
           renderAssetLibrary();
-          setStatus("Loaded server design.");
+          if (!silent) setStatus("Loaded server design.");
         });
     });
   }
@@ -1200,6 +1201,7 @@
       currentCardIndex = 0;
       selectedEmployee = employees[0];
       await drawLayout();
+      await loadServer({ silent: true });
       updateCardPosition();
       setStatus(rows.length ? `${rows.length} card records loaded.` : "No records in this batch.");
     } catch {
