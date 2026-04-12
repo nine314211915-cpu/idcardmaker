@@ -39,7 +39,12 @@
       padding: 5px 8px;
       font-size: 11px;
       font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
     }
+    .banner-left { white-space: nowrap; }
     .top {
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -304,7 +309,17 @@
 </head>
 <body>
 <main class="app">
-  <div class="banner">@ Fabric Print Studio Build: {{ build_tag }}</div>
+  <div class="banner">
+    <span class="banner-left">@ Fabric Print Studio Build: {{ build_tag }}</span>
+    <span class="storage-strip">
+      <span class="storage-dot yellow" id="studioStorageDot"></span>
+      <span id="studioStorageSummary">Checking storage...</span>
+      <span class="usage-battery" id="studioUsageMeta">
+        <span class="usage-battery-shell"><span class="usage-battery-fill" id="studioUsageFill"></span></span>
+        <span class="usage-battery-label" id="studioUsageLabel">--%</span>
+      </span>
+    </span>
+  </div>
   <section class="top">
     <div class="top-grid">
       <div class="title">Print Studio</div>
@@ -341,14 +356,6 @@
       <button class="btn primary" id="exportBtn" type="button">Export PNG (Hi-Res)</button>
       <button class="btn" id="batchZipBtn" type="button">Batch ZIP (Hi-Res)</button>
       <button class="btn primary" id="batchPdfBtn" type="button">Batch PDF (A4)</button>
-    </div>
-    <div class="storage-strip">
-      <span class="storage-dot yellow" id="studioStorageDot"></span>
-      <span id="studioStorageSummary">Checking storage...</span>
-      <span class="usage-battery" id="studioUsageMeta">
-        <span class="usage-battery-shell"><span class="usage-battery-fill" id="studioUsageFill"></span></span>
-        <span class="usage-battery-label" id="studioUsageLabel">--%</span>
-      </span>
     </div>
     <div class="status" id="statusLine">Ready.</div>
   </section>
