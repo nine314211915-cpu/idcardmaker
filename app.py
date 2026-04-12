@@ -428,6 +428,7 @@ def default_admin_prefs():
         "auto_delete_enabled": False,
         "auto_delete_days": 15,
         "last_auto_cleanup_at": "",
+        "fabric_global_backgrounds": [],
     }
 
 
@@ -502,6 +503,7 @@ def load_admin_prefs():
         defaults["auto_delete_days"] = 15
     defaults["auto_delete_enabled"] = bool(defaults.get("auto_delete_enabled"))
     defaults["last_auto_cleanup_at"] = str(defaults.get("last_auto_cleanup_at") or "")
+    defaults["fabric_global_backgrounds"] = sanitize_global_backgrounds_list(defaults.get("fabric_global_backgrounds", []))
     return defaults
 
 
@@ -513,6 +515,7 @@ def save_admin_prefs(prefs):
     payload["auto_delete_days"] = max(1, int(payload.get("auto_delete_days", 15) or 15))
     payload["auto_delete_enabled"] = bool(payload.get("auto_delete_enabled"))
     payload["last_auto_cleanup_at"] = str(payload.get("last_auto_cleanup_at") or "")
+    payload["fabric_global_backgrounds"] = sanitize_global_backgrounds_list(payload.get("fabric_global_backgrounds", []))
     save_json_store(ADMIN_PREFS_FILE, "admin_prefs.json", payload)
 
 
@@ -767,6 +770,37 @@ def sanitize_print_backgrounds_list(items):
     return sanitized[:80]
 
 
+def normalize_url_lookup_key(value):
+    return str(value or "").strip().split("?", 1)[0].lower()
+
+
+def sanitize_global_backgrounds_list(items):
+    if not isinstance(items, list):
+        return []
+    sanitized = []
+    seen_ids = set()
+    seen_urls = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        background_id = str(item.get("id") or "").strip()
+        url = str(item.get("url") or "").strip()
+        key = normalize_url_lookup_key(url)
+        if not background_id or not url or background_id in seen_ids or key in seen_urls:
+            continue
+        seen_ids.add(background_id)
+        seen_urls.add(key)
+        sanitized.append({
+            "id": background_id,
+            "name": str(item.get("name") or "Background")[:80],
+            "url": url,
+            "created_at": str(item.get("created_at") or ""),
+            "updated_at": str(item.get("updated_at") or ""),
+            "institute_name": canonicalize_institute_name(item.get("institute_name")) or "",
+        })
+    return sanitized[:2000]
+
+
 def build_print_background_filename(institute_name, background_id):
     return f"print_bg_{make_asset_slug(institute_name)}_{secure_filename(background_id)}.jpg"
 
@@ -814,6 +848,118 @@ def sanitize_fabric_batch_background_bindings(value):
             continue
         cleaned[batch_id] = url_value
     return cleaned
+
+
+def list_known_institutes_from_settings():
+    institutes = set()
+    if not os.path.isdir(SETTINGS_DIR):
+        return institutes
+    for filename in os.listdir(SETTINGS_DIR):
+        if not (filename.startswith("settings__") and filename.endswith(".json")):
+            continue
+        file_path = os.path.join(SETTINGS_DIR, filename)
+        payload = load_json_store(file_path, filename, {})
+        if not isinstance(payload, dict):
+            continue
+        institute = canonicalize_institute_name(payload.get("institute_name"))
+        if institute:
+            institutes.add(institute)
+    return institutes
+
+
+def remove_background_url_from_design_payload(design_payload, target_url_key):
+    if not isinstance(design_payload, dict) or not target_url_key:
+        return False
+    changed = False
+
+    def clear_snapshot(snapshot):
+        nonlocal changed
+        if not isinstance(snapshot, dict):
+            return
+        asset_urls = snapshot.get("asset_urls")
+        if isinstance(asset_urls, dict):
+            bg_url = str(asset_urls.get("background_image") or "").strip()
+            if normalize_url_lookup_key(bg_url) == target_url_key:
+                asset_urls.pop("background_image", None)
+                changed = True
+        library = snapshot.get("background_library")
+        if isinstance(library, list):
+            filtered = [item for item in library if normalize_url_lookup_key(item) != target_url_key]
+            if len(filtered) != len(library):
+                snapshot["background_library"] = filtered
+                changed = True
+
+    clear_snapshot(design_payload)
+    side_designs = design_payload.get("side_designs")
+    if isinstance(side_designs, dict):
+        clear_snapshot(side_designs.get("front"))
+        clear_snapshot(side_designs.get("back"))
+    return changed
+
+
+def remove_global_background_from_all_settings(target_url):
+    target_key = normalize_url_lookup_key(target_url)
+    if not target_key:
+        return {"updated_institutes": 0, "removed_background_links": 0, "removed_batch_bindings": 0, "updated_designs": 0}
+
+    institutes = set(list_known_institutes_from_settings())
+    try:
+        for batch in list_all_supabase_batches():
+            institute_name = canonicalize_institute_name(batch.get("institute_name"))
+            if institute_name:
+                institutes.add(institute_name)
+    except Exception:
+        pass
+
+    updated_institutes = 0
+    removed_links = 0
+    removed_bindings = 0
+    updated_designs = 0
+
+    for institute in sorted(institutes):
+        settings = load_settings(institute)
+        institute_changed = False
+
+        backgrounds = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
+        filtered_backgrounds = [item for item in backgrounds if normalize_url_lookup_key(item.get("url")) != target_key]
+        if len(filtered_backgrounds) != len(backgrounds):
+            removed_links += len(backgrounds) - len(filtered_backgrounds)
+            settings["print_backgrounds"] = filtered_backgrounds
+            institute_changed = True
+
+        bindings = sanitize_fabric_batch_background_bindings(settings.get("fabric_batch_background_bindings", {}))
+        filtered_bindings = {
+            batch_id: bg_url for batch_id, bg_url in bindings.items()
+            if normalize_url_lookup_key(bg_url) != target_key
+        }
+        if len(filtered_bindings) != len(bindings):
+            removed_bindings += len(bindings) - len(filtered_bindings)
+            settings["fabric_batch_background_bindings"] = filtered_bindings
+            institute_changed = True
+
+        background_url = str(settings.get("background_url") or "").strip()
+        if normalize_url_lookup_key(background_url) == target_key:
+            settings["background_url"] = ""
+            settings["background_drive_id"] = ""
+            institute_changed = True
+
+        design_payload = settings.get("fabric_design")
+        if remove_background_url_from_design_payload(design_payload, target_key):
+            settings["fabric_design"] = design_payload
+            updated_designs += 1
+            institute_changed = True
+
+        ensure_print_background_state(settings)
+        if institute_changed:
+            save_settings(settings, institute)
+            updated_institutes += 1
+
+    return {
+        "updated_institutes": updated_institutes,
+        "removed_background_links": removed_links,
+        "removed_batch_bindings": removed_bindings,
+        "updated_designs": updated_designs,
+    }
 
 
 def is_supabase_enabled():
@@ -3013,6 +3159,73 @@ def fabric_asset_delete():
     })
 
 
+@app.route("/api/fabric-global-backgrounds", methods=["GET", "POST"])
+@admin_required
+def fabric_global_backgrounds():
+    prefs = load_admin_prefs()
+    backgrounds = sanitize_global_backgrounds_list(prefs.get("fabric_global_backgrounds", []))
+
+    if request.method == "GET":
+        return jsonify({"backgrounds": backgrounds})
+
+    payload = request.get_json(silent=True) or {}
+    background_url = str(payload.get("url") or "").strip()
+    if not background_url:
+        return jsonify({"error": "Background URL is required"}), 400
+
+    target_key = normalize_url_lookup_key(background_url)
+    existing = next((item for item in backgrounds if normalize_url_lookup_key(item.get("url")) == target_key), None)
+    if existing:
+        return jsonify({"status": "exists", "background": existing, "backgrounds": backgrounds})
+
+    now_text = current_timestamp_display()
+    institute = canonicalize_institute_name(payload.get("institute"))
+    entry = {
+        "id": "global-bg-" + datetime.now().strftime("%Y%m%d%H%M%S") + "-" + "".join(
+            random.choices(string.ascii_lowercase + string.digits, k=4)
+        ),
+        "name": str(payload.get("name") or f"Global Background {len(backgrounds) + 1}")[:80],
+        "url": background_url,
+        "created_at": now_text,
+        "updated_at": now_text,
+        "institute_name": institute or "",
+    }
+    backgrounds.insert(0, entry)
+    prefs["fabric_global_backgrounds"] = backgrounds[:2000]
+    save_admin_prefs(prefs)
+    return jsonify({"status": "saved", "background": entry, "backgrounds": prefs["fabric_global_backgrounds"]})
+
+
+@app.route("/api/fabric-global-backgrounds/<background_id>", methods=["DELETE"])
+@admin_required
+def delete_fabric_global_background(background_id):
+    target_id = str(background_id or "").strip()
+    if not target_id:
+        return jsonify({"error": "Background id is required"}), 400
+
+    prefs = load_admin_prefs()
+    backgrounds = sanitize_global_backgrounds_list(prefs.get("fabric_global_backgrounds", []))
+    target = next((item for item in backgrounds if str(item.get("id") or "").strip() == target_id), None)
+    if not target:
+        return jsonify({"error": "Background not found"}), 404
+
+    remaining = [item for item in backgrounds if str(item.get("id") or "").strip() != target_id]
+    prefs["fabric_global_backgrounds"] = remaining
+    save_admin_prefs(prefs)
+
+    cleanup_result = remove_global_background_from_all_settings(target.get("url"))
+    delete_generated_asset_from_url(target.get("url"))
+    delete_supabase_storage_url(target.get("url"))
+
+    return jsonify({
+        "status": "deleted",
+        "deleted_id": target_id,
+        "deleted_url": str(target.get("url") or "").strip(),
+        "cleanup": cleanup_result,
+        "backgrounds": remaining,
+    })
+
+
 @app.route("/api/fabric-shared-backgrounds")
 @admin_required
 def fabric_shared_backgrounds():
@@ -3022,33 +3235,44 @@ def fabric_shared_backgrounds():
     except Exception:
         limit_value = 120
 
-    if not is_supabase_enabled():
-        return jsonify({"backgrounds": [], "warning": "Supabase is not configured"})
-
     backgrounds = []
     seen_urls = set()
 
-    def register_item(url, institute_slug="", object_path="", label_name=""):
+    def register_item(item_id, url, name="", institute_slug="", object_path="", source=""):
         value = str(url or "").strip()
         if not value:
             return False
-        key = value.split("?", 1)[0].lower()
+        key = normalize_url_lookup_key(value)
         if key in seen_urls:
             return False
         seen_urls.add(key)
         backgrounds.append({
+            "id": str(item_id or "").strip(),
             "url": value,
             "object_path": str(object_path or "").strip(),
-            "label": str(label_name or "").strip(),
+            "label": str(name or "").strip(),
             "institute_slug": str(institute_slug or "").strip(),
+            "source": str(source or "").strip(),
         })
         return True
 
-    # 1) Include institute background collections saved in settings.
+    prefs = load_admin_prefs()
+    for item in sanitize_global_backgrounds_list(prefs.get("fabric_global_backgrounds", [])):
+        register_item(
+            item.get("id"),
+            item.get("url"),
+            name=item.get("name"),
+            institute_slug=make_storage_slug(item.get("institute_name")),
+            source="global_pool",
+        )
+        if len(backgrounds) >= limit_value:
+            return jsonify({"backgrounds": backgrounds})
+
     institutes = set()
     requested_institute = canonicalize_institute_name(request.args.get("institute"))
     if requested_institute:
         institutes.add(requested_institute)
+    institutes.update(list_known_institutes_from_settings())
     try:
         for batch in list_all_supabase_batches():
             inst = canonicalize_institute_name(batch.get("institute_name"))
@@ -3056,30 +3280,44 @@ def fabric_shared_backgrounds():
                 institutes.add(inst)
     except Exception:
         pass
+
     for inst in sorted(institutes):
         settings = load_settings(inst)
         for item in sanitize_print_backgrounds_list(settings.get("print_backgrounds", [])):
-            if register_item(item.get("url"), institute_slug=make_storage_slug(inst), label_name=item.get("name")):
+            if register_item(
+                item.get("id"),
+                item.get("url"),
+                name=item.get("name"),
+                institute_slug=make_storage_slug(inst),
+                source="institute_collection",
+            ):
                 if len(backgrounds) >= limit_value:
                     return jsonify({"backgrounds": backgrounds})
 
-    # 2) Include directly discovered print-studio uploaded backgrounds from storage paths.
-    try:
-        all_paths = list_supabase_storage_file_paths("")
-    except Exception as exc:
-        return jsonify({"error": str(exc) or "Unable to load shared backgrounds"}), 500
-    for object_path in reversed(all_paths):
-        path = str(object_path or "").strip("/")
-        if not path or "/print-studio/background/" not in path:
-            continue
-        lowered = path.lower()
-        if not (lowered.endswith(".png") or lowered.endswith(".jpg") or lowered.endswith(".jpeg") or lowered.endswith(".webp")):
-            continue
-        institute_slug = path.split("/", 1)[0] if "/" in path else "default"
-        label_name = os.path.basename(path)
-        if register_item(build_supabase_public_url(path), institute_slug=institute_slug, object_path=path, label_name=label_name):
+    if is_supabase_enabled():
+        try:
+            all_paths = list_supabase_storage_file_paths("")
+        except Exception as exc:
+            return jsonify({"error": str(exc) or "Unable to load shared backgrounds"}), 500
+        for object_path in reversed(all_paths):
+            path = str(object_path or "").strip("/")
+            if not path or "/print-studio/background/" not in path:
+                continue
+            lowered = path.lower()
+            if not (lowered.endswith(".png") or lowered.endswith(".jpg") or lowered.endswith(".jpeg") or lowered.endswith(".webp")):
+                continue
+            institute_slug = path.split("/", 1)[0] if "/" in path else "default"
+            register_item(
+                f"supabase:{path}",
+                build_supabase_public_url(path),
+                name=os.path.basename(path),
+                institute_slug=institute_slug,
+                object_path=path,
+                source="supabase_discovery",
+            )
             if len(backgrounds) >= limit_value:
                 break
+
     return jsonify({"backgrounds": backgrounds})
 
 
