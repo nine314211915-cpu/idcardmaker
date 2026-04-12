@@ -283,6 +283,41 @@
       color: var(--muted);
       line-height: 1.3;
     }
+    .bg-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      max-height: 210px;
+      overflow: auto;
+      padding: 2px;
+    }
+    .bg-tile {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+      cursor: pointer;
+      display: grid;
+    }
+    .bg-tile img {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      object-fit: cover;
+      background: #f3f3f3;
+      display: block;
+    }
+    .bg-tile .meta {
+      font-size: 10px;
+      color: #5f4d40;
+      padding: 4px 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .bg-tile.active {
+      border-color: #9b3b2d;
+      box-shadow: inset 0 0 0 1px #9b3b2d;
+    }
     .asset-card {
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -408,6 +443,16 @@
             </div>
           </div>
           <button class="btn" id="applyBgBtn" type="button">Apply Background</button>
+          <div class="row2">
+            <button class="btn" id="addCurrentBgToCollectionBtn" type="button">Add Current To Collection</button>
+            <button class="btn" id="loadBatchBoundBgBtn" type="button">Load Batch Bound BG</button>
+          </div>
+          <div class="row2">
+            <button class="btn" id="bindSelectedBgToBatchBtn" type="button">Bind Selected To Batch</button>
+            <button class="btn" id="removeSelectedBgFromCollectionBtn" type="button">Remove Selected BG</button>
+          </div>
+          <div class="tiny-note">Batch collection is separate. Bind one background per batch.</div>
+          <div class="bg-grid" id="collectionBgGrid"></div>
         </article>
         <article class="group">
           <h3>Selected Layer</h3>
@@ -527,15 +572,12 @@
         </article>
         <article class="group">
           <h3>Shared Backgrounds</h3>
-          <div class="tiny-note">Only backgrounds are reusable across institutes.</div>
-          <div class="field">
-            <label>Global Background Pool</label>
-            <select id="sharedBgSelect"></select>
-          </div>
+          <div class="tiny-note">Global pool shows all institute backgrounds. Click any tile to apply.</div>
           <div class="row2">
-            <button class="btn" id="refreshSharedBgBtn" type="button">Refresh</button>
-            <button class="btn" id="useSharedBgBtn" type="button">Use Selected</button>
+            <button class="btn" id="refreshSharedBgBtn" type="button">Refresh Global Pool</button>
+            <button class="btn" id="addSharedBgToCollectionBtn" type="button">Add Selected To Collection</button>
           </div>
+          <div class="bg-grid" id="sharedBgGrid"></div>
         </article>
       </div>
     </aside>
@@ -600,7 +642,8 @@
   const layerFontWeightEl = document.getElementById("layerFontWeight");
   const layerTextAlignEl = document.getElementById("layerTextAlign");
   const assetLibraryEl = document.getElementById("assetLibrary");
-  const sharedBgSelectEl = document.getElementById("sharedBgSelect");
+  const sharedBgGridEl = document.getElementById("sharedBgGrid");
+  const collectionBgGridEl = document.getElementById("collectionBgGrid");
 
   const bgInputEl = document.getElementById("bgFileInput");
   const photoInputEl = document.getElementById("photoFileInput");
@@ -631,6 +674,10 @@
   let sideDesigns = { front: null, back: null };
   let studioStorageStatus = null;
   let sharedBackgrounds = [];
+  let selectedSharedBackgroundUrl = "";
+  let collectionBackgrounds = [];
+  let selectedCollectionBackgroundId = "";
+  let batchBoundBackgroundUrl = "";
   const assetConfig = {
     background_image: { label: "Background", inputId: "bgFileInput", type: "background" },
     employee_photo: { label: "Photo", inputId: "photoFileInput", type: "photo" },
@@ -744,33 +791,226 @@
     captureCurrentSideState();
   }
 
+  function normalizeUrlKey(url) {
+    try {
+      const value = String(url || "").trim();
+      if (!value) return "";
+      const u = new URL(value, window.location.origin);
+      return `${u.origin}${u.pathname}`.toLowerCase();
+    } catch {
+      return String(url || "").trim().split("?")[0].toLowerCase();
+    }
+  }
+
   function renderSharedBackgroundOptions() {
-    if (!sharedBgSelectEl) return;
+    if (!sharedBgGridEl) return;
     if (!sharedBackgrounds.length) {
-      sharedBgSelectEl.innerHTML = '<option value="">No shared backgrounds</option>';
+      sharedBgGridEl.innerHTML = '<div class="tiny-note">No shared backgrounds</div>';
       return;
     }
-    sharedBgSelectEl.innerHTML = sharedBackgrounds.map((item, idx) => {
-      const selected = assetUrls.background_image && assetUrls.background_image === item.url ? " selected" : "";
-      const label = item.label || `Shared BG ${idx + 1}`;
-      return `<option value="${item.url}"${selected}>${label}</option>`;
+    const activeKey = normalizeUrlKey(selectedSharedBackgroundUrl || assetUrls.background_image || "");
+    sharedBgGridEl.innerHTML = sharedBackgrounds.map((item, idx) => {
+      const itemUrl = String(item.url || "").trim();
+      const key = normalizeUrlKey(itemUrl);
+      const activeClass = key && activeKey && key === activeKey ? " active" : "";
+      const instituteTag = String(item.institute_slug || "").trim();
+      return `<button type="button" class="bg-tile${activeClass}" data-shared-bg-index="${idx}">
+        <img src="${itemUrl}" alt="Shared background ${idx + 1}">
+        <div class="meta">${instituteTag || "shared"}</div>
+      </button>`;
     }).join("");
+    sharedBgGridEl.querySelectorAll("[data-shared-bg-index]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const idx = Number(btn.getAttribute("data-shared-bg-index"));
+        const item = sharedBackgrounds[idx];
+        if (!item || !item.url) return;
+        selectedSharedBackgroundUrl = String(item.url || "").trim();
+        await applyBackgroundFromLibrary(selectedSharedBackgroundUrl);
+        renderAssetLibrary();
+        renderSharedBackgroundOptions();
+        setStatus("Shared background applied.");
+      });
+    });
+  }
+
+  function renderCollectionBackgroundGrid() {
+    if (!collectionBgGridEl) return;
+    if (!collectionBackgrounds.length) {
+      collectionBgGridEl.innerHTML = '<div class="tiny-note">No batch collection backgrounds</div>';
+      return;
+    }
+    collectionBgGridEl.innerHTML = collectionBackgrounds.map((item) => {
+      const id = String(item.id || "");
+      const url = String(item.url || "");
+      const activeClass = id && id === selectedCollectionBackgroundId ? " active" : "";
+      const label = String(item.name || "Background");
+      return `<button type="button" class="bg-tile${activeClass}" data-collection-bg-id="${id}">
+        <img src="${url}" alt="${label}">
+        <div class="meta">${label}</div>
+      </button>`;
+    }).join("");
+    collectionBgGridEl.querySelectorAll("[data-collection-bg-id]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = String(btn.getAttribute("data-collection-bg-id") || "");
+        selectedCollectionBackgroundId = id;
+        const item = collectionBackgrounds.find((bg) => String(bg.id || "") === id);
+        if (item && item.url) {
+          await applyBackgroundFromLibrary(item.url);
+        }
+        renderCollectionBackgroundGrid();
+        renderAssetLibrary();
+      });
+    });
+  }
+
+  async function loadCollectionBackgrounds() {
+    const institute = getActiveInstitute();
+    if (!institute) {
+      collectionBackgrounds = [];
+      selectedCollectionBackgroundId = "";
+      renderCollectionBackgroundGrid();
+      return;
+    }
+    try {
+      const res = await fetch(`/api/print-backgrounds?institute=${encodeURIComponent(institute)}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Unable to load background collection");
+      collectionBackgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : [];
+      const activeId = String(data.active_background_id || "");
+      selectedCollectionBackgroundId = activeId || (collectionBackgrounds[0] ? String(collectionBackgrounds[0].id || "") : "");
+      renderCollectionBackgroundGrid();
+    } catch (err) {
+      collectionBackgrounds = [];
+      selectedCollectionBackgroundId = "";
+      renderCollectionBackgroundGrid();
+      setStatus(err && err.message ? err.message : "Unable to load background collection.", true);
+    }
+  }
+
+  async function loadBatchBoundBackground(options = {}) {
+    const silent = !!options.silent;
+    const autoApply = options.autoApply !== false;
+    const institute = getActiveInstitute();
+    const batchId = getActiveBatch();
+    if (!institute || !batchId) {
+      batchBoundBackgroundUrl = "";
+      return "";
+    }
+    try {
+      const res = await fetch(`/api/fabric-batch-background?institute=${encodeURIComponent(institute)}&batch_id=${encodeURIComponent(batchId)}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Unable to load batch background");
+      const url = String(data.background_url || "").trim();
+      batchBoundBackgroundUrl = url;
+      if (autoApply && url) {
+        await applyBackgroundFromLibrary(url);
+        renderAssetLibrary();
+      }
+      return url;
+    } catch (err) {
+      if (!silent) setStatus(err && err.message ? err.message : "Unable to load batch background.", true);
+      return "";
+    }
+  }
+
+  async function bindSelectedBackgroundToBatch() {
+    const institute = getActiveInstitute();
+    const batchId = getActiveBatch();
+    if (!institute || !batchId) {
+      setStatus("Select institute and batch first.", true);
+      return;
+    }
+    const selected = collectionBackgrounds.find((item) => String(item.id || "") === selectedCollectionBackgroundId);
+    const backgroundUrl = String((selected && selected.url) || assetUrls.background_image || "").trim();
+    if (!backgroundUrl) {
+      setStatus("Select or apply a background first.", true);
+      return;
+    }
+    const res = await fetch("/api/fabric-batch-background", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ institute, batch_id: batchId, background_url: backgroundUrl }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setStatus(data.error || "Unable to bind background to batch.", true);
+      return;
+    }
+    batchBoundBackgroundUrl = backgroundUrl;
+    setStatus("Background bound to this batch.");
+  }
+
+  async function addCurrentBackgroundToCollection() {
+    const institute = getActiveInstitute();
+    const bgUrl = String(assetUrls.background_image || "").trim();
+    if (!institute) {
+      setStatus("Select institute first.", true);
+      return;
+    }
+    if (!bgUrl) {
+      setStatus("Apply or upload a background first.", true);
+      return;
+    }
+    const nextName = `BG ${collectionBackgrounds.length + 1}`;
+    const res = await fetch("/api/print-backgrounds/link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ institute, url: bgUrl, name: nextName }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setStatus(data.error || "Unable to add background to collection.", true);
+      return;
+    }
+    await loadCollectionBackgrounds();
+    setStatus("Background added to institute collection.");
+  }
+
+  async function removeSelectedBackgroundFromCollection() {
+    const institute = getActiveInstitute();
+    if (!institute) {
+      setStatus("Select institute first.", true);
+      return;
+    }
+    const selectedId = String(selectedCollectionBackgroundId || "");
+    if (!selectedId) {
+      setStatus("Select a collection background first.", true);
+      return;
+    }
+    const res = await fetch(`/api/print-backgrounds/${encodeURIComponent(selectedId)}?institute=${encodeURIComponent(institute)}`, {
+      method: "DELETE",
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setStatus(data.error || "Unable to remove collection background.", true);
+      return;
+    }
+    selectedCollectionBackgroundId = String(data.active_background_id || "");
+    await loadCollectionBackgrounds();
+    setStatus("Collection background removed.");
   }
 
   async function loadSharedBackgrounds() {
-    if (!sharedBgSelectEl) return;
-    sharedBgSelectEl.innerHTML = '<option value="">Loading...</option>';
+    if (!sharedBgGridEl) return;
+    sharedBgGridEl.innerHTML = '<div class="tiny-note">Loading...</div>';
     try {
       const institute = getActiveInstitute();
       const query = institute ? `?institute=${encodeURIComponent(institute)}` : "";
       const res = await fetch(`/api/fabric-shared-backgrounds${query}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Unable to load shared backgrounds");
-      sharedBackgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : [];
+      const list = Array.isArray(data.backgrounds) ? data.backgrounds : [];
+      const seen = new Set();
+      sharedBackgrounds = list.filter((item) => {
+        const key = normalizeUrlKey(item.url || "");
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
       renderSharedBackgroundOptions();
     } catch (err) {
       sharedBackgrounds = [];
-      sharedBgSelectEl.innerHTML = '<option value="">Shared backgrounds unavailable</option>';
+      sharedBgGridEl.innerHTML = '<div class="tiny-note">Shared backgrounds unavailable</div>';
       setStatus(err && err.message ? err.message : "Unable to load shared backgrounds.", true);
     }
   }
@@ -937,14 +1177,17 @@
     const seen = new Set();
     (Array.isArray(backgroundLibrary) ? backgroundLibrary : []).forEach((url) => {
       const value = String(url || "").trim();
-      if (!value || seen.has(value)) return;
-      seen.add(value);
+      const key = normalizeUrlKey(value);
+      if (!value || !key || seen.has(key)) return;
+      seen.add(key);
       unique.push(value);
     });
     backgroundLibrary = unique;
     const activeBg = String(assetUrls.background_image || "").trim();
-    if (activeBg && !seen.has(activeBg)) {
+    const activeKey = normalizeUrlKey(activeBg);
+    if (activeBg && activeKey && !seen.has(activeKey)) {
       backgroundLibrary.unshift(activeBg);
+      seen.add(activeKey);
     }
     if (!assetUrls.background_image && backgroundLibrary.length) {
       assetUrls.background_image = backgroundLibrary[0];
@@ -962,7 +1205,8 @@
       return;
     }
     assetUrls.background_image = value;
-    if (!backgroundLibrary.includes(value)) {
+    const nextKey = normalizeUrlKey(value);
+    if (!backgroundLibrary.some((item) => normalizeUrlKey(item) === nextKey)) {
       backgroundLibrary.unshift(value);
     }
     const s = getSlotForAssetId("background_image");
@@ -1897,6 +2141,7 @@
       if (autoLoadDesign) {
         await loadServer({ silent: true });
       }
+      await loadCollectionBackgrounds();
       updateCardPosition();
       setStatus("Select institute and batch.");
       return;
@@ -1915,6 +2160,8 @@
       if (autoLoadDesign) {
         await loadServer({ silent: true });
       }
+      await loadCollectionBackgrounds();
+      await loadBatchBoundBackground({ silent: true, autoApply: true });
       updateCardPosition();
       setStatus(rows.length ? `${rows.length} card records loaded.` : "No records in this batch.");
     } catch {
@@ -2027,6 +2274,14 @@
       canvas.requestRenderAll();
       captureCurrentSideState();
     });
+    document.getElementById("addCurrentBgToCollectionBtn").addEventListener("click", addCurrentBackgroundToCollection);
+    document.getElementById("bindSelectedBgToBatchBtn").addEventListener("click", bindSelectedBackgroundToBatch);
+    document.getElementById("removeSelectedBgFromCollectionBtn").addEventListener("click", removeSelectedBackgroundFromCollection);
+    document.getElementById("loadBatchBoundBgBtn").addEventListener("click", async () => {
+      const url = await loadBatchBoundBackground({ silent: false, autoApply: true });
+      if (!url) setStatus("No batch bound background found.");
+      else setStatus("Batch bound background loaded.");
+    });
 
     document.getElementById("applyLayerBtn").addEventListener("click", applySelectedControls);
     document.getElementById("applyTextStyleBtn").addEventListener("click", () => {
@@ -2114,15 +2369,18 @@
       alignObjectToCanvas(obj, "bottom");
     });
     document.getElementById("refreshSharedBgBtn").addEventListener("click", loadSharedBackgrounds);
-    document.getElementById("useSharedBgBtn").addEventListener("click", async () => {
-      const url = String((sharedBgSelectEl && sharedBgSelectEl.value) || "").trim();
+    document.getElementById("addSharedBgToCollectionBtn").addEventListener("click", async () => {
+      const url = String(selectedSharedBackgroundUrl || "").trim();
       if (!url) {
-        setStatus("Select shared background first.", true);
+        setStatus("Select a global background tile first.", true);
+        return;
+      }
+      if (!getActiveInstitute()) {
+        setStatus("Select institute first.", true);
         return;
       }
       await applyBackgroundFromLibrary(url);
-      renderAssetLibrary();
-      setStatus("Shared background applied. Save to bind this institute.");
+      await addCurrentBackgroundToCollection();
     });
     layerSelectEl.addEventListener("change", () => {
       const obj = findById(layerSelectEl.value);

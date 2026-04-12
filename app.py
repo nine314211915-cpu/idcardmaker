@@ -412,6 +412,7 @@ def default_institute_settings(institute=None):
         "background_drive_id": "",
         "print_background_active_id": "",
         "print_backgrounds": [],
+        "fabric_batch_background_bindings": {},
         "certificate_background_url": "",
         "certificate_background_drive_id": "",
         "signature_url": "",
@@ -800,6 +801,19 @@ def ensure_print_background_state(settings):
     settings["print_backgrounds"] = backgrounds
     settings["print_background_active_id"] = active_id
     return settings
+
+
+def sanitize_fabric_batch_background_bindings(value):
+    if not isinstance(value, dict):
+        return {}
+    cleaned = {}
+    for key, bg_url in value.items():
+        batch_id = str(key or "").strip()
+        url_value = str(bg_url or "").strip()
+        if not batch_id:
+            continue
+        cleaned[batch_id] = url_value
+    return cleaned
 
 
 def is_supabase_enabled():
@@ -1556,6 +1570,12 @@ def delete_supabase_batch_data(institute, batch_id):
         "batches",
         query={"id": f"eq.{batch_id}", "institute_name": f"eq.{institute}"},
     )
+    settings = load_settings(institute)
+    bindings = sanitize_fabric_batch_background_bindings(settings.get("fabric_batch_background_bindings", {}))
+    if batch_id in bindings:
+        bindings.pop(batch_id, None)
+        settings["fabric_batch_background_bindings"] = bindings
+        save_settings(settings, institute)
     return {
         "status": "deleted",
         "batch_id": batch_id,
@@ -3005,36 +3025,105 @@ def fabric_shared_backgrounds():
     if not is_supabase_enabled():
         return jsonify({"backgrounds": [], "warning": "Supabase is not configured"})
 
+    backgrounds = []
+    seen_urls = set()
+
+    def register_item(url, institute_slug="", object_path="", label_name=""):
+        value = str(url or "").strip()
+        if not value:
+            return False
+        key = value.split("?", 1)[0].lower()
+        if key in seen_urls:
+            return False
+        seen_urls.add(key)
+        backgrounds.append({
+            "url": value,
+            "object_path": str(object_path or "").strip(),
+            "label": str(label_name or "").strip(),
+            "institute_slug": str(institute_slug or "").strip(),
+        })
+        return True
+
+    # 1) Include institute background collections saved in settings.
+    institutes = set()
+    requested_institute = canonicalize_institute_name(request.args.get("institute"))
+    if requested_institute:
+        institutes.add(requested_institute)
+    try:
+        for batch in list_all_supabase_batches():
+            inst = canonicalize_institute_name(batch.get("institute_name"))
+            if inst:
+                institutes.add(inst)
+    except Exception:
+        pass
+    for inst in sorted(institutes):
+        settings = load_settings(inst)
+        for item in sanitize_print_backgrounds_list(settings.get("print_backgrounds", [])):
+            if register_item(item.get("url"), institute_slug=make_storage_slug(inst), label_name=item.get("name")):
+                if len(backgrounds) >= limit_value:
+                    return jsonify({"backgrounds": backgrounds})
+
+    # 2) Include directly discovered print-studio uploaded backgrounds from storage paths.
     try:
         all_paths = list_supabase_storage_file_paths("")
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to load shared backgrounds"}), 500
-
-    backgrounds = []
-    seen = set()
     for object_path in reversed(all_paths):
         path = str(object_path or "").strip("/")
-        if not path:
-            continue
-        if "/print-studio/background/" not in path:
+        if not path or "/print-studio/background/" not in path:
             continue
         lowered = path.lower()
         if not (lowered.endswith(".png") or lowered.endswith(".jpg") or lowered.endswith(".jpeg") or lowered.endswith(".webp")):
             continue
-        if path in seen:
-            continue
-        seen.add(path)
         institute_slug = path.split("/", 1)[0] if "/" in path else "default"
         label_name = os.path.basename(path)
-        backgrounds.append({
-            "url": build_supabase_public_url(path),
-            "object_path": path,
-            "label": f"{institute_slug}: {label_name}",
-            "institute_slug": institute_slug,
-        })
-        if len(backgrounds) >= limit_value:
-            break
+        if register_item(build_supabase_public_url(path), institute_slug=institute_slug, object_path=path, label_name=label_name):
+            if len(backgrounds) >= limit_value:
+                break
     return jsonify({"backgrounds": backgrounds})
+
+
+@app.route("/api/fabric-batch-background", methods=["GET", "POST"])
+@admin_required
+def fabric_batch_background():
+    if request.method == "GET":
+        institute = canonicalize_institute_name(request.args.get("institute"))
+        batch_id = str(request.args.get("batch_id") or "").strip()
+    else:
+        payload = request.get_json(silent=True) or {}
+        institute = canonicalize_institute_name(payload.get("institute"))
+        batch_id = str(payload.get("batch_id") or "").strip()
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    if not batch_id:
+        return jsonify({"error": "Batch is required"}), 400
+
+    settings = load_settings(institute)
+    bindings = sanitize_fabric_batch_background_bindings(settings.get("fabric_batch_background_bindings", {}))
+
+    if request.method == "GET":
+        return jsonify({
+            "institute": institute,
+            "batch_id": batch_id,
+            "background_url": str(bindings.get(batch_id) or "").strip(),
+            "bindings_count": len(bindings),
+        })
+
+    payload = request.get_json(silent=True) or {}
+    background_url = str(payload.get("background_url") or "").strip()
+    if background_url:
+        bindings[batch_id] = background_url
+    else:
+        bindings.pop(batch_id, None)
+    settings["fabric_batch_background_bindings"] = bindings
+    save_settings(settings, institute)
+    return jsonify({
+        "status": "saved",
+        "institute": institute,
+        "batch_id": batch_id,
+        "background_url": str(bindings.get(batch_id) or "").strip(),
+        "bindings_count": len(bindings),
+    })
 
 
 @app.route("/admin/login", methods=["POST"])
@@ -3462,6 +3551,66 @@ def activate_print_background(background_id):
         "active_background_id": settings.get("print_background_active_id", ""),
         "background_url": settings.get("background_url", ""),
         "backgrounds": settings.get("print_backgrounds", []),
+    })
+
+
+@app.route("/api/print-backgrounds/link", methods=["POST"])
+@admin_required
+def link_print_background():
+    payload = request.get_json(silent=True) or {}
+    institute = canonicalize_institute_name(payload.get("institute"))
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    background_url = str(payload.get("url") or "").strip()
+    if not background_url:
+        return jsonify({"error": "Background URL is required"}), 400
+
+    settings = load_settings(institute)
+    ensure_print_background_state(settings)
+    backgrounds = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
+
+    def normalize_bg_key(value):
+        return str(value or "").strip().split("?", 1)[0].lower()
+
+    target_key = normalize_bg_key(background_url)
+    existing = next((item for item in backgrounds if normalize_bg_key(item.get("url")) == target_key), None)
+    now_text = current_timestamp_display()
+    if existing:
+        settings["print_background_active_id"] = existing.get("id", "")
+        settings["background_url"] = existing.get("url", "")
+        save_settings(settings, institute)
+        return jsonify({
+            "status": "linked",
+            "institute": institute,
+            "background": existing,
+            "backgrounds": settings.get("print_backgrounds", []),
+            "active_background_id": settings.get("print_background_active_id", ""),
+            "background_url": settings.get("background_url", ""),
+        })
+
+    name = str(payload.get("name") or "").strip() or f"Background {len(backgrounds) + 1}"
+    background_id = "bg-link-" + datetime.now().strftime("%Y%m%d%H%M%S") + "-" + "".join(
+        random.choices(string.ascii_lowercase + string.digits, k=4)
+    )
+    entry = {
+        "id": background_id,
+        "name": name[:80],
+        "url": background_url,
+        "created_at": now_text,
+        "updated_at": now_text,
+    }
+    backgrounds.insert(0, entry)
+    settings["print_backgrounds"] = backgrounds[:80]
+    settings["print_background_active_id"] = background_id
+    settings["background_url"] = background_url
+    save_settings(settings, institute)
+    return jsonify({
+        "status": "linked",
+        "institute": institute,
+        "background": entry,
+        "backgrounds": settings.get("print_backgrounds", []),
+        "active_background_id": settings.get("print_background_active_id", ""),
+        "background_url": settings.get("background_url", ""),
     })
 
 
