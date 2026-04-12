@@ -55,7 +55,7 @@
     }
     .top-grid {
       display: grid;
-      grid-template-columns: 130px 130px 130px 1fr 1fr 120px 120px;
+      grid-template-columns: 130px 130px 130px 1fr 1fr 110px 110px 120px 120px;
       gap: 6px;
       align-items: end;
     }
@@ -71,9 +71,22 @@
       font-size: 12px;
       color: var(--text);
     }
+    .field-check {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 0 8px;
+      font-size: 12px;
+      color: var(--text);
+    }
+    .field-check input { margin: 0; }
     .btn-row {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 6px;
     }
     .btn {
@@ -265,6 +278,11 @@
     }
     .layer-item.active { border-color: #9b3b2d; background: #fff7f2; }
     .asset-grid { display: grid; gap: 8px; }
+    .tiny-note {
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.3;
+    }
     .asset-card {
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -349,11 +367,23 @@
         <label>Batch</label>
         <select id="batchSelect"></select>
       </div>
+      <div class="field">
+        <label>Back Side</label>
+        <label class="field-check"><input id="backSideEnabled" type="checkbox"> Enable</label>
+      </div>
+      <div class="field">
+        <label>Side</label>
+        <select id="sideSelect">
+          <option value="front">Front</option>
+          <option value="back">Back</option>
+        </select>
+      </div>
       <button class="btn primary" id="saveServerBtn" type="button">Save To Server</button>
       <button class="btn" id="loadServerBtn" type="button">Load From Server</button>
     </div>
     <div class="btn-row">
       <button class="btn" id="saveLocalBtn" type="button">Save Local</button>
+      <button class="btn" id="loadLocalBtn" type="button">Load Local</button>
       <button class="btn primary" id="exportBtn" type="button">Export PNG (Hi-Res)</button>
       <button class="btn" id="batchZipBtn" type="button">Batch ZIP (Hi-Res)</button>
       <button class="btn primary" id="batchPdfBtn" type="button">Batch PDF (A4)</button>
@@ -386,13 +416,73 @@
             <select id="layerSelect"></select>
           </div>
           <div class="row2">
-            <div class="field"><label>X</label><input id="layerX" type="number" value="0"></div>
-            <div class="field"><label>Y</label><input id="layerY" type="number" value="0"></div>
+            <div class="field"><label>X</label><input id="layerX" type="number" step="1" value="0"></div>
+            <div class="field"><label>Y</label><input id="layerY" type="number" step="1" value="0"></div>
           </div>
           <div class="row2">
-            <div class="field"><label>Scale %</label><input id="layerScale" type="number" value="100"></div>
-            <div class="field"><label>Rotate</label><input id="layerRotate" type="number" value="0"></div>
+            <div class="field"><label>Scale %</label><input id="layerScale" type="number" min="10" max="500" step="1" value="100"></div>
+            <div class="field"><label>Rotate</label><input id="layerRotate" type="number" min="-360" max="360" step="1" value="0"></div>
           </div>
+          <div class="field">
+            <label>Text</label>
+            <input id="layerText" type="text" placeholder="Selected text layer">
+          </div>
+          <div class="row2">
+            <div class="field"><label>Font</label>
+              <select id="layerFontFamily">
+                <option value="Segoe UI">Segoe UI</option>
+                <option value="Arial">Arial</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Times New Roman">Times New Roman</option>
+                <option value="Verdana">Verdana</option>
+                <option value="Tahoma">Tahoma</option>
+                <option value="Courier New">Courier New</option>
+              </select>
+            </div>
+            <div class="field"><label>Size</label><input id="layerFontSize" type="number" min="8" max="200" step="1" value="24"></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Color</label><input id="layerFontColor" type="color" value="#000000"></div>
+            <div class="field"><label>Weight</label>
+              <select id="layerFontWeight">
+                <option value="normal">Normal</option>
+                <option value="bold">Bold</option>
+              </select>
+            </div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Text Align</label>
+              <select id="layerTextAlign">
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+                <option value="justify">Justify</option>
+              </select>
+            </div>
+            <div class="field"><label>Style</label>
+              <div class="row2">
+                <button class="btn" id="toggleItalicBtn" type="button">Italic</button>
+                <button class="btn" id="toggleUnderlineBtn" type="button">Underline</button>
+              </div>
+            </div>
+          </div>
+          <div class="row2">
+            <button class="btn" id="alignLeftBtn" type="button">Align Left</button>
+            <button class="btn" id="alignCenterBtn" type="button">Align Center</button>
+          </div>
+          <div class="row2">
+            <button class="btn" id="alignRightBtn" type="button">Align Right</button>
+            <button class="btn" id="alignMiddleBtn" type="button">Align Middle</button>
+          </div>
+          <div class="row2">
+            <button class="btn" id="alignTopBtn" type="button">Align Top</button>
+            <button class="btn" id="alignBottomBtn" type="button">Align Bottom</button>
+          </div>
+          <div class="row2">
+            <button class="btn" id="applyTextStyleBtn" type="button">Apply Text Style</button>
+            <button class="btn" id="addTextLayerBtn" type="button">Add Text Layer</button>
+          </div>
+          <div class="tiny-note">Advanced: text edit, font, color, size, align to card.</div>
           <button class="btn" id="applyLayerBtn" type="button">Apply Position</button>
         </article>
       </div>
@@ -425,11 +515,27 @@
             <button class="btn" id="toggleLockBtn" type="button">Lock/Unlock</button>
             <button class="btn" id="toggleHideBtn" type="button">Hide/Show</button>
           </div>
+          <div class="row2">
+            <button class="btn" id="duplicateLayerBtn" type="button">Duplicate</button>
+            <button class="btn" id="deleteLayerBtn" type="button">Delete Layer</button>
+          </div>
         </article>
         <article class="group">
           <h3>Uploaded Assets</h3>
           <div class="status">Use Upload to add Photo, Logo, Signature and manage them here.</div>
           <div class="asset-grid" id="assetLibrary"></div>
+        </article>
+        <article class="group">
+          <h3>Shared Backgrounds</h3>
+          <div class="tiny-note">Only backgrounds are reusable across institutes.</div>
+          <div class="field">
+            <label>Global Background Pool</label>
+            <select id="sharedBgSelect"></select>
+          </div>
+          <div class="row2">
+            <button class="btn" id="refreshSharedBgBtn" type="button">Refresh</button>
+            <button class="btn" id="useSharedBgBtn" type="button">Use Selected</button>
+          </div>
         </article>
       </div>
     </aside>
@@ -470,6 +576,8 @@
   const photoShapeEl = document.getElementById("photoShape");
   const instituteSelectEl = document.getElementById("instituteSelect");
   const batchSelectEl = document.getElementById("batchSelect");
+  const backSideEnabledEl = document.getElementById("backSideEnabled");
+  const sideSelectEl = document.getElementById("sideSelect");
   const layerSelectEl = document.getElementById("layerSelect");
   const layerListEl = document.getElementById("layerList");
   const statusLineEl = document.getElementById("statusLine");
@@ -485,7 +593,14 @@
   const layerYEl = document.getElementById("layerY");
   const layerScaleEl = document.getElementById("layerScale");
   const layerRotateEl = document.getElementById("layerRotate");
+  const layerTextEl = document.getElementById("layerText");
+  const layerFontFamilyEl = document.getElementById("layerFontFamily");
+  const layerFontSizeEl = document.getElementById("layerFontSize");
+  const layerFontColorEl = document.getElementById("layerFontColor");
+  const layerFontWeightEl = document.getElementById("layerFontWeight");
+  const layerTextAlignEl = document.getElementById("layerTextAlign");
   const assetLibraryEl = document.getElementById("assetLibrary");
+  const sharedBgSelectEl = document.getElementById("sharedBgSelect");
 
   const bgInputEl = document.getElementById("bgFileInput");
   const photoInputEl = document.getElementById("photoFileInput");
@@ -511,13 +626,154 @@
   let isBatchExporting = false;
   let assetUrls = {};
   let backgroundLibrary = [];
+  let backSideEnabled = false;
+  let currentSide = "front";
+  let sideDesigns = { front: null, back: null };
   let studioStorageStatus = null;
+  let sharedBackgrounds = [];
   const assetConfig = {
     background_image: { label: "Background", inputId: "bgFileInput", type: "background" },
     employee_photo: { label: "Photo", inputId: "photoFileInput", type: "photo" },
     logo_image: { label: "Logo", inputId: "logoFileInput", type: "logo" },
     sign_image: { label: "Signature", inputId: "signFileInput", type: "signature" },
   };
+  const layerLimits = {
+    scaleMin: 10,
+    scaleMax: 500,
+    rotateMin: -360,
+    rotateMax: 360,
+  };
+
+  function clampNumber(value, minValue, maxValue, fallback = 0) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(maxValue, Math.max(minValue, parsed));
+  }
+
+  function getCanvasBounds() {
+    return { width: canvas.getWidth(), height: canvas.getHeight() };
+  }
+
+  function constrainObjectToCanvas(obj) {
+    if (!obj || obj.customId === "background") return;
+    const { width: canvasWidth, height: canvasHeight } = getCanvasBounds();
+
+    const currentScaleX = Number(obj.scaleX || 1);
+    const currentScaleY = Number(obj.scaleY || 1);
+    const limitedScaleX = clampNumber(currentScaleX, layerLimits.scaleMin / 100, layerLimits.scaleMax / 100, 1);
+    const limitedScaleY = clampNumber(currentScaleY, layerLimits.scaleMin / 100, layerLimits.scaleMax / 100, 1);
+    obj.set({
+      scaleX: limitedScaleX,
+      scaleY: limitedScaleY,
+      angle: clampNumber(obj.angle || 0, layerLimits.rotateMin, layerLimits.rotateMax, 0),
+    });
+    obj.setCoords();
+
+    let box = obj.getBoundingRect(true, true);
+    if (box.width > canvasWidth || box.height > canvasHeight) {
+      const fitScale = Math.min(canvasWidth / Math.max(1, box.width), canvasHeight / Math.max(1, box.height));
+      const nextScaleX = clampNumber(limitedScaleX * fitScale, layerLimits.scaleMin / 100, layerLimits.scaleMax / 100, limitedScaleX);
+      const nextScaleY = clampNumber(limitedScaleY * fitScale, layerLimits.scaleMin / 100, layerLimits.scaleMax / 100, limitedScaleY);
+      obj.set({ scaleX: nextScaleX, scaleY: nextScaleY });
+      obj.setCoords();
+      box = obj.getBoundingRect(true, true);
+    }
+
+    let dx = 0;
+    let dy = 0;
+    if (box.left < 0) dx = -box.left;
+    if ((box.left + box.width) > canvasWidth) dx = canvasWidth - (box.left + box.width);
+    if (box.top < 0) dy = -box.top;
+    if ((box.top + box.height) > canvasHeight) dy = canvasHeight - (box.top + box.height);
+    if (dx || dy) {
+      obj.set({
+        left: (obj.left || 0) + dx,
+        top: (obj.top || 0) + dy,
+      });
+      obj.setCoords();
+    }
+  }
+
+  function isTextObject(obj) {
+    if (!obj) return false;
+    return obj.type === "text" || obj.type === "i-text" || obj.type === "textbox";
+  }
+
+  function getSelectedLayerObject() {
+    return canvas.getActiveObject() || findById(layerSelectEl.value);
+  }
+
+  function applyTextStyleToObject(obj) {
+    if (!isTextObject(obj)) return false;
+    const nextSize = clampNumber(layerFontSizeEl.value, 8, 200, Number(obj.fontSize || 20));
+    obj.set({
+      text: String(layerTextEl.value || obj.text || ""),
+      fill: String(layerFontColorEl.value || obj.fill || "#000000"),
+      fontSize: nextSize,
+      fontFamily: String(layerFontFamilyEl.value || obj.fontFamily || "Segoe UI"),
+      fontWeight: String(layerFontWeightEl.value || obj.fontWeight || "normal"),
+      textAlign: String(layerTextAlignEl.value || obj.textAlign || "left"),
+    });
+    return true;
+  }
+
+  function alignObjectToCanvas(obj, mode) {
+    if (!obj) return;
+    obj.setCoords();
+    const box = obj.getBoundingRect(true, true);
+    const cW = canvas.getWidth();
+    const cH = canvas.getHeight();
+    const center = obj.getCenterPoint();
+    if (mode === "left") {
+      obj.set({ left: (obj.left || 0) - box.left });
+    } else if (mode === "right") {
+      obj.set({ left: (obj.left || 0) + (cW - (box.left + box.width)) });
+    } else if (mode === "top") {
+      obj.set({ top: (obj.top || 0) - box.top });
+    } else if (mode === "bottom") {
+      obj.set({ top: (obj.top || 0) + (cH - (box.top + box.height)) });
+    } else if (mode === "center") {
+      obj.setPositionByOrigin(new fabric.Point(cW / 2, center.y), "center", "center");
+    } else if (mode === "middle") {
+      obj.setPositionByOrigin(new fabric.Point(center.x, cH / 2), "center", "center");
+    }
+    constrainObjectToCanvas(obj);
+    canvas.requestRenderAll();
+    refreshLayers();
+    syncSelectedControls();
+    captureCurrentSideState();
+  }
+
+  function renderSharedBackgroundOptions() {
+    if (!sharedBgSelectEl) return;
+    if (!sharedBackgrounds.length) {
+      sharedBgSelectEl.innerHTML = '<option value="">No shared backgrounds</option>';
+      return;
+    }
+    sharedBgSelectEl.innerHTML = sharedBackgrounds.map((item, idx) => {
+      const selected = assetUrls.background_image && assetUrls.background_image === item.url ? " selected" : "";
+      const label = item.label || `Shared BG ${idx + 1}`;
+      return `<option value="${item.url}"${selected}>${label}</option>`;
+    }).join("");
+  }
+
+  async function loadSharedBackgrounds() {
+    if (!sharedBgSelectEl) return;
+    sharedBgSelectEl.innerHTML = '<option value="">Loading...</option>';
+    try {
+      const institute = getActiveInstitute();
+      const query = institute ? `?institute=${encodeURIComponent(institute)}` : "";
+      const res = await fetch(`/api/fabric-shared-backgrounds${query}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Unable to load shared backgrounds");
+      sharedBackgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : [];
+      renderSharedBackgroundOptions();
+    } catch (err) {
+      sharedBackgrounds = [];
+      sharedBgSelectEl.innerHTML = '<option value="">Shared backgrounds unavailable</option>';
+      setStatus(err && err.message ? err.message : "Unable to load shared backgrounds.", true);
+    }
+  }
 
   function setStatus(text, error = false) {
     statusLineEl.textContent = text;
@@ -702,6 +958,7 @@
       if (existing) canvas.remove(existing);
       delete assetUrls.background_image;
       canvas.requestRenderAll();
+      captureCurrentSideState();
       return;
     }
     assetUrls.background_image = value;
@@ -710,6 +967,7 @@
     }
     const s = getSlotForAssetId("background_image");
     await placeImageFromUrl(value, "background_image", s.left, s.top, s.width, s.height);
+    captureCurrentSideState();
   }
 
   function addText(id, text, left, top, color, size, weight = "normal") {
@@ -725,7 +983,54 @@
     canvas.add(node);
   }
 
-  async function drawLayout() {
+  function cloneData(value, fallback) {
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch {
+      return fallback;
+    }
+  }
+
+  function buildCurrentSnapshot() {
+    normalizeBackgroundLibrary();
+    return {
+      templateType: templateTypeEl.value,
+      photoShape: photoShapeEl.value,
+      asset_urls: cloneData(assetUrls, {}),
+      background_library: cloneData(backgroundLibrary, []),
+      json: canvas.toJSON(["customId"]),
+    };
+  }
+
+  function captureCurrentSideState() {
+    sideDesigns[currentSide] = buildCurrentSnapshot();
+  }
+
+  async function loadSnapshotToCanvas(snapshot) {
+    if (!snapshot || !snapshot.json) return false;
+    templateTypeEl.value = snapshot.templateType || "horizontal";
+    photoShapeEl.value = snapshot.photoShape || "rectangle";
+    assetUrls = (snapshot.asset_urls && typeof snapshot.asset_urls === "object") ? snapshot.asset_urls : {};
+    backgroundLibrary = Array.isArray(snapshot.background_library) ? snapshot.background_library : [];
+    normalizeBackgroundLibrary();
+    setTemplateSize(templateTypeEl.value);
+    await new Promise((resolve) => {
+      canvas.loadFromJSON(snapshot.json, () => resolve());
+    });
+    const mappings = ["background_image", "logo_image", "sign_image", "employee_photo"];
+    for (const id of mappings) {
+      const url = assetUrls[id];
+      if (!url) continue;
+      const s = getSlotForAssetId(id);
+      await placeImageFromUrl(url, id, s.left, s.top, s.width, s.height);
+    }
+    canvas.renderAll();
+    refreshLayers();
+    renderAssetLibrary();
+    return true;
+  }
+
+  async function drawFrontLayout() {
     normalizeBackgroundLibrary();
     setTemplateSize(templateTypeEl.value);
     canvas.clear();
@@ -803,6 +1108,100 @@
     canvas.renderAll();
     refreshLayers();
     renderAssetLibrary();
+  }
+
+  async function drawBackLayout() {
+    normalizeBackgroundLibrary();
+    setTemplateSize(templateTypeEl.value);
+    canvas.clear();
+    canvas.add(makeGradientRect());
+
+    const w = canvas.getWidth();
+    const h = canvas.getHeight();
+    const headerH = Math.round(h * 0.16);
+    const header = new fabric.Rect({
+      left: 0,
+      top: 0,
+      width: w,
+      height: headerH,
+      fill: "#4b1f1f",
+      selectable: true,
+      customId: "back_header_bar"
+    });
+    canvas.add(header);
+
+    addText("back_title", "Card Back Side", 18, 14, "#ffffff", 24, "bold");
+    addText("back_institute", selectedEmployee.institute_name || "Institute", 18, Math.round(h * 0.22), "#3a2b20", 20, "bold");
+    addText("back_employee_id", `ID: ${selectedEmployee.employee_id || "-"}`, 18, Math.round(h * 0.30), "#3a2b20", 18, "bold");
+    addText("back_department", `Dept: ${selectedEmployee.department || "-"}`, 18, Math.round(h * 0.37), "#5d4c3f", 17);
+    addText("back_note", "Emergency Contact / Terms / QR / Barcode", 18, Math.round(h * 0.49), "#5d4c3f", 16);
+
+    const logoSlot = new fabric.Rect({
+      left: Math.round(w - 145),
+      top: 14,
+      width: 120,
+      height: 70,
+      fill: "#ffffff55",
+      stroke: "#d9cabb",
+      strokeDashArray: [4, 4],
+      customId: "logo_slot"
+    });
+    canvas.add(logoSlot);
+
+    const signSlot = new fabric.Rect({
+      left: Math.round(w - 185),
+      top: Math.round(h - 95),
+      width: 150,
+      height: 45,
+      fill: "#ffffff55",
+      stroke: "#d9cabb",
+      strokeDashArray: [4, 4],
+      customId: "signature_slot"
+    });
+    canvas.add(signSlot);
+
+    const photoSlot = new fabric.Rect({
+      left: Math.round(w - 195),
+      top: Math.round(h * 0.24),
+      width: Math.round(w * 0.18),
+      height: Math.round(h * 0.30),
+      fill: "#f3ede6",
+      stroke: "#c9b7a6",
+      strokeWidth: 1,
+      customId: "photo_slot"
+    });
+    canvas.add(photoSlot);
+
+    if (assetUrls.employee_photo) {
+      const s = getSlotForAssetId("employee_photo");
+      await placeImageFromUrl(assetUrls.employee_photo, "employee_photo", s.left, s.top, s.width, s.height);
+    } else if (selectedEmployee.photo_url) {
+      await placeImageFromUrl(selectedEmployee.photo_url, "employee_photo", photoSlot.left, photoSlot.top, photoSlot.width, photoSlot.height);
+    }
+    if (assetUrls.background_image) {
+      const s = getSlotForAssetId("background_image");
+      await placeImageFromUrl(assetUrls.background_image, "background_image", s.left, s.top, s.width, s.height);
+    }
+    if (assetUrls.logo_image) {
+      const s = getSlotForAssetId("logo_image");
+      await placeImageFromUrl(assetUrls.logo_image, "logo_image", s.left, s.top, s.width, s.height);
+    }
+    if (assetUrls.sign_image) {
+      const s = getSlotForAssetId("sign_image");
+      await placeImageFromUrl(assetUrls.sign_image, "sign_image", s.left, s.top, s.width, s.height);
+    }
+
+    canvas.renderAll();
+    refreshLayers();
+    renderAssetLibrary();
+  }
+
+  async function drawLayout() {
+    if (currentSide === "back" && backSideEnabled) {
+      await drawBackLayout();
+      return;
+    }
+    await drawFrontLayout();
   }
 
   function replaceOrAddImage(id, img) {
@@ -890,47 +1289,128 @@
   function syncSelectedControls() {
     const obj = canvas.getActiveObject();
     if (!obj) return;
+    constrainObjectToCanvas(obj);
     layerXEl.value = Math.round(obj.left || 0);
     layerYEl.value = Math.round(obj.top || 0);
-    layerScaleEl.value = Math.round((obj.scaleX || 1) * 100);
-    layerRotateEl.value = Math.round(obj.angle || 0);
+    layerScaleEl.value = clampNumber(Math.round((obj.scaleX || 1) * 100), layerLimits.scaleMin, layerLimits.scaleMax, 100);
+    layerRotateEl.value = clampNumber(Math.round(obj.angle || 0), layerLimits.rotateMin, layerLimits.rotateMax, 0);
+    if (isTextObject(obj)) {
+      layerTextEl.value = String(obj.text || "");
+      layerFontFamilyEl.value = String(obj.fontFamily || "Segoe UI");
+      layerFontSizeEl.value = clampNumber(Number(obj.fontSize || 24), 8, 200, 24);
+      let fill = String(obj.fill || "#000000");
+      if (!/^#[0-9a-fA-F]{6}$/.test(fill)) fill = "#000000";
+      layerFontColorEl.value = fill;
+      layerFontWeightEl.value = String(obj.fontWeight || "normal");
+      layerTextAlignEl.value = String(obj.textAlign || "left");
+      return;
+    }
+    layerTextEl.value = "";
   }
 
   function applySelectedControls() {
-    const obj = canvas.getActiveObject() || findById(layerSelectEl.value);
+    const obj = getSelectedLayerObject();
     if (!obj) return;
+    const x = Number(layerXEl.value || 0);
+    const y = Number(layerYEl.value || 0);
+    const scalePercent = clampNumber(layerScaleEl.value, layerLimits.scaleMin, layerLimits.scaleMax, 100);
+    const angle = clampNumber(layerRotateEl.value, layerLimits.rotateMin, layerLimits.rotateMax, 0);
     obj.set({
-      left: Number(layerXEl.value || 0),
-      top: Number(layerYEl.value || 0),
-      scaleX: Number(layerScaleEl.value || 100) / 100,
-      scaleY: Number(layerScaleEl.value || 100) / 100,
-      angle: Number(layerRotateEl.value || 0),
+      left: Number.isFinite(x) ? x : 0,
+      top: Number.isFinite(y) ? y : 0,
+      scaleX: scalePercent / 100,
+      scaleY: scalePercent / 100,
+      angle,
     });
+    applyTextStyleToObject(obj);
+    constrainObjectToCanvas(obj);
     canvas.requestRenderAll();
+    syncSelectedControls();
     refreshLayers();
+    captureCurrentSideState();
   }
 
   function saveLocal() {
-    normalizeBackgroundLibrary();
+    captureCurrentSideState();
+    const frontSnapshot = sideDesigns.front || buildCurrentSnapshot();
     const payload = {
-      templateType: templateTypeEl.value,
-      photoShape: photoShapeEl.value,
-      assetUrls,
-      background_library: backgroundLibrary,
-      json: canvas.toJSON(["customId"])
+      templateType: frontSnapshot.templateType || "horizontal",
+      photoShape: frontSnapshot.photoShape || "rectangle",
+      assetUrls: frontSnapshot.asset_urls || {},
+      asset_urls: frontSnapshot.asset_urls || {},
+      background_library: frontSnapshot.background_library || [],
+      json: frontSnapshot.json || canvas.toJSON(["customId"]),
+      back_side_enabled: !!backSideEnabled,
+      current_side: backSideEnabled ? currentSide : "front",
+      side_designs: sideDesigns,
     };
     localStorage.setItem("fabric_print_studio_design", JSON.stringify(payload));
     setStatus("Saved to browser local storage.");
   }
 
+  function getLoadedSidesFromDesign(design) {
+    if (!design || typeof design !== "object") {
+      return { front: null, back: null };
+    }
+    if (design.side_designs && typeof design.side_designs === "object") {
+      return {
+        front: design.side_designs.front || null,
+        back: design.side_designs.back || null,
+      };
+    }
+    return {
+      front: {
+        templateType: design.templateType || "horizontal",
+        photoShape: design.photoShape || "rectangle",
+        asset_urls: (design.asset_urls && typeof design.asset_urls === "object")
+          ? design.asset_urls
+          : ((design.assetUrls && typeof design.assetUrls === "object") ? design.assetUrls : {}),
+        background_library: Array.isArray(design.background_library) ? design.background_library : [],
+        json: design.json || null,
+      },
+      back: null,
+    };
+  }
+
+  async function applyLoadedDesign(design, options = {}) {
+    const silent = !!options.silent;
+    const sourceLabel = options.sourceLabel || "server";
+    if (!design || (!design.json && !design.side_designs)) {
+      if (!silent) setStatus(`No ${sourceLabel} design saved yet.`);
+      return false;
+    }
+    const loadedSides = getLoadedSidesFromDesign(design);
+    sideDesigns = {
+      front: loadedSides.front || null,
+      back: loadedSides.back || null,
+    };
+    backSideEnabled = !!design.back_side_enabled;
+    currentSide = (design.current_side === "back" && backSideEnabled) ? "back" : "front";
+    backSideEnabledEl.checked = backSideEnabled;
+    sideSelectEl.disabled = !backSideEnabled;
+    sideSelectEl.value = currentSide;
+
+    const loaded = await loadSnapshotToCanvas(sideDesigns[currentSide]);
+    if (!loaded) {
+      await drawLayout();
+    }
+    await applyEmployeeDataToCanvas(selectedEmployee);
+    if (!silent) setStatus(`Loaded ${sourceLabel} design.`);
+    return true;
+  }
+
   async function saveServer() {
-    normalizeBackgroundLibrary();
+    captureCurrentSideState();
+    const frontSnapshot = sideDesigns.front || buildCurrentSnapshot();
     const payload = {
-      templateType: templateTypeEl.value,
-      photoShape: photoShapeEl.value,
-      asset_urls: assetUrls,
-      background_library: backgroundLibrary,
-      json: canvas.toJSON(["customId"])
+      templateType: frontSnapshot.templateType || "horizontal",
+      photoShape: frontSnapshot.photoShape || "rectangle",
+      asset_urls: frontSnapshot.asset_urls || {},
+      background_library: frontSnapshot.background_library || [],
+      json: frontSnapshot.json || canvas.toJSON(["customId"]),
+      back_side_enabled: !!backSideEnabled,
+      current_side: backSideEnabled ? currentSide : "front",
+      side_designs: sideDesigns,
     };
     const activeInstitute = getActiveInstitute();
     if (!activeInstitute) {
@@ -970,39 +1450,24 @@
       return;
     }
     const design = data.design || {};
-    if (!design.json) {
-      if (!silent) setStatus("No server design saved yet.");
+    await applyLoadedDesign(design, { silent, sourceLabel: "server" });
+  }
+
+  async function loadLocal(options = {}) {
+    const silent = !!options.silent;
+    const raw = localStorage.getItem("fabric_print_studio_design");
+    if (!raw) {
+      if (!silent) setStatus("No local design saved yet.");
       return;
     }
-    templateTypeEl.value = design.templateType || "horizontal";
-    photoShapeEl.value = design.photoShape || "rectangle";
-    assetUrls = (design.asset_urls && typeof design.asset_urls === "object") ? design.asset_urls : {};
-    backgroundLibrary = Array.isArray(design.background_library) ? design.background_library : [];
-    normalizeBackgroundLibrary();
-    setTemplateSize(templateTypeEl.value);
-    canvas.loadFromJSON(design.json, () => {
-      canvas.renderAll();
-      Promise.resolve()
-        .then(async () => {
-          const mappings = [
-            "background_image",
-            "logo_image",
-            "sign_image",
-            "employee_photo",
-          ];
-          for (const id of mappings) {
-            const url = assetUrls[id];
-            if (!url) continue;
-            const s = getSlotForAssetId(id);
-            await placeImageFromUrl(url, id, s.left, s.top, s.width, s.height);
-          }
-        })
-        .finally(() => {
-          refreshLayers();
-          renderAssetLibrary();
-          if (!silent) setStatus("Loaded server design.");
-        });
-    });
+    let design = null;
+    try {
+      design = JSON.parse(raw);
+    } catch {
+      if (!silent) setStatus("Local design is invalid.", true);
+      return;
+    }
+    await applyLoadedDesign(design || {}, { silent, sourceLabel: "local" });
   }
 
   async function uploadAssetToServer(file, assetType) {
@@ -1025,17 +1490,98 @@
     return data.url || "";
   }
 
-  function exportPng() {
-    const data = canvas.toDataURL({
-      format: "png",
-      multiplier: 4,
-      quality: 1
-    });
+  async function switchSide(nextSide) {
+    const target = nextSide === "back" ? "back" : "front";
+    if (target === "back" && !backSideEnabled) return;
+    if (target === currentSide) return;
+    captureCurrentSideState();
+    currentSide = target;
+    sideSelectEl.value = currentSide;
+    const loaded = await loadSnapshotToCanvas(sideDesigns[currentSide]);
+    if (!loaded) {
+      await drawLayout();
+    }
+    await applyEmployeeDataToCanvas(selectedEmployee);
+    setStatus(currentSide === "back" ? "Back side active." : "Front side active.");
+  }
+
+  async function setBackSideEnabled(enabled) {
+    const nextEnabled = !!enabled;
+    if (nextEnabled === backSideEnabled) return;
+    captureCurrentSideState();
+    backSideEnabled = nextEnabled;
+    backSideEnabledEl.checked = backSideEnabled;
+    sideSelectEl.disabled = !backSideEnabled;
+    if (backSideEnabled && !sideDesigns.back) {
+      sideDesigns.back = cloneData(sideDesigns.front || buildCurrentSnapshot(), null);
+    }
+    if (!backSideEnabled && currentSide === "back") {
+      currentSide = "front";
+      sideSelectEl.value = "front";
+      const loaded = await loadSnapshotToCanvas(sideDesigns.front);
+      if (!loaded) {
+        await drawLayout();
+      }
+      await applyEmployeeDataToCanvas(selectedEmployee);
+      return;
+    }
+    setStatus(backSideEnabled ? "Back side enabled." : "Back side disabled.");
+  }
+
+  async function renderSideForEmployee(side, employee) {
+    const targetSide = side === "back" ? "back" : "front";
+    if (targetSide === "back" && !backSideEnabled) return false;
+    currentSide = targetSide;
+    sideSelectEl.value = targetSide;
+    const loaded = await loadSnapshotToCanvas(sideDesigns[targetSide]);
+    if (!loaded) {
+      await drawLayout();
+    }
+    await applyEmployeeDataToCanvas(employee);
+    canvas.requestRenderAll();
+    return true;
+  }
+
+  async function restoreViewState(state) {
+    selectedEmployee = state.employee;
+    currentCardIndex = state.index;
+    currentSide = (state.side === "back" && backSideEnabled) ? "back" : "front";
+    sideSelectEl.value = currentSide;
+    const loaded = await loadSnapshotToCanvas(sideDesigns[currentSide]);
+    if (!loaded) {
+      await drawLayout();
+    }
+    await applyEmployeeDataToCanvas(selectedEmployee);
+    updateCardPosition();
+  }
+
+  function downloadDataUrl(dataUrl, filename) {
     const link = document.createElement("a");
-    link.href = data;
-    link.download = `id-card-${selectedEmployee.employee_id || selectedEmployee.key}.png`;
+    link.href = dataUrl;
+    link.download = filename;
     link.click();
-    setStatus("Exported high resolution PNG.");
+  }
+
+  async function exportPng() {
+    const state = { employee: selectedEmployee, index: currentCardIndex, side: currentSide };
+    try {
+      const filePart = sanitizeFilePart(selectedEmployee.employee_id || selectedEmployee.key || "card", "card");
+      await renderSideForEmployee("front", selectedEmployee);
+      const frontData = canvas.toDataURL({ format: "png", multiplier: 4, quality: 1 });
+      downloadDataUrl(frontData, backSideEnabled ? `${filePart}_front.png` : `${filePart}.png`);
+      if (backSideEnabled) {
+        await renderSideForEmployee("back", selectedEmployee);
+        const backData = canvas.toDataURL({ format: "png", multiplier: 4, quality: 1 });
+        downloadDataUrl(backData, `${filePart}_back.png`);
+        setStatus("Exported high resolution PNG (front + back).");
+        return;
+      }
+      setStatus("Exported high resolution PNG.");
+    } catch (err) {
+      setStatus(`PNG export failed: ${err && err.message ? err.message : "unknown error"}`, true);
+    } finally {
+      await restoreViewState(state);
+    }
   }
 
   function sanitizeFilePart(value, fallback = "batch") {
@@ -1145,6 +1691,7 @@
         canvas.requestRenderAll();
       }
       renderAssetLibrary();
+      captureCurrentSideState();
       setStatus(`${assetConfig[id].label} removed.`);
     } catch {
       setStatus("Unable to remove asset.", true);
@@ -1157,11 +1704,17 @@
     const idNode = findById("employee_id");
     const depNode = findById("department");
     const instNode = findById("institute");
+    const backInstituteNode = findById("back_institute");
+    const backIdNode = findById("back_employee_id");
+    const backDeptNode = findById("back_department");
     if (nameNode) nameNode.set("text", employee.name || "-");
     if (desNode) desNode.set("text", employee.designation || "-");
     if (idNode) idNode.set("text", `ID: ${employee.employee_id || "-"}`);
     if (depNode) depNode.set("text", `Dept: ${employee.department || "-"}`);
     if (instNode) instNode.set("text", employee.institute_name || getActiveInstitute() || "Institute");
+    if (backInstituteNode) backInstituteNode.set("text", employee.institute_name || getActiveInstitute() || "Institute");
+    if (backIdNode) backIdNode.set("text", `ID: ${employee.employee_id || "-"}`);
+    if (backDeptNode) backDeptNode.set("text", `Dept: ${employee.department || "-"}`);
 
     const existingPhoto = findById("employee_photo");
     if (existingPhoto) canvas.remove(existingPhoto);
@@ -1188,18 +1741,21 @@
       return;
     }
     isBatchExporting = true;
-    const originalEmployee = selectedEmployee;
-    const originalIndex = currentCardIndex;
+    const originalState = { employee: selectedEmployee, index: currentCardIndex, side: currentSide };
     const zip = new JSZip();
-    setStatus(`Preparing ZIP for ${batchEmployees.length} cards...`);
+    const sides = backSideEnabled ? ["front", "back"] : ["front"];
+    const totalRenders = batchEmployees.length * sides.length;
+    setStatus(`Preparing ZIP for ${totalRenders} cards...`);
     try {
       for (let i = 0; i < batchEmployees.length; i += 1) {
         const employee = batchEmployees[i];
-        await applyEmployeeDataToCanvas(employee);
-        const dataUrl = canvas.toDataURL({ format: "png", multiplier: 4, quality: 1 });
-        const base64 = dataUrl.split(",")[1];
         const filePart = sanitizeFilePart(employee.employee_id || employee.key || `card_${i + 1}`, `card_${i + 1}`);
-        zip.file(`${filePart}.png`, base64, { base64: true });
+        for (const side of sides) {
+          await renderSideForEmployee(side, employee);
+          const dataUrl = canvas.toDataURL({ format: "png", multiplier: 4, quality: 1 });
+          const base64 = dataUrl.split(",")[1];
+          zip.file(`${filePart}_${side}.png`, base64, { base64: true });
+        }
       }
       const blob = await zip.generateAsync({ type: "blob" });
       const link = document.createElement("a");
@@ -1208,14 +1764,11 @@
       const batchPart = sanitizeFilePart(getActiveBatch() || "batch", "batch");
       link.download = `${institutePart}_${batchPart}_cards_hires.zip`;
       link.click();
-      setStatus(`Batch ZIP exported (${batchEmployees.length} cards).`);
+      setStatus(`Batch ZIP exported (${totalRenders} cards).`);
     } catch (err) {
       setStatus(`Batch ZIP failed: ${err && err.message ? err.message : "unknown error"}`, true);
     } finally {
-      selectedEmployee = originalEmployee;
-      currentCardIndex = originalIndex;
-      await applyEmployeeDataToCanvas(selectedEmployee);
-      updateCardPosition();
+      await restoreViewState(originalState);
       isBatchExporting = false;
     }
   }
@@ -1228,8 +1781,7 @@
       return;
     }
     isBatchExporting = true;
-    const originalEmployee = selectedEmployee;
-    const originalIndex = currentCardIndex;
+    const originalState = { employee: selectedEmployee, index: currentCardIndex, side: currentSide };
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
     const pageW = 210;
@@ -1245,43 +1797,46 @@
     const slotW = (pageW - marginLeft - marginRight - ((cols - 1) * gapX)) / cols;
     const slotH = (pageH - marginTop - marginBottom - ((rows - 1) * gapY)) / rows;
     const cardRatio = canvas.getWidth() / canvas.getHeight();
-    setStatus(`Preparing PDF for ${batchEmployees.length} cards...`);
+    const sides = backSideEnabled ? ["front", "back"] : ["front"];
+    const totalRenders = batchEmployees.length * sides.length;
+    let renderIndex = 0;
+    setStatus(`Preparing PDF for ${totalRenders} cards...`);
     try {
       for (let i = 0; i < batchEmployees.length; i += 1) {
-        if (i > 0 && i % 10 === 0) {
-          pdf.addPage("a4", "portrait");
-        }
         const employee = batchEmployees[i];
-        await applyEmployeeDataToCanvas(employee);
-        const dataUrl = canvas.toDataURL({ format: "png", multiplier: 3, quality: 1 });
-        const localIndex = i % 10;
-        const row = Math.floor(localIndex / cols);
-        const col = localIndex % cols;
-        const x0 = marginLeft + (col * (slotW + gapX));
-        const y0 = marginTop + (row * (slotH + gapY));
+        for (const side of sides) {
+          if (renderIndex > 0 && renderIndex % 10 === 0) {
+            pdf.addPage("a4", "portrait");
+          }
+          await renderSideForEmployee(side, employee);
+          const dataUrl = canvas.toDataURL({ format: "png", multiplier: 3, quality: 1 });
+          const localIndex = renderIndex % 10;
+          const row = Math.floor(localIndex / cols);
+          const col = localIndex % cols;
+          const x0 = marginLeft + (col * (slotW + gapX));
+          const y0 = marginTop + (row * (slotH + gapY));
 
-        let drawW = slotW;
-        let drawH = drawW / cardRatio;
-        if (drawH > slotH) {
-          drawH = slotH;
-          drawW = drawH * cardRatio;
+          let drawW = slotW;
+          let drawH = drawW / cardRatio;
+          if (drawH > slotH) {
+            drawH = slotH;
+            drawW = drawH * cardRatio;
+          }
+          const drawX = x0 + ((slotW - drawW) / 2);
+          const drawY = y0 + ((slotH - drawH) / 2);
+          pdf.addImage(dataUrl, "PNG", drawX, drawY, drawW, drawH, undefined, "FAST");
+          renderIndex += 1;
         }
-        const drawX = x0 + ((slotW - drawW) / 2);
-        const drawY = y0 + ((slotH - drawH) / 2);
-        pdf.addImage(dataUrl, "PNG", drawX, drawY, drawW, drawH, undefined, "FAST");
       }
 
       const institutePart = sanitizeFilePart(getActiveInstitute() || "institute", "institute");
       const batchPart = sanitizeFilePart(getActiveBatch() || "batch", "batch");
       pdf.save(`${institutePart}_${batchPart}_cards_a4.pdf`);
-      setStatus(`Batch PDF exported (${batchEmployees.length} cards, A4 10/page).`);
+      setStatus(`Batch PDF exported (${totalRenders} cards, A4 10/page).`);
     } catch (err) {
       setStatus(`Batch PDF failed: ${err && err.message ? err.message : "unknown error"}`, true);
     } finally {
-      selectedEmployee = originalEmployee;
-      currentCardIndex = originalIndex;
-      await applyEmployeeDataToCanvas(selectedEmployee);
-      updateCardPosition();
+      await restoreViewState(originalState);
       isBatchExporting = false;
     }
   }
@@ -1318,6 +1873,7 @@
           normalizeBackgroundLibrary();
         }
         renderAssetLibrary();
+        captureCurrentSideState();
         setStatus(`${targetType} uploaded and linked.`);
       } catch (err) {
         setStatus(`${targetType} upload failed: ${err && err.message ? err.message : "unknown error"}`, true);
@@ -1412,13 +1968,23 @@
   }
 
   function wireEvents() {
-    templateTypeEl.addEventListener("change", drawLayout);
+    templateTypeEl.addEventListener("change", async () => {
+      await drawLayout();
+      captureCurrentSideState();
+    });
     photoShapeEl.addEventListener("change", () => {
       const photo = findById("employee_photo");
       if (photo) {
         applyPhotoClip(photo);
         canvas.requestRenderAll();
       }
+      captureCurrentSideState();
+    });
+    backSideEnabledEl.addEventListener("change", async () => {
+      await setBackSideEnabled(backSideEnabledEl.checked);
+    });
+    sideSelectEl.addEventListener("change", async () => {
+      await switchSide(sideSelectEl.value);
     });
     instituteSelectEl.addEventListener("change", async () => {
       currentInstitute = instituteSelectEl.value || "";
@@ -1426,6 +1992,7 @@
       populateBatchOptions();
       await loadRecordsForSelection({ autoLoadDesign: true });
       await loadStudioStorageStatus();
+      await loadSharedBackgrounds();
     });
     batchSelectEl.addEventListener("change", async () => {
       currentBatchId = batchSelectEl.value || "";
@@ -1458,9 +2025,105 @@
         ]
       }));
       canvas.requestRenderAll();
+      captureCurrentSideState();
     });
 
     document.getElementById("applyLayerBtn").addEventListener("click", applySelectedControls);
+    document.getElementById("applyTextStyleBtn").addEventListener("click", () => {
+      const obj = getSelectedLayerObject();
+      if (!obj || !isTextObject(obj)) {
+        setStatus("Select a text layer first.", true);
+        return;
+      }
+      applyTextStyleToObject(obj);
+      constrainObjectToCanvas(obj);
+      canvas.requestRenderAll();
+      syncSelectedControls();
+      refreshLayers();
+      captureCurrentSideState();
+      setStatus("Text style applied.");
+    });
+    document.getElementById("toggleItalicBtn").addEventListener("click", () => {
+      const obj = getSelectedLayerObject();
+      if (!obj || !isTextObject(obj)) {
+        setStatus("Select a text layer first.", true);
+        return;
+      }
+      obj.set({ fontStyle: obj.fontStyle === "italic" ? "normal" : "italic" });
+      canvas.requestRenderAll();
+      captureCurrentSideState();
+    });
+    document.getElementById("toggleUnderlineBtn").addEventListener("click", () => {
+      const obj = getSelectedLayerObject();
+      if (!obj || !isTextObject(obj)) {
+        setStatus("Select a text layer first.", true);
+        return;
+      }
+      obj.set({ underline: !obj.underline });
+      canvas.requestRenderAll();
+      captureCurrentSideState();
+    });
+    document.getElementById("addTextLayerBtn").addEventListener("click", () => {
+      const nextText = String(layerTextEl.value || "New text");
+      const node = new fabric.IText(nextText, {
+        left: Math.round(canvas.getWidth() * 0.12),
+        top: Math.round(canvas.getHeight() * 0.12),
+        fill: layerFontColorEl.value || "#000000",
+        fontSize: clampNumber(layerFontSizeEl.value, 8, 200, 24),
+        fontFamily: layerFontFamilyEl.value || "Segoe UI",
+        fontWeight: layerFontWeightEl.value || "normal",
+        textAlign: layerTextAlignEl.value || "left",
+        customId: `text_layer_${Date.now()}`,
+      });
+      canvas.add(node);
+      canvas.setActiveObject(node);
+      canvas.requestRenderAll();
+      syncSelectedControls();
+      refreshLayers();
+      captureCurrentSideState();
+      setStatus("New text layer added.");
+    });
+    document.getElementById("alignLeftBtn").addEventListener("click", () => {
+      const obj = getSelectedLayerObject();
+      if (!obj) return;
+      alignObjectToCanvas(obj, "left");
+    });
+    document.getElementById("alignCenterBtn").addEventListener("click", () => {
+      const obj = getSelectedLayerObject();
+      if (!obj) return;
+      alignObjectToCanvas(obj, "center");
+    });
+    document.getElementById("alignRightBtn").addEventListener("click", () => {
+      const obj = getSelectedLayerObject();
+      if (!obj) return;
+      alignObjectToCanvas(obj, "right");
+    });
+    document.getElementById("alignTopBtn").addEventListener("click", () => {
+      const obj = getSelectedLayerObject();
+      if (!obj) return;
+      alignObjectToCanvas(obj, "top");
+    });
+    document.getElementById("alignMiddleBtn").addEventListener("click", () => {
+      const obj = getSelectedLayerObject();
+      if (!obj) return;
+      alignObjectToCanvas(obj, "middle");
+    });
+    document.getElementById("alignBottomBtn").addEventListener("click", () => {
+      const obj = getSelectedLayerObject();
+      if (!obj) return;
+      alignObjectToCanvas(obj, "bottom");
+    });
+    document.getElementById("refreshSharedBgBtn").addEventListener("click", loadSharedBackgrounds);
+    document.getElementById("useSharedBgBtn").addEventListener("click", async () => {
+      const url = String((sharedBgSelectEl && sharedBgSelectEl.value) || "").trim();
+      if (!url) {
+        setStatus("Select shared background first.", true);
+        return;
+      }
+      await applyBackgroundFromLibrary(url);
+      renderAssetLibrary();
+      setStatus("Shared background applied. Save to bind this institute.");
+    });
     layerSelectEl.addEventListener("change", () => {
       const obj = findById(layerSelectEl.value);
       if (!obj) return;
@@ -1476,6 +2139,7 @@
       obj.bringToFront();
       canvas.requestRenderAll();
       refreshLayers();
+      captureCurrentSideState();
     });
     document.getElementById("sendBackBtn").addEventListener("click", () => {
       const obj = canvas.getActiveObject();
@@ -1483,6 +2147,7 @@
       obj.sendBackwards();
       canvas.requestRenderAll();
       refreshLayers();
+      captureCurrentSideState();
     });
     document.getElementById("toggleLockBtn").addEventListener("click", () => {
       const obj = canvas.getActiveObject();
@@ -1499,6 +2164,7 @@
       canvas.discardActiveObject();
       canvas.requestRenderAll();
       refreshLayers();
+      captureCurrentSideState();
     });
     document.getElementById("toggleHideBtn").addEventListener("click", () => {
       const obj = canvas.getActiveObject();
@@ -1506,9 +2172,52 @@
       obj.visible = !obj.visible;
       canvas.requestRenderAll();
       refreshLayers();
+      captureCurrentSideState();
+    });
+    document.getElementById("duplicateLayerBtn").addEventListener("click", () => {
+      const obj = getSelectedLayerObject();
+      if (!obj || obj.customId === "background") {
+        setStatus("Select a layer to duplicate.", true);
+        return;
+      }
+      obj.clone((cloned) => {
+        if (!cloned) return;
+        cloned.set({
+          left: (obj.left || 0) + 16,
+          top: (obj.top || 0) + 16,
+          customId: `${obj.customId || obj.type}_${Date.now()}`,
+        });
+        canvas.add(cloned);
+        canvas.setActiveObject(cloned);
+        canvas.requestRenderAll();
+        syncSelectedControls();
+        refreshLayers();
+        captureCurrentSideState();
+        setStatus("Layer duplicated.");
+      });
+    });
+    document.getElementById("deleteLayerBtn").addEventListener("click", () => {
+      const obj = getSelectedLayerObject();
+      if (!obj || obj.customId === "background") {
+        setStatus("Select a layer to delete.", true);
+        return;
+      }
+      const protectedIds = new Set(["photo_slot", "logo_slot", "signature_slot", "header_bar", "back_header_bar"]);
+      if (protectedIds.has(obj.customId)) {
+        setStatus("This base layout layer cannot be deleted.", true);
+        return;
+      }
+      canvas.remove(obj);
+      canvas.discardActiveObject();
+      canvas.requestRenderAll();
+      syncSelectedControls();
+      refreshLayers();
+      captureCurrentSideState();
+      setStatus("Layer deleted.");
     });
 
     document.getElementById("saveLocalBtn").addEventListener("click", saveLocal);
+    document.getElementById("loadLocalBtn").addEventListener("click", () => loadLocal({ silent: false }));
     document.getElementById("saveServerBtn").addEventListener("click", saveServer);
     document.getElementById("loadServerBtn").addEventListener("click", loadServer);
     document.getElementById("exportBtn").addEventListener("click", exportPng);
@@ -1522,16 +2231,39 @@
 
     canvas.on("selection:created", () => { syncSelectedControls(); refreshLayers(); });
     canvas.on("selection:updated", () => { syncSelectedControls(); refreshLayers(); });
-    canvas.on("object:modified", () => { syncSelectedControls(); refreshLayers(); });
+    canvas.on("object:moving", (event) => {
+      const obj = event && event.target ? event.target : null;
+      if (!obj) return;
+      constrainObjectToCanvas(obj);
+      syncSelectedControls();
+    });
+    canvas.on("object:scaling", (event) => {
+      const obj = event && event.target ? event.target : null;
+      if (!obj) return;
+      constrainObjectToCanvas(obj);
+      syncSelectedControls();
+    });
+    canvas.on("object:rotating", (event) => {
+      const obj = event && event.target ? event.target : null;
+      if (!obj) return;
+      constrainObjectToCanvas(obj);
+      syncSelectedControls();
+    });
+    canvas.on("object:modified", () => { syncSelectedControls(); refreshLayers(); captureCurrentSideState(); });
   }
 
   async function init() {
     updateCardPosition();
     renderStudioStorageStatus();
+    backSideEnabledEl.checked = false;
+    sideSelectEl.value = "front";
+    sideSelectEl.disabled = true;
     await drawLayout();
+    captureCurrentSideState();
     wireEvents();
     await loadInstituteBatchOptions();
     await loadStudioStorageStatus();
+    await loadSharedBackgrounds();
     renderAssetLibrary();
     setStatus("Fabric Print Studio ready. Use institute + batch and Backward/Forward.");
   }

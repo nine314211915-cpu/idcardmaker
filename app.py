@@ -1113,6 +1113,17 @@ def extract_supabase_object_path(file_url):
     return object_path
 
 
+def build_supabase_public_url(object_path, bucket_name=None):
+    if not is_supabase_enabled():
+        return ""
+    bucket = (bucket_name or app.config["SUPABASE_PHOTOS_BUCKET"]).strip() or app.config["SUPABASE_PHOTOS_BUCKET"]
+    clean_path = (object_path or "").strip("/")
+    if not clean_path:
+        return ""
+    base = app.config["SUPABASE_URL"].rstrip("/")
+    return f"{base}/storage/v1/object/public/{urllib_parse.quote(bucket, safe='')}/{urllib_parse.quote(clean_path, safe='/')}"
+
+
 def find_last_uploaded_photo_record(institute=None):
     if not is_supabase_enabled():
         return None
@@ -2980,6 +2991,50 @@ def fabric_asset_delete():
         "url": file_url,
         "institute": institute,
     })
+
+
+@app.route("/api/fabric-shared-backgrounds")
+@admin_required
+def fabric_shared_backgrounds():
+    limit = request.args.get("limit", 120)
+    try:
+        limit_value = max(1, min(int(limit), 400))
+    except Exception:
+        limit_value = 120
+
+    if not is_supabase_enabled():
+        return jsonify({"backgrounds": [], "warning": "Supabase is not configured"})
+
+    try:
+        all_paths = list_supabase_storage_file_paths("")
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Unable to load shared backgrounds"}), 500
+
+    backgrounds = []
+    seen = set()
+    for object_path in reversed(all_paths):
+        path = str(object_path or "").strip("/")
+        if not path:
+            continue
+        if "/print-studio/background/" not in path:
+            continue
+        lowered = path.lower()
+        if not (lowered.endswith(".png") or lowered.endswith(".jpg") or lowered.endswith(".jpeg") or lowered.endswith(".webp")):
+            continue
+        if path in seen:
+            continue
+        seen.add(path)
+        institute_slug = path.split("/", 1)[0] if "/" in path else "default"
+        label_name = os.path.basename(path)
+        backgrounds.append({
+            "url": build_supabase_public_url(path),
+            "object_path": path,
+            "label": f"{institute_slug}: {label_name}",
+            "institute_slug": institute_slug,
+        })
+        if len(backgrounds) >= limit_value:
+            break
+    return jsonify({"backgrounds": backgrounds})
 
 
 @app.route("/admin/login", methods=["POST"])
