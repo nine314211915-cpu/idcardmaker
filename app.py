@@ -2838,6 +2838,11 @@ def save_image_asset(file_storage, filename, kind):
     with open(local_path, "wb") as image_file:
         image_file.write(output_bytes)
 
+    if is_supabase_enabled():
+        storage_kind = str(kind or "assets").strip().lower() or "assets"
+        object_path = f"shared/{storage_kind}/{filename}"
+        return upload_bytes_to_supabase_storage(output_bytes, object_path, "image/jpeg"), ""
+
     drive_id = None
     drive_url = None
     if is_drive_enabled():
