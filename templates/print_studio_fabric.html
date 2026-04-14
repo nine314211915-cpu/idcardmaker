@@ -686,6 +686,8 @@
   let sharedBackgrounds = [];
   let selectedSharedBackgroundUrl = "";
   let selectedSharedBackgroundId = "";
+  let selectedSharedBackgroundSource = "";
+  let selectedSharedBackgroundInstitute = "";
   let batchBoundBackgroundUrl = "";
   let undoHistory = { front: [], back: [] };
   let undoRestoring = false;
@@ -841,6 +843,8 @@
         if (!item || !item.url) return;
         selectedSharedBackgroundId = String(item.id || "").trim();
         selectedSharedBackgroundUrl = String(item.url || "").trim();
+        selectedSharedBackgroundSource = String(item.source || "").trim();
+        selectedSharedBackgroundInstitute = String(item.institute_name || "").trim();
         renderSharedBackgroundOptions();
         setStatus("Shared background selected. Click Add To Card.");
       });
@@ -963,19 +967,35 @@
 
   async function removeSelectedGlobalBackground() {
     const selectedId = String(selectedSharedBackgroundId || "").trim();
+    const selectedSource = String(selectedSharedBackgroundSource || "").trim();
+    const selectedInstitute = String(selectedSharedBackgroundInstitute || "").trim();
     if (!selectedId) {
-      setStatus("Select a global background first.", true);
+      setStatus("Select a shared background first.", true);
       return;
     }
-    const res = await fetch(`/api/fabric-global-backgrounds/${encodeURIComponent(selectedId)}`, {
-      method: "DELETE",
-    });
+    let res;
+    if (selectedSource === "global_pool") {
+      res = await fetch(`/api/fabric-global-backgrounds/${encodeURIComponent(selectedId)}`, {
+        method: "DELETE",
+      });
+    } else if (selectedSource === "institute_collection") {
+      if (!selectedInstitute) {
+        setStatus("Selected background is missing its institute.", true);
+        return;
+      }
+      res = await fetch(`/api/print-backgrounds/${encodeURIComponent(selectedId)}?institute=${encodeURIComponent(selectedInstitute)}`, {
+        method: "DELETE",
+      });
+    } else {
+      setStatus("This selected background cannot be removed from database here.", true);
+      return;
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      setStatus(data.error || "Unable to remove global background.", true);
+      setStatus(data.error || "Unable to remove selected background.", true);
       return;
     }
-    const removedUrl = String(data.deleted_url || "").trim();
+    const removedUrl = String(data.deleted_url || data.background_url || "").trim();
     if (removedUrl && normalizeUrlKey(removedUrl) === normalizeUrlKey(assetUrls.background_image || "")) {
       delete assetUrls.background_image;
       await applyBackgroundFromLibrary("");
@@ -983,8 +1003,10 @@
     }
     selectedSharedBackgroundId = "";
     selectedSharedBackgroundUrl = "";
+    selectedSharedBackgroundSource = "";
+    selectedSharedBackgroundInstitute = "";
     await loadSharedBackgrounds();
-    setStatus("Global background removed from database.");
+    setStatus("Selected background removed from database.");
   }
 
   async function ensureCurrentBackgroundSavedAndBound() {
@@ -1013,9 +1035,13 @@
         const matched = sharedBackgrounds.find((item) => String(item.id || "") === String(selectedSharedBackgroundId));
         if (matched) {
           selectedSharedBackgroundUrl = String(matched.url || "").trim();
+          selectedSharedBackgroundSource = String(matched.source || "").trim();
+          selectedSharedBackgroundInstitute = String(matched.institute_name || "").trim();
         } else {
           selectedSharedBackgroundId = "";
           selectedSharedBackgroundUrl = "";
+          selectedSharedBackgroundSource = "";
+          selectedSharedBackgroundInstitute = "";
         }
       }
       renderSharedBackgroundOptions();
