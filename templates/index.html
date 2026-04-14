@@ -1493,9 +1493,9 @@ function saveFacilitySubLocationOption(institute, block, value) {
   const cleanedInstitute = String(institute || '').trim();
   const cleanedBlock = String(block || '').trim();
   const cleanedValue = String(value || '').trim();
-  if (!cleanedInstitute || !cleanedBlock || !cleanedValue || cleanedValue === 'Add New') return;
+  if (!cleanedInstitute || !cleanedBlock || !cleanedValue || cleanedValue === 'Add New') return false;
   const currentItems = getFacilitySubLocations(cleanedInstitute, cleanedBlock);
-  if (currentItems.includes(cleanedValue)) return;
+  if (currentItems.includes(cleanedValue)) return false;
   const customMap = loadCustomFacilitySubLocations();
   if (!customMap[cleanedInstitute] || typeof customMap[cleanedInstitute] !== 'object') customMap[cleanedInstitute] = {};
   if (!Array.isArray(customMap[cleanedInstitute][cleanedBlock])) customMap[cleanedInstitute][cleanedBlock] = [];
@@ -1504,6 +1504,7 @@ function saveFacilitySubLocationOption(institute, block, value) {
     .filter((item, index, arr) => item && arr.indexOf(item) === index)
     .sort((a, b) => a.localeCompare(b));
   saveCustomFacilitySubLocations(customMap);
+  return true;
 }
 
 function persistCurrentFacilitySubLocation() {
@@ -1511,7 +1512,11 @@ function persistCurrentFacilitySubLocation() {
   const institute = document.getElementById('instituteName').value;
   const block = document.getElementById('facilityLocation').value;
   const value = getFacilitySubLocationValue();
-  saveFacilitySubLocationOption(institute, block, value);
+  const wasAdded = saveFacilitySubLocationOption(institute, block, value);
+  if (wasAdded) {
+    handleFacilityLocationChange();
+    setFacilitySubLocationValue(value);
+  }
   if (!institute || !block || !value || value === 'Add New') return;
   fetch('/api/facility-sub-locations', {
     method: 'POST',
