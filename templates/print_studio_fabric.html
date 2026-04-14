@@ -2255,16 +2255,29 @@
       });
       instituteBatches = grouped;
       const institutes = Object.keys(grouped).sort((a, b) => a.localeCompare(b));
-      instituteSelectEl.innerHTML = institutes.map((inst) => `<option value="${inst}">${inst}</option>`).join("");
+      instituteSelectEl.innerHTML = `<option value="">Select institute</option>` + institutes.map((inst) => `<option value="${inst}">${inst}</option>`).join("");
       if (!institutes.length) {
         instituteSelectEl.innerHTML = '<option value="">No institute</option>';
         batchSelectEl.innerHTML = '<option value="">No batch</option>';
         return;
       }
-      if (!currentInstitute || !grouped[currentInstitute]) {
-        currentInstitute = institutes[0];
+      if (currentInstitute && grouped[currentInstitute]) {
+        instituteSelectEl.value = currentInstitute;
+      } else {
+        currentInstitute = "";
+        instituteSelectEl.value = "";
+        batchSelectEl.innerHTML = '<option value="">Select institute first</option>';
+        currentBatchId = "";
+        employees = [];
+        selectedEmployee = null;
+        currentCardIndex = 0;
+        renderEmployeeList();
+        renderCanvasForSelected();
+        setStatus("Select institute and batch.", false);
+        await loadStudioStorageStatus();
+        await loadSharedBackgrounds();
+        return;
       }
-      instituteSelectEl.value = currentInstitute;
       populateBatchOptions();
       currentBatchId = batchSelectEl.value || "";
       await loadRecordsForSelection({ autoLoadDesign: true });
