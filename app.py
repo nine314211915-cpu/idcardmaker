@@ -760,10 +760,14 @@ def sanitize_print_backgrounds_list(items):
         if not background_id or not url or background_id in seen_ids:
             continue
         seen_ids.add(background_id)
+        orientation = str(item.get("orientation") or "landscape").strip().lower()
+        if orientation not in ("landscape", "portrait"):
+            orientation = "landscape"
         sanitized.append({
             "id": background_id,
             "name": name[:80] if name else "Background",
             "url": url,
+            "orientation": orientation,
             "created_at": str(item.get("created_at") or ""),
             "updated_at": str(item.get("updated_at") or ""),
         })
@@ -790,10 +794,14 @@ def sanitize_global_backgrounds_list(items):
             continue
         seen_ids.add(background_id)
         seen_urls.add(key)
+        orientation = str(item.get("orientation") or "landscape").strip().lower()
+        if orientation not in ("landscape", "portrait"):
+            orientation = "landscape"
         sanitized.append({
             "id": background_id,
             "name": str(item.get("name") or "Background")[:80],
             "url": url,
+            "orientation": orientation,
             "created_at": str(item.get("created_at") or ""),
             "updated_at": str(item.get("updated_at") or ""),
             "institute_name": canonicalize_institute_name(item.get("institute_name")) or "",
@@ -816,6 +824,7 @@ def ensure_print_background_state(settings):
             "id": fallback_id,
             "name": "Primary Background",
             "url": settings.get("background_url"),
+            "orientation": "landscape",
             "created_at": "",
             "updated_at": "",
         }
@@ -3069,6 +3078,17 @@ def admin_print_studio():
     return response
 
 
+@app.route("/admin/backgrounds")
+@admin_required
+def admin_backgrounds():
+    response = make_response(render_template("background_manager.html"))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["X-App-Build"] = app.config.get("APP_BUILD_TAG", "")
+    return response
+
+
 @app.route("/api/fabric-design", methods=["GET", "POST"])
 @admin_required
 def fabric_design():
@@ -3172,6 +3192,9 @@ def fabric_global_backgrounds():
     background_url = str(payload.get("url") or "").strip()
     if not background_url:
         return jsonify({"error": "Background URL is required"}), 400
+    orientation = str(payload.get("orientation") or "landscape").strip().lower()
+    if orientation not in ("landscape", "portrait"):
+        orientation = "landscape"
 
     target_key = normalize_url_lookup_key(background_url)
     existing = next((item for item in backgrounds if normalize_url_lookup_key(item.get("url")) == target_key), None)
@@ -3186,6 +3209,7 @@ def fabric_global_backgrounds():
         ),
         "name": str(payload.get("name") or f"Global Background {len(backgrounds) + 1}")[:80],
         "url": background_url,
+        "orientation": orientation,
         "created_at": now_text,
         "updated_at": now_text,
         "institute_name": institute or "",
@@ -3238,7 +3262,7 @@ def fabric_shared_backgrounds():
     backgrounds = []
     seen_urls = set()
 
-    def register_item(item_id, url, name="", institute_slug="", object_path="", source=""):
+    def register_item(item_id, url, name="", institute_slug="", institute_name="", object_path="", source=""):
         value = str(url or "").strip()
         if not value:
             return False
@@ -3252,6 +3276,7 @@ def fabric_shared_backgrounds():
             "object_path": str(object_path or "").strip(),
             "label": str(name or "").strip(),
             "institute_slug": str(institute_slug or "").strip(),
+            "institute_name": str(institute_name or "").strip(),
             "source": str(source or "").strip(),
         })
         return True
@@ -3263,6 +3288,7 @@ def fabric_shared_backgrounds():
             item.get("url"),
             name=item.get("name"),
             institute_slug=make_storage_slug(item.get("institute_name")),
+            institute_name=item.get("institute_name"),
             source="global_pool",
         )
         if len(backgrounds) >= limit_value:
@@ -3289,36 +3315,27 @@ def fabric_shared_backgrounds():
                 item.get("url"),
                 name=item.get("name"),
                 institute_slug=make_storage_slug(inst),
+                institute_name=inst,
                 source="institute_collection",
             ):
                 if len(backgrounds) >= limit_value:
                     return jsonify({"backgrounds": backgrounds})
 
-    if is_supabase_enabled():
-        try:
-            all_paths = list_supabase_storage_file_paths("")
-        except Exception as exc:
-            return jsonify({"error": str(exc) or "Unable to load shared backgrounds"}), 500
-        for object_path in reversed(all_paths):
-            path = str(object_path or "").strip("/")
-            if not path or "/print-studio/background/" not in path:
-                continue
-            lowered = path.lower()
-            if not (lowered.endswith(".png") or lowered.endswith(".jpg") or lowered.endswith(".jpeg") or lowered.endswith(".webp")):
-                continue
-            institute_slug = path.split("/", 1)[0] if "/" in path else "default"
-            register_item(
-                f"supabase:{path}",
-                build_supabase_public_url(path),
-                name=os.path.basename(path),
-                institute_slug=institute_slug,
-                object_path=path,
-                source="supabase_discovery",
-            )
-            if len(backgrounds) >= limit_value:
-                break
-
     return jsonify({"backgrounds": backgrounds})
+
+
+@app.route("/api/admin/institutes")
+@admin_required
+def admin_institutes_api():
+    institutes = set(list_known_institutes_from_settings())
+    try:
+        for batch in list_all_supabase_batches():
+            institute = canonicalize_institute_name(batch.get("institute_name"))
+            if institute:
+                institutes.add(institute)
+    except Exception:
+        pass
+    return jsonify({"institutes": sorted(institutes)})
 
 
 @app.route("/api/fabric-batch-background", methods=["GET", "POST"])
@@ -3733,6 +3750,9 @@ def print_backgrounds_api():
         return jsonify({"error": "Invalid filename"}), 400
 
     background_name = (request.form.get("name") or "").strip() or os.path.splitext(secure_filename(file_storage.filename))[0] or "Background"
+    orientation = str(request.form.get("orientation") or "landscape").strip().lower()
+    if orientation not in ("landscape", "portrait"):
+        orientation = "landscape"
     background_id = "bg-" + datetime.now().strftime("%Y%m%d%H%M%S") + "-" + "".join(
         random.choices(string.ascii_lowercase + string.digits, k=4)
     )
@@ -3747,6 +3767,7 @@ def print_backgrounds_api():
         "id": background_id,
         "name": background_name[:80],
         "url": background_url,
+        "orientation": orientation,
         "created_at": now_text,
         "updated_at": now_text,
     }
@@ -3813,6 +3834,9 @@ def link_print_background():
     target_key = normalize_bg_key(background_url)
     existing = next((item for item in backgrounds if normalize_bg_key(item.get("url")) == target_key), None)
     now_text = current_timestamp_display()
+    orientation = str(payload.get("orientation") or "landscape").strip().lower()
+    if orientation not in ("landscape", "portrait"):
+        orientation = "landscape"
     if existing:
         settings["print_background_active_id"] = existing.get("id", "")
         settings["background_url"] = existing.get("url", "")
@@ -3834,6 +3858,7 @@ def link_print_background():
         "id": background_id,
         "name": name[:80],
         "url": background_url,
+        "orientation": orientation,
         "created_at": now_text,
         "updated_at": now_text,
     }

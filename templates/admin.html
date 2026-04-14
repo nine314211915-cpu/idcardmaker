@@ -915,6 +915,7 @@
     <button class="btn btn-outline" onclick="deleteSelectedBatch()">Delete Batch</button>
     <button class="btn btn-outline" type="button" onclick="document.getElementById('csvImportInput').click()">CSV Import</button>
     <button class="btn btn-outline" type="button" onclick="openPrintLab()">Print Design Lab</button>
+    <button class="btn btn-outline" type="button" onclick="openBackgroundLibrary()">Background Library</button>
     <button class="btn btn-outline" type="button" onclick="openPrintCards()">Open Print Preview</button>
     <button class="btn btn-red" onclick="exportZip()">Download Export</button>
     <button class="btn btn-outline" onclick="loadRecords()">Refresh</button>
@@ -1209,6 +1210,15 @@ function openPrintLab() {
   if (batchId) params.set('batch_id', batchId);
   const query = params.toString();
   const url = query ? `/admin/print-studio?${query}` : '/admin/print-studio';
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+function openBackgroundLibrary() {
+  const institute = getSelectedInstitute();
+  const params = new URLSearchParams();
+  if (institute) params.set('institute', institute);
+  const query = params.toString();
+  const url = query ? `/admin/backgrounds?${query}` : '/admin/backgrounds';
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 

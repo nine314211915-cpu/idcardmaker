@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Background Library</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f6efe6;
+      --panel: #fffdf9;
+      --line: #e0d2c3;
+      --text: #2d2118;
+      --muted: #77695d;
+      --accent: #8b0000;
+      --accent-soft: #fff3ef;
+      --shadow: 0 18px 40px rgba(69, 40, 18, 0.08);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      font-family: 'Source Sans 3', sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.8), transparent 30%),
+        linear-gradient(180deg, #fbf7f1 0%, var(--bg) 100%);
+      padding: 18px;
+    }
+    .shell {
+      max-width: 1380px;
+      margin: 0 auto;
+      display: grid;
+      gap: 14px;
+    }
+    .hero {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+      display: grid;
+      gap: 14px;
+    }
+    .hero-top {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .title-wrap h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 38px;
+      line-height: 1.02;
+    }
+    .title-wrap p {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 16px;
+      max-width: 740px;
+    }
+    .hero-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .hero-actions a, .btn {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 11px 16px;
+      background: #fff;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .08s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
+    }
+    .hero-actions a:hover, .btn:hover {
+      border-color: #caa176;
+      box-shadow: 0 10px 20px rgba(69, 40, 18, 0.08);
+    }
+    .hero-actions a:active, .btn:active {
+      transform: translateY(1px) scale(0.99);
+    }
+    .hero-actions a.primary, .btn.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: transparent;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: minmax(240px, 360px) 1fr auto;
+      gap: 12px;
+      align-items: end;
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+    .field label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+    }
+    .field select, .field input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      color: var(--text);
+      font-size: 15px;
+      padding: 12px 14px;
+    }
+    .status-bar {
+      min-height: 22px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .status-bar.error { color: #b42318; }
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 14px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+    .side-stack {
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+    .panel h2 {
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+    .panel h3 {
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+    .note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .idea-box {
+      border: 1px dashed #d4b9a2;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #fff8f2 0%, #fffdf9 100%);
+      padding: 14px;
+      display: grid;
+      gap: 8px;
+    }
+    .tabs {
+      display: inline-grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      background: #f7ede2;
+      padding: 6px;
+      border-radius: 16px;
+      margin-bottom: 16px;
+    }
+    .tab {
+      border: 0;
+      background: transparent;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #6c5e52;
+      cursor: pointer;
+    }
+    .tab.active {
+      background: #fff;
+      color: var(--accent);
+      box-shadow: 0 8px 18px rgba(69, 40, 18, 0.08);
+    }
+    .upload-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fff;
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .upload-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .summary {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .pill {
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #5f5044;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 14px;
+    }
+    .bg-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fff;
+      overflow: hidden;
+      box-shadow: 0 10px 22px rgba(69, 40, 18, 0.05);
+    }
+    .bg-preview {
+      width: 100%;
+      object-fit: cover;
+      display: block;
+      background: #efe6dc;
+    }
+    .bg-preview.landscape { aspect-ratio: 16 / 10; }
+    .bg-preview.portrait { aspect-ratio: 10 / 16; }
+    .bg-body {
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+    .bg-title {
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .bg-meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .bg-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .btn.soft-active {
+      background: var(--accent-soft);
+      border-color: #e6b8a9;
+      color: var(--accent);
+    }
+    .empty {
+      border: 1px dashed var(--line);
+      border-radius: 18px;
+      background: #fff;
+      color: var(--muted);
+      padding: 26px;
+      text-align: center;
+      font-size: 15px;
+    }
+    @media (max-width: 960px) {
+      .controls, .layout { grid-template-columns: 1fr; }
+      .upload-actions, .bg-actions { grid-template-columns: 1fr; }
+      .title-wrap h1 { font-size: 31px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div class="hero-top">
+        <div class="title-wrap">
+          <h1>Background Library</h1>
+          <p>Keep background work separate from photo studio. Upload and organize backgrounds by <strong>Landscape</strong> and <strong>Portrait</strong>, then let print studio stay focused on card design only.</p>
+        </div>
+        <div class="hero-actions">
+          <a href="/admin" class="soft">Admin</a>
+          <a href="/admin/print-studio" class="soft" id="openStudioLink">Print Studio</a>
+          <a href="/" class="primary">Home</a>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="field">
+          <label for="instituteSelect">Institute</label>
+          <select id="instituteSelect">
+            <option value="">Select institute</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="backgroundName">Background Name</label>
+          <input id="backgroundName" type="text" placeholder="Optional custom name before upload">
+        </div>
+        <button class="btn" type="button" id="refreshBtn">Refresh</button>
+      </div>
+      <div class="status-bar" id="statusBar"></div>
+    </section>
+
+    <section class="layout">
+      <aside class="side-stack">
+        <article class="panel">
+          <h2>Upload</h2>
+          <div class="upload-card">
+            <h3>New Background</h3>
+            <p class="note">Upload directly into the correct library. This keeps portrait and landscape backgrounds clean and easy to find later.</p>
+            <div class="upload-actions">
+              <button class="btn" type="button" id="uploadLandscapeBtn">Upload Landscape</button>
+              <button class="btn" type="button" id="uploadPortraitBtn">Upload Portrait</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>Idea</h2>
+          <div class="idea-box">
+            <p class="note">Best workflow: keep this page only for background curation. Upload, name, activate, and delete backgrounds here.</p>
+            <p class="note">Then in photo studio, users should only choose from this ready library instead of managing files there too. That reduces confusion a lot.</p>
+          </div>
+        </article>
+      </aside>
+
+      <section class="panel">
+        <div class="tabs">
+          <button class="tab active" type="button" data-orientation="landscape">Landscape</button>
+          <button class="tab" type="button" data-orientation="portrait">Portrait</button>
+        </div>
+        <div class="summary" id="summaryBar"></div>
+        <div class="grid" id="backgroundGrid"></div>
+      </section>
+    </section>
+  </main>
+
+  <input id="backgroundFileInput" type="file" accept="image/*" hidden>
+
+  <script>
+    (() => {
+      const instituteSelect = document.getElementById('instituteSelect');
+      const backgroundNameInput = document.getElementById('backgroundName');
+      const backgroundGrid = document.getElementById('backgroundGrid');
+      const summaryBar = document.getElementById('summaryBar');
+      const statusBar = document.getElementById('statusBar');
+      const fileInput = document.getElementById('backgroundFileInput');
+      const openStudioLink = document.getElementById('openStudioLink');
+      const queryParams = new URLSearchParams(window.location.search);
+
+      const state = {
+        institute: '',
+        orientation: 'landscape',
+        backgrounds: [],
+        activeId: '',
+        pendingOrientation: 'landscape',
+      };
+
+      function setStatus(message, isError = false) {
+        statusBar.textContent = message || '';
+        statusBar.classList.toggle('error', !!isError);
+      }
+
+      function escapeHtml(value) {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function syncStudioLink() {
+        openStudioLink.href = state.institute
+          ? `/admin/print-studio?institute=${encodeURIComponent(state.institute)}`
+          : '/admin/print-studio';
+      }
+
+      function renderSummary() {
+        const landscapeCount = state.backgrounds.filter((item) => item.orientation === 'landscape').length;
+        const portraitCount = state.backgrounds.filter((item) => item.orientation === 'portrait').length;
+        summaryBar.innerHTML = `
+          <div class="pill">Institute: ${escapeHtml(state.institute || 'Not selected')}</div>
+          <div class="pill">Landscape: ${landscapeCount}</div>
+          <div class="pill">Portrait: ${portraitCount}</div>
+          <div class="pill">Active: ${escapeHtml(state.activeId || 'None')}</div>
+        `;
+      }
+
+      function renderGrid() {
+        renderSummary();
+        const filtered = state.backgrounds.filter((item) => (item.orientation || 'landscape') === state.orientation);
+        if (!state.institute) {
+          backgroundGrid.innerHTML = '<div class="empty">Select an institute to manage backgrounds.</div>';
+          return;
+        }
+        if (!filtered.length) {
+          backgroundGrid.innerHTML = `<div class="empty">No ${state.orientation} backgrounds yet for this institute.</div>`;
+          return;
+        }
+        backgroundGrid.innerHTML = filtered.map((item) => {
+          const isActive = String(item.id || '') === String(state.activeId || '');
+          const previewClass = item.orientation === 'portrait' ? 'portrait' : 'landscape';
+          return `
+            <article class="bg-card">
+              <img class="bg-preview ${previewClass}" src="${escapeHtml(item.url)}" alt="${escapeHtml(item.name)}">
+              <div class="bg-body">
+                <div class="bg-title">${escapeHtml(item.name)}</div>
+                <div class="bg-meta">${escapeHtml(item.orientation || 'landscape')} ${isActive ? '• Active' : ''}</div>
+                <div class="bg-actions">
+                  <button class="btn ${isActive ? 'soft-active' : ''}" type="button" data-activate="${escapeHtml(item.id)}">${isActive ? 'Active Now' : 'Set Active'}</button>
+                  <button class="btn" type="button" data-delete="${escapeHtml(item.id)}">Delete</button>
+                </div>
+              </div>
+            </article>
+          `;
+        }).join('');
+
+        backgroundGrid.querySelectorAll('[data-activate]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const id = btn.getAttribute('data-activate');
+            await activateBackground(id);
+          });
+        });
+        backgroundGrid.querySelectorAll('[data-delete]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const id = btn.getAttribute('data-delete');
+            await deleteBackground(id);
+          });
+        });
+      }
+
+      async function loadInstitutes() {
+        const res = await fetch('/api/admin/institutes');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Unable to load institutes');
+        const institutes = Array.isArray(data.institutes) ? data.institutes : [];
+        const initialInstitute = queryParams.get('institute') || state.institute || '';
+        instituteSelect.innerHTML = '<option value="">Select institute</option>' + institutes.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join('');
+        if (initialInstitute && institutes.includes(initialInstitute)) {
+          state.institute = initialInstitute;
+          instituteSelect.value = initialInstitute;
+        }
+        syncStudioLink();
+      }
+
+      async function loadBackgrounds() {
+        if (!state.institute) {
+          state.backgrounds = [];
+          state.activeId = '';
+          renderGrid();
+          return;
+        }
+        setStatus('Loading backgrounds...');
+        const res = await fetch(`/api/print-backgrounds?institute=${encodeURIComponent(state.institute)}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Unable to load backgrounds');
+        state.backgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : [];
+        state.activeId = String(data.active_background_id || '');
+        renderGrid();
+        setStatus(`Loaded ${state.backgrounds.length} background(s).`);
+      }
+
+      async function activateBackground(id) {
+        if (!state.institute || !id) return;
+        setStatus('Setting active background...');
+        const res = await fetch(`/api/print-backgrounds/${encodeURIComponent(id)}/activate?institute=${encodeURIComponent(state.institute)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ institute: state.institute })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setStatus(data.error || 'Unable to set active background.', true);
+          return;
+        }
+        state.backgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : state.backgrounds;
+        state.activeId = String(data.active_background_id || '');
+        renderGrid();
+        setStatus('Active background updated.');
+      }
+
+      async function deleteBackground(id) {
+        if (!state.institute || !id) return;
+        setStatus('Deleting background...');
+        const res = await fetch(`/api/print-backgrounds/${encodeURIComponent(id)}?institute=${encodeURIComponent(state.institute)}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setStatus(data.error || 'Unable to delete background.', true);
+          return;
+        }
+        state.backgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : [];
+        state.activeId = String(data.active_background_id || '');
+        renderGrid();
+        setStatus('Background deleted.');
+      }
+
+      async function uploadBackground() {
+        if (!state.institute) {
+          setStatus('Select institute first.', true);
+          return;
+        }
+        if (!fileInput.files.length) return;
+        const file = fileInput.files[0];
+        const form = new FormData();
+        form.append('background', file);
+        form.append('institute', state.institute);
+        form.append('orientation', state.pendingOrientation);
+        if (backgroundNameInput.value.trim()) {
+          form.append('name', backgroundNameInput.value.trim());
+        }
+        setStatus(`Uploading ${state.pendingOrientation} background...`);
+        const res = await fetch('/api/print-backgrounds', {
+          method: 'POST',
+          body: form
+        });
+        const data = await res.json().catch(() => ({}));
+        fileInput.value = '';
+        if (!res.ok) {
+          setStatus(data.error || 'Upload failed.', true);
+          return;
+        }
+        state.backgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : state.backgrounds;
+        state.activeId = String(data.active_background_id || '');
+        state.orientation = state.pendingOrientation;
+        document.querySelectorAll('.tab').forEach((tab) => {
+          tab.classList.toggle('active', tab.getAttribute('data-orientation') === state.orientation);
+        });
+        renderGrid();
+        setStatus(`${state.pendingOrientation === 'portrait' ? 'Portrait' : 'Landscape'} background uploaded.`);
+      }
+
+      document.querySelectorAll('.tab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+          state.orientation = tab.getAttribute('data-orientation') || 'landscape';
+          document.querySelectorAll('.tab').forEach((item) => item.classList.toggle('active', item === tab));
+          renderGrid();
+        });
+      });
+
+      instituteSelect.addEventListener('change', async () => {
+        state.institute = instituteSelect.value || '';
+        syncStudioLink();
+        await loadBackgrounds();
+      });
+
+      document.getElementById('refreshBtn').addEventListener('click', loadBackgrounds);
+      document.getElementById('uploadLandscapeBtn').addEventListener('click', () => {
+        state.pendingOrientation = 'landscape';
+        fileInput.click();
+      });
+      document.getElementById('uploadPortraitBtn').addEventListener('click', () => {
+        state.pendingOrientation = 'portrait';
+        fileInput.click();
+      });
+      fileInput.addEventListener('change', uploadBackground);
+
+      (async () => {
+        try {
+          await loadInstitutes();
+          await loadBackgrounds();
+        } catch (err) {
+          setStatus(err && err.message ? err.message : 'Unable to load background manager.', true);
+        }
+      })();
+    })();
+  </script>
+</body>
+</html>
