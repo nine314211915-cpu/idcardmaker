@@ -169,6 +169,11 @@
       grid-template-columns: 1fr 1fr;
       gap: 8px;
     }
+    .side-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
     .card {
       border: 1px solid var(--line);
       border-radius: 18px;
@@ -315,6 +320,10 @@
               <button class="mode-tab active" type="button" data-orientation="landscape">Landscape</button>
               <button class="mode-tab" type="button" data-orientation="portrait">Portrait</button>
             </div>
+            <div class="side-tabs">
+              <button class="mode-tab active" type="button" data-side="front">Front</button>
+              <button class="mode-tab" type="button" data-side="back">Back</button>
+            </div>
             <button class="btn primary" type="button" id="uploadBtn">Upload Background</button>
           </div>
         </article>
@@ -367,6 +376,7 @@
       const state = {
         scope: 'common',
         orientation: 'landscape',
+        side: 'front',
         institute: queryParams.get('institute') || '',
         block: '',
         facilitySubLocation: '',
@@ -442,7 +452,11 @@
           tab.classList.toggle('active', tab.getAttribute('data-scope') === state.scope);
         });
         document.querySelectorAll('.mode-tab').forEach((tab) => {
-          tab.classList.toggle('active', tab.getAttribute('data-orientation') === state.orientation);
+          if (tab.hasAttribute('data-orientation')) {
+            tab.classList.toggle('active', tab.getAttribute('data-orientation') === state.orientation);
+          } else if (tab.hasAttribute('data-side')) {
+            tab.classList.toggle('active', tab.getAttribute('data-side') === state.side);
+          }
         });
 
         instituteField.classList.toggle('hidden', state.scope === 'common');
@@ -463,10 +477,14 @@
       function renderSummary() {
         const landscapeCount = state.items.filter((item) => (item.orientation || 'landscape') === 'landscape').length;
         const portraitCount = state.items.filter((item) => (item.orientation || 'landscape') === 'portrait').length;
+        const frontCount = state.items.filter((item) => (item.side || 'front') === 'front').length;
+        const backCount = state.items.filter((item) => (item.side || 'front') === 'back').length;
         const pills = [
           `Scope: ${state.scope.charAt(0).toUpperCase() + state.scope.slice(1)}`,
           `Landscape: ${landscapeCount}`,
           `Portrait: ${portraitCount}`,
+          `Front: ${frontCount}`,
+          `Back: ${backCount}`,
         ];
         if (state.institute) pills.unshift(`Institute: ${state.institute}`);
         if (state.block) pills.push(`Block: ${state.block}`);
@@ -491,7 +509,7 @@
 
         backgroundGrid.innerHTML = state.items.map((item) => {
           const previewClass = (item.orientation || 'landscape') === 'portrait' ? 'portrait' : 'landscape';
-          const metaParts = [item.orientation || 'landscape'];
+          const metaParts = [item.orientation || 'landscape', item.side || 'front'];
           if (item.block) metaParts.push(item.block);
           if (item.facility_sub_location) metaParts.push(item.facility_sub_location);
           return `
@@ -596,6 +614,7 @@
         form.append('background', fileInput.files[0]);
         form.append('scope', state.scope);
         form.append('orientation', state.orientation);
+        form.append('side', state.side);
         if (state.institute) form.append('institute', state.institute);
         if (state.block) form.append('block', state.block);
         if (state.facilitySubLocation) form.append('facility_sub_location', state.facilitySubLocation);
@@ -628,9 +647,17 @@
 
       document.querySelectorAll('.mode-tab').forEach((tab) => {
         tab.addEventListener('click', () => {
-          state.orientation = tab.getAttribute('data-orientation') || 'landscape';
+          if (tab.hasAttribute('data-orientation')) {
+            state.orientation = tab.getAttribute('data-orientation') || 'landscape';
+          } else if (tab.hasAttribute('data-side')) {
+            state.side = tab.getAttribute('data-side') || 'front';
+          }
           document.querySelectorAll('.mode-tab').forEach((item) => {
-            item.classList.toggle('active', item === tab);
+            if (item.hasAttribute('data-orientation')) {
+              item.classList.toggle('active', item.getAttribute('data-orientation') === state.orientation);
+            } else if (item.hasAttribute('data-side')) {
+              item.classList.toggle('active', item.getAttribute('data-side') === state.side);
+            }
           });
         });
       });

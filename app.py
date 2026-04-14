@@ -854,11 +854,15 @@ def sanitize_print_backgrounds_list(items):
         orientation = str(item.get("orientation") or "landscape").strip().lower()
         if orientation not in ("landscape", "portrait"):
             orientation = "landscape"
+        side = str(item.get("side") or "front").strip().lower()
+        if side not in ("front", "back"):
+            side = "front"
         sanitized.append({
             "id": background_id,
             "name": name[:80] if name else "Background",
             "url": url,
             "orientation": orientation,
+            "side": side,
             "created_at": str(item.get("created_at") or ""),
             "updated_at": str(item.get("updated_at") or ""),
         })
@@ -884,6 +888,9 @@ def sanitize_office_backgrounds_list(items):
         orientation = str(item.get("orientation") or "landscape").strip().lower()
         if orientation not in ("landscape", "portrait"):
             orientation = "landscape"
+        side = str(item.get("side") or "front").strip().lower()
+        if side not in ("front", "back"):
+            side = "front"
         sanitized.append({
             "id": background_id,
             "name": name[:80] if name else "Office Background",
@@ -891,6 +898,7 @@ def sanitize_office_backgrounds_list(items):
             "block": block,
             "facility_sub_location": facility_sub_location,
             "orientation": orientation,
+            "side": side,
             "created_at": str(item.get("created_at") or ""),
             "updated_at": str(item.get("updated_at") or ""),
         })
@@ -920,11 +928,15 @@ def sanitize_global_backgrounds_list(items):
         orientation = str(item.get("orientation") or "landscape").strip().lower()
         if orientation not in ("landscape", "portrait"):
             orientation = "landscape"
+        side = str(item.get("side") or "front").strip().lower()
+        if side not in ("front", "back"):
+            side = "front"
         sanitized.append({
             "id": background_id,
             "name": str(item.get("name") or "Background")[:80],
             "url": url,
             "orientation": orientation,
+            "side": side,
             "created_at": str(item.get("created_at") or ""),
             "updated_at": str(item.get("updated_at") or ""),
             "institute_name": canonicalize_institute_name(item.get("institute_name")) or "",
@@ -3470,12 +3482,18 @@ def normalize_background_orientation(value):
     return orientation if orientation in ("landscape", "portrait") else "landscape"
 
 
-def build_background_library_entry(entry_id, name, url, orientation, extra=None):
+def normalize_background_side(value):
+    side = str(value or "front").strip().lower()
+    return side if side in ("front", "back") else "front"
+
+
+def build_background_library_entry(entry_id, name, url, orientation, side, extra=None):
     payload = {
         "id": str(entry_id or "").strip(),
         "name": str(name or "Background").strip()[:80] or "Background",
         "url": str(url or "").strip(),
         "orientation": normalize_background_orientation(orientation),
+        "side": normalize_background_side(side),
         "created_at": current_timestamp_display(),
         "updated_at": current_timestamp_display(),
     }
@@ -3525,6 +3543,7 @@ def background_library_api():
     block = str(request.form.get("block") or "").strip()
     facility_sub_location = str(request.form.get("facility_sub_location") or "").strip()
     orientation = normalize_background_orientation(request.form.get("orientation"))
+    side = normalize_background_side(request.form.get("side"))
     name = (request.form.get("name") or "").strip()
 
     if "background" not in request.files:
@@ -3560,21 +3579,21 @@ def background_library_api():
     if scope == "common":
         prefs = load_admin_prefs()
         items = sanitize_global_backgrounds_list(prefs.get("fabric_global_backgrounds", []))
-        items.insert(0, build_background_library_entry(entry_id, entry_name, background_url, orientation, {"institute_name": ""}))
+        items.insert(0, build_background_library_entry(entry_id, entry_name, background_url, orientation, side, {"institute_name": ""}))
         prefs["fabric_global_backgrounds"] = items[:2000]
         save_admin_prefs(prefs)
         saved_items = prefs["fabric_global_backgrounds"]
     elif scope == "institute":
         settings = load_settings(institute)
         items = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
-        items.insert(0, build_background_library_entry(entry_id, entry_name, background_url, orientation))
+        items.insert(0, build_background_library_entry(entry_id, entry_name, background_url, orientation, side))
         settings["print_backgrounds"] = items[:80]
         save_settings(settings, institute)
         saved_items = settings["print_backgrounds"]
     else:
         settings = load_settings(institute)
         items = sanitize_office_backgrounds_list(settings.get("office_backgrounds", []))
-        items.insert(0, build_background_library_entry(entry_id, entry_name, background_url, orientation, {
+        items.insert(0, build_background_library_entry(entry_id, entry_name, background_url, orientation, side, {
             "block": block,
             "facility_sub_location": facility_sub_location,
         }))
