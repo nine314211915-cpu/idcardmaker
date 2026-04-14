@@ -3461,58 +3461,7 @@ function resetForm() {
 
 // Init
 installFieldFormatters();
-const persistedUiState = loadUiState();
-if (persistedUiState.instituteName) {
-  document.getElementById('instituteName').value = persistedUiState.instituteName;
-}
-if (typeof persistedUiState.otherInstituteName === 'string') {
-  document.getElementById('otherInstituteName').value = persistedUiState.otherInstituteName;
-}
-if (typeof persistedUiState.familyNameType === 'string' && persistedUiState.familyNameType.trim()) {
-  document.getElementById('familyNameType').value = persistedUiState.familyNameType;
-}
-if (typeof persistedUiState.selectedBatchSerial === 'string') {
-  selectedBatchSerial = persistedUiState.selectedBatchSerial;
-}
-handleFamilyNameTypeChange();
-handleInstituteChange();
-if (typeof persistedUiState.currentType === 'string' && persistedUiState.currentType.trim()) {
-  setType(persistedUiState.currentType);
-}
-if (typeof persistedUiState.facilityLocation === 'string') {
-  document.getElementById('facilityLocation').value = persistedUiState.facilityLocation;
-}
-if (typeof persistedUiState.facilitySubLocation === 'string') {
-  handleFacilityLocationChange();
-  setFacilitySubLocationValue(persistedUiState.facilitySubLocation);
-}
-[
-  'name', 'course', 'validUpto', 'batchSession', 'trainingYear', 'fatherName',
-  'designation', 'employeeId', 'dob', 'contact', 'bloodGroup', 'aadhaarNo',
-  'customEmployeeFieldLabel', 'customEmployeeFieldValue', 'address'
-].forEach((id) => {
-  if (typeof persistedUiState[id] === 'string') {
-    const el = document.getElementById(id);
-    if (el) el.value = persistedUiState[id];
-  }
-});
-toggleEmployeeCustomField(!!((persistedUiState.customEmployeeFieldLabel || '').trim() || (persistedUiState.customEmployeeFieldValue || '').trim()));
-if (typeof persistedUiState.serialNo === 'string' && persistedUiState.serialNo.trim()) {
-  setSerialValue(persistedUiState.serialNo);
-}
-if (persistedUiState.currentPhotoMeta && typeof persistedUiState.currentPhotoMeta === 'object') {
-  currentPhotoMeta = {
-    url: persistedUiState.currentPhotoMeta.url || '',
-    drive_id: persistedUiState.currentPhotoMeta.drive_id || '',
-    draft_photo_key: persistedUiState.currentPhotoMeta.draft_photo_key || ''
-  };
-  if (currentPhotoMeta.url) {
-    showPhotoPreviewFromUrl(currentPhotoMeta.url);
-  }
-}
-batchInstituteLocked = false;
-setInstituteLocked(false);
-updatePreview();
+startFreshSession();
 ['pointerdown', 'keydown', 'input', 'change'].forEach((eventName) => {
   document.addEventListener(eventName, noteBatchActivity, true);
   document.addEventListener(eventName, scheduleAutoDraftSave, true);
