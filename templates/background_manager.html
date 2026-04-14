@@ -13,7 +13,7 @@
       --text: #2d2118;
       --muted: #77695d;
       --accent: #8b0000;
-      --accent-soft: #fff3ef;
+      --accent-soft: #fff2ec;
       --shadow: 0 18px 40px rgba(69, 40, 18, 0.08);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -22,24 +22,26 @@
       font-family: 'Source Sans 3', sans-serif;
       color: var(--text);
       background:
-        radial-gradient(circle at top left, rgba(255,255,255,0.8), transparent 30%),
+        radial-gradient(circle at top left, rgba(255,255,255,0.82), transparent 30%),
         linear-gradient(180deg, #fbf7f1 0%, var(--bg) 100%);
       padding: 18px;
     }
     .shell {
-      max-width: 1380px;
+      max-width: 1440px;
       margin: 0 auto;
       display: grid;
       gap: 14px;
     }
-    .hero {
+    .hero, .panel {
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 24px;
       box-shadow: var(--shadow);
+    }
+    .hero {
       padding: 24px;
       display: grid;
-      gap: 14px;
+      gap: 16px;
     }
     .hero-top {
       display: flex;
@@ -48,39 +50,40 @@
       gap: 16px;
       flex-wrap: wrap;
     }
-    .title-wrap h1 {
+    .hero h1 {
       font-family: 'Playfair Display', serif;
       font-size: 38px;
       line-height: 1.02;
     }
-    .title-wrap p {
+    .hero p {
       margin-top: 8px;
-      color: var(--muted);
+      max-width: 760px;
       font-size: 16px;
-      max-width: 740px;
+      color: var(--muted);
+      line-height: 1.55;
     }
     .hero-actions {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
     }
-    .hero-actions a, .btn {
+    .hero-actions a, .btn, .scope-tab, .mode-tab {
       border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 11px 16px;
       background: #fff;
       color: var(--text);
+      border-radius: 12px;
+      padding: 11px 16px;
       text-decoration: none;
       font-size: 14px;
       font-weight: 700;
       cursor: pointer;
       transition: transform .08s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
     }
-    .hero-actions a:hover, .btn:hover {
+    .hero-actions a:hover, .btn:hover, .scope-tab:hover, .mode-tab:hover {
       border-color: #caa176;
       box-shadow: 0 10px 20px rgba(69, 40, 18, 0.08);
     }
-    .hero-actions a:active, .btn:active {
+    .hero-actions a:active, .btn:active, .scope-tab:active, .mode-tab:active {
       transform: translateY(1px) scale(0.99);
     }
     .hero-actions a.primary, .btn.primary {
@@ -88,11 +91,55 @@
       color: #fff;
       border-color: transparent;
     }
-    .controls {
+    .hero-actions a.soft, .btn.soft {
+      background: #fff;
+      color: var(--accent);
+    }
+    .scope-tabs {
+      display: inline-grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      padding: 6px;
+      background: #f7ede2;
+      border-radius: 16px;
+      width: min(700px, 100%);
+    }
+    .scope-tab.active, .mode-tab.active {
+      background: var(--accent-soft);
+      border-color: #e0b49d;
+      color: var(--accent);
+    }
+    .status-bar {
+      min-height: 22px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .status-bar.error { color: #b42318; }
+    .layout {
       display: grid;
-      grid-template-columns: minmax(240px, 360px) 1fr auto;
+      grid-template-columns: 360px minmax(0, 1fr);
+      gap: 14px;
+    }
+    .panel {
+      padding: 18px;
+    }
+    .left-stack {
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+    .panel h2 {
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+    .note {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .fields {
+      display: grid;
       gap: 12px;
-      align-items: end;
     }
     .field {
       display: grid;
@@ -114,101 +161,44 @@
       font-size: 15px;
       padding: 12px 14px;
     }
-    .status-bar {
-      min-height: 22px;
-      font-size: 14px;
-      color: var(--muted);
+    .field.hidden {
+      display: none;
     }
-    .status-bar.error { color: #b42318; }
-    .layout {
+    .mode-tabs {
       display: grid;
-      grid-template-columns: 280px minmax(0, 1fr);
-      gap: 14px;
-    }
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      box-shadow: var(--shadow);
-      padding: 18px;
-    }
-    .side-stack {
-      display: grid;
-      gap: 14px;
-      align-content: start;
-    }
-    .panel h2 {
-      font-size: 20px;
-      margin-bottom: 10px;
-    }
-    .panel h3 {
-      font-size: 16px;
-      margin-bottom: 8px;
-    }
-    .note {
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.5;
-    }
-    .idea-box {
-      border: 1px dashed #d4b9a2;
-      border-radius: 16px;
-      background: linear-gradient(180deg, #fff8f2 0%, #fffdf9 100%);
-      padding: 14px;
-      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 8px;
     }
-    .tabs {
-      display: inline-grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-      background: #f7ede2;
-      padding: 6px;
-      border-radius: 16px;
-      margin-bottom: 16px;
-    }
-    .tab {
-      border: 0;
-      background: transparent;
-      border-radius: 12px;
-      padding: 12px 14px;
-      font-size: 14px;
-      font-weight: 700;
-      color: #6c5e52;
-      cursor: pointer;
-    }
-    .tab.active {
-      background: #fff;
-      color: var(--accent);
-      box-shadow: 0 8px 18px rgba(69, 40, 18, 0.08);
-    }
-    .upload-card {
+    .card {
       border: 1px solid var(--line);
       border-radius: 18px;
       background: #fff;
       padding: 14px;
       display: grid;
-      gap: 10px;
-    }
-    .upload-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      gap: 12px;
     }
     .summary {
       display: flex;
-      gap: 10px;
       flex-wrap: wrap;
+      gap: 10px;
       margin-bottom: 16px;
     }
     .pill {
-      border-radius: 999px;
       border: 1px solid var(--line);
-      background: #fff;
+      border-radius: 999px;
       padding: 8px 12px;
+      background: #fff;
+      color: #5f5044;
       font-size: 13px;
       font-weight: 700;
-      color: #5f5044;
+    }
+    .library-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
     }
     .grid {
       display: grid;
@@ -218,14 +208,14 @@
     .bg-card {
       border: 1px solid var(--line);
       border-radius: 18px;
-      background: #fff;
       overflow: hidden;
+      background: #fff;
       box-shadow: 0 10px 22px rgba(69, 40, 18, 0.05);
     }
     .bg-preview {
       width: 100%;
-      object-fit: cover;
       display: block;
+      object-fit: cover;
       background: #efe6dc;
     }
     .bg-preview.landscape { aspect-ratio: 16 / 10; }
@@ -243,30 +233,25 @@
     .bg-meta {
       font-size: 12px;
       color: var(--muted);
+      line-height: 1.4;
     }
     .bg-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+      display: flex;
       gap: 8px;
-    }
-    .btn.soft-active {
-      background: var(--accent-soft);
-      border-color: #e6b8a9;
-      color: var(--accent);
     }
     .empty {
       border: 1px dashed var(--line);
       border-radius: 18px;
       background: #fff;
       color: var(--muted);
-      padding: 26px;
+      padding: 28px;
       text-align: center;
       font-size: 15px;
     }
-    @media (max-width: 960px) {
-      .controls, .layout { grid-template-columns: 1fr; }
-      .upload-actions, .bg-actions { grid-template-columns: 1fr; }
-      .title-wrap h1 { font-size: 31px; }
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .scope-tabs { width: 100%; }
+      .hero h1 { font-size: 31px; }
     }
   </style>
 </head>
@@ -274,9 +259,9 @@
   <main class="shell">
     <section class="hero">
       <div class="hero-top">
-        <div class="title-wrap">
+        <div>
           <h1>Background Library</h1>
-          <p>Keep background work separate from photo studio. Upload and organize backgrounds by <strong>Landscape</strong> and <strong>Portrait</strong>, then let print studio stay focused on card design only.</p>
+          <p>Backgrounds are now organized by real scope. Start with <strong>Common</strong> for reusable designs, use <strong>Institute</strong> for institute-wide designs, and use <strong>Office</strong> when a specific block and facility sub-location acts like its own office.</p>
         </div>
         <div class="hero-actions">
           <a href="/admin" class="soft">Admin</a>
@@ -284,49 +269,72 @@
           <a href="/" class="primary">Home</a>
         </div>
       </div>
-      <div class="controls">
-        <div class="field">
-          <label for="instituteSelect">Institute</label>
-          <select id="instituteSelect">
-            <option value="">Select institute</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="backgroundName">Background Name</label>
-          <input id="backgroundName" type="text" placeholder="Optional custom name before upload">
-        </div>
-        <button class="btn" type="button" id="refreshBtn">Refresh</button>
+      <div class="scope-tabs" id="scopeTabs">
+        <button class="scope-tab active" type="button" data-scope="common">Common</button>
+        <button class="scope-tab" type="button" data-scope="institute">Institute</button>
+        <button class="scope-tab" type="button" data-scope="office">Office</button>
       </div>
       <div class="status-bar" id="statusBar"></div>
     </section>
 
     <section class="layout">
-      <aside class="side-stack">
+      <aside class="left-stack">
         <article class="panel">
-          <h2>Upload</h2>
-          <div class="upload-card">
-            <h3>New Background</h3>
-            <p class="note">Upload directly into the correct library. This keeps portrait and landscape backgrounds clean and easy to find later.</p>
-            <div class="upload-actions">
-              <button class="btn" type="button" id="uploadLandscapeBtn">Upload Landscape</button>
-              <button class="btn" type="button" id="uploadPortraitBtn">Upload Portrait</button>
+          <h2>Filters</h2>
+          <div class="fields">
+            <div class="field hidden" id="instituteField">
+              <label for="instituteSelect">Institute</label>
+              <select id="instituteSelect">
+                <option value="">Select institute</option>
+              </select>
+            </div>
+            <div class="field hidden" id="blockField">
+              <label for="blockSelect">Block</label>
+              <select id="blockSelect">
+                <option value="">Select block</option>
+              </select>
+            </div>
+            <div class="field hidden" id="subLocationField">
+              <label for="subLocationSelect">Facility Sub Location</label>
+              <select id="subLocationSelect">
+                <option value="">Select facility sub location</option>
+              </select>
             </div>
           </div>
         </article>
 
         <article class="panel">
-          <h2>Idea</h2>
-          <div class="idea-box">
-            <p class="note">Best workflow: keep this page only for background curation. Upload, name, activate, and delete backgrounds here.</p>
-            <p class="note">Then in photo studio, users should only choose from this ready library instead of managing files there too. That reduces confusion a lot.</p>
+          <h2>Upload</h2>
+          <div class="card">
+            <p class="note">Upload into the currently selected scope. For Office backgrounds, choose institute, block, and facility sub-location first.</p>
+            <div class="field">
+              <label for="backgroundName">Background Name</label>
+              <input id="backgroundName" type="text" placeholder="Optional name before upload">
+            </div>
+            <div class="mode-tabs">
+              <button class="mode-tab active" type="button" data-orientation="landscape">Landscape</button>
+              <button class="mode-tab" type="button" data-orientation="portrait">Portrait</button>
+            </div>
+            <button class="btn primary" type="button" id="uploadBtn">Upload Background</button>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>Opinion</h2>
+          <div class="card">
+            <p class="note">This is the cleanest model for your project: store backgrounds by <strong>Common</strong>, <strong>Institute</strong>, or <strong>Office</strong>. Do not save them directly by batch, because batches change often but office identity stays stable.</p>
+            <p class="note">Then print studio can later consume the right library in priority order: Office first, then Institute, then Common.</p>
           </div>
         </article>
       </aside>
 
       <section class="panel">
-        <div class="tabs">
-          <button class="tab active" type="button" data-orientation="landscape">Landscape</button>
-          <button class="tab" type="button" data-orientation="portrait">Portrait</button>
+        <div class="library-head">
+          <div>
+            <h2>Library Items</h2>
+            <p class="note" id="libraryHint">Common backgrounds are reusable anywhere later.</p>
+          </div>
+          <button class="btn" type="button" id="refreshBtn">Refresh</button>
         </div>
         <div class="summary" id="summaryBar"></div>
         <div class="grid" id="backgroundGrid"></div>
@@ -338,21 +346,34 @@
 
   <script>
     (() => {
+      const scopeTabs = document.getElementById('scopeTabs');
+      const instituteField = document.getElementById('instituteField');
+      const blockField = document.getElementById('blockField');
+      const subLocationField = document.getElementById('subLocationField');
       const instituteSelect = document.getElementById('instituteSelect');
-      const backgroundNameInput = document.getElementById('backgroundName');
-      const backgroundGrid = document.getElementById('backgroundGrid');
-      const summaryBar = document.getElementById('summaryBar');
+      const blockSelect = document.getElementById('blockSelect');
+      const subLocationSelect = document.getElementById('subLocationSelect');
       const statusBar = document.getElementById('statusBar');
+      const backgroundNameInput = document.getElementById('backgroundName');
+      const summaryBar = document.getElementById('summaryBar');
+      const backgroundGrid = document.getElementById('backgroundGrid');
+      const refreshBtn = document.getElementById('refreshBtn');
+      const uploadBtn = document.getElementById('uploadBtn');
       const fileInput = document.getElementById('backgroundFileInput');
       const openStudioLink = document.getElementById('openStudioLink');
+      const libraryHint = document.getElementById('libraryHint');
       const queryParams = new URLSearchParams(window.location.search);
 
       const state = {
-        institute: '',
+        scope: 'common',
         orientation: 'landscape',
-        backgrounds: [],
-        activeId: '',
-        pendingOrientation: 'landscape',
+        institute: queryParams.get('institute') || '',
+        block: '',
+        facilitySubLocation: '',
+        institutes: [],
+        facilityInstitutes: [],
+        facilityStructure: {},
+        items: [],
       };
 
       function setStatus(message, isError = false) {
@@ -375,39 +396,111 @@
           : '/admin/print-studio';
       }
 
+      function getCurrentHint() {
+        if (state.scope === 'common') return 'Common backgrounds are reusable anywhere later.';
+        if (state.scope === 'institute') return 'Institute backgrounds are shared inside one institute.';
+        return 'Office backgrounds are saved for one exact office: Institute + Block + Facility Sub Location.';
+      }
+
+      function isFacilityInstitute(institute) {
+        return state.facilityInstitutes.includes(institute);
+      }
+
+      function populateSelect(selectEl, items, placeholder) {
+        const current = selectEl.value;
+        const options = [`<option value="">${escapeHtml(placeholder)}</option>`].concat(
+          items.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`)
+        );
+        selectEl.innerHTML = options.join('');
+        if (items.includes(current)) {
+          selectEl.value = current;
+        }
+      }
+
+      function updateBlockOptions() {
+        if (!state.institute || !isFacilityInstitute(state.institute)) {
+          blockSelect.innerHTML = '<option value="">Select block</option>';
+          subLocationSelect.innerHTML = '<option value="">Select facility sub location</option>';
+          return;
+        }
+        const blocks = ((state.facilityStructure[state.institute] || {}).blocks) || [];
+        populateSelect(blockSelect, blocks, 'Select block');
+      }
+
+      function updateSubLocationOptions() {
+        if (!state.institute || !state.block) {
+          subLocationSelect.innerHTML = '<option value="">Select facility sub location</option>';
+          return;
+        }
+        const structure = state.facilityStructure[state.institute] || {};
+        const subLocations = ((structure.sub_locations || {})[state.block]) || [];
+        populateSelect(subLocationSelect, subLocations, 'Select facility sub location');
+      }
+
+      function updateScopeUI() {
+        scopeTabs.querySelectorAll('.scope-tab').forEach((tab) => {
+          tab.classList.toggle('active', tab.getAttribute('data-scope') === state.scope);
+        });
+        document.querySelectorAll('.mode-tab').forEach((tab) => {
+          tab.classList.toggle('active', tab.getAttribute('data-orientation') === state.orientation);
+        });
+
+        instituteField.classList.toggle('hidden', state.scope === 'common');
+        blockField.classList.toggle('hidden', state.scope !== 'office');
+        subLocationField.classList.toggle('hidden', state.scope !== 'office');
+
+        if (state.scope !== 'office') {
+          state.block = '';
+          state.facilitySubLocation = '';
+          blockSelect.value = '';
+          subLocationSelect.innerHTML = '<option value="">Select facility sub location</option>';
+        }
+
+        libraryHint.textContent = getCurrentHint();
+        syncStudioLink();
+      }
+
       function renderSummary() {
-        const landscapeCount = state.backgrounds.filter((item) => item.orientation === 'landscape').length;
-        const portraitCount = state.backgrounds.filter((item) => item.orientation === 'portrait').length;
-        summaryBar.innerHTML = `
-          <div class="pill">Institute: ${escapeHtml(state.institute || 'Not selected')}</div>
-          <div class="pill">Landscape: ${landscapeCount}</div>
-          <div class="pill">Portrait: ${portraitCount}</div>
-          <div class="pill">Active: ${escapeHtml(state.activeId || 'None')}</div>
-        `;
+        const landscapeCount = state.items.filter((item) => (item.orientation || 'landscape') === 'landscape').length;
+        const portraitCount = state.items.filter((item) => (item.orientation || 'landscape') === 'portrait').length;
+        const pills = [
+          `Scope: ${state.scope.charAt(0).toUpperCase() + state.scope.slice(1)}`,
+          `Landscape: ${landscapeCount}`,
+          `Portrait: ${portraitCount}`,
+        ];
+        if (state.institute) pills.unshift(`Institute: ${state.institute}`);
+        if (state.block) pills.push(`Block: ${state.block}`);
+        if (state.facilitySubLocation) pills.push(`Office: ${state.facilitySubLocation}`);
+        summaryBar.innerHTML = pills.map((text) => `<div class="pill">${escapeHtml(text)}</div>`).join('');
       }
 
       function renderGrid() {
         renderSummary();
-        const filtered = state.backgrounds.filter((item) => (item.orientation || 'landscape') === state.orientation);
-        if (!state.institute) {
-          backgroundGrid.innerHTML = '<div class="empty">Select an institute to manage backgrounds.</div>';
+        if (state.scope !== 'common' && !state.institute) {
+          backgroundGrid.innerHTML = '<div class="empty">Select an institute first.</div>';
           return;
         }
-        if (!filtered.length) {
-          backgroundGrid.innerHTML = `<div class="empty">No ${state.orientation} backgrounds yet for this institute.</div>`;
+        if (state.scope === 'office' && (!state.block || !state.facilitySubLocation)) {
+          backgroundGrid.innerHTML = '<div class="empty">Choose block and facility sub location to view office backgrounds.</div>';
           return;
         }
-        backgroundGrid.innerHTML = filtered.map((item) => {
-          const isActive = String(item.id || '') === String(state.activeId || '');
-          const previewClass = item.orientation === 'portrait' ? 'portrait' : 'landscape';
+        if (!state.items.length) {
+          backgroundGrid.innerHTML = `<div class="empty">No ${escapeHtml(state.scope)} backgrounds found for this selection.</div>`;
+          return;
+        }
+
+        backgroundGrid.innerHTML = state.items.map((item) => {
+          const previewClass = (item.orientation || 'landscape') === 'portrait' ? 'portrait' : 'landscape';
+          const metaParts = [item.orientation || 'landscape'];
+          if (item.block) metaParts.push(item.block);
+          if (item.facility_sub_location) metaParts.push(item.facility_sub_location);
           return `
             <article class="bg-card">
               <img class="bg-preview ${previewClass}" src="${escapeHtml(item.url)}" alt="${escapeHtml(item.name)}">
               <div class="bg-body">
                 <div class="bg-title">${escapeHtml(item.name)}</div>
-                <div class="bg-meta">${escapeHtml(item.orientation || 'landscape')} ${isActive ? '• Active' : ''}</div>
+                <div class="bg-meta">${escapeHtml(metaParts.join(' • '))}</div>
                 <div class="bg-actions">
-                  <button class="btn ${isActive ? 'soft-active' : ''}" type="button" data-activate="${escapeHtml(item.id)}">${isActive ? 'Active Now' : 'Set Active'}</button>
                   <button class="btn" type="button" data-delete="${escapeHtml(item.id)}">Delete</button>
                 </div>
               </div>
@@ -415,74 +508,52 @@
           `;
         }).join('');
 
-        backgroundGrid.querySelectorAll('[data-activate]').forEach((btn) => {
-          btn.addEventListener('click', async () => {
-            const id = btn.getAttribute('data-activate');
-            await activateBackground(id);
-          });
-        });
-        backgroundGrid.querySelectorAll('[data-delete]').forEach((btn) => {
-          btn.addEventListener('click', async () => {
-            const id = btn.getAttribute('data-delete');
-            await deleteBackground(id);
+        backgroundGrid.querySelectorAll('[data-delete]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            const id = button.getAttribute('data-delete');
+            await deleteItem(id);
           });
         });
       }
 
-      async function loadInstitutes() {
+      async function loadStructure() {
         const res = await fetch('/api/admin/institutes');
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'Unable to load institutes');
-        const institutes = Array.isArray(data.institutes) ? data.institutes : [];
-        const initialInstitute = queryParams.get('institute') || state.institute || '';
-        instituteSelect.innerHTML = '<option value="">Select institute</option>' + institutes.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join('');
-        if (initialInstitute && institutes.includes(initialInstitute)) {
-          state.institute = initialInstitute;
-          instituteSelect.value = initialInstitute;
+        if (!res.ok) throw new Error(data.error || 'Unable to load institute structure');
+        state.institutes = Array.isArray(data.institutes) ? data.institutes : [];
+        state.facilityInstitutes = Array.isArray(data.facility_institutes) ? data.facility_institutes : [];
+        state.facilityStructure = (data.facility_structure && typeof data.facility_structure === 'object') ? data.facility_structure : {};
+        populateSelect(instituteSelect, state.institutes, 'Select institute');
+        if (state.institute && state.institutes.includes(state.institute)) {
+          instituteSelect.value = state.institute;
         }
-        syncStudioLink();
+        updateBlockOptions();
+        updateSubLocationOptions();
       }
 
-      async function loadBackgrounds() {
-        if (!state.institute) {
-          state.backgrounds = [];
-          state.activeId = '';
-          renderGrid();
-          return;
-        }
+      function buildLibraryQuery() {
+        const params = new URLSearchParams();
+        params.set('scope', state.scope);
+        if (state.institute) params.set('institute', state.institute);
+        if (state.block) params.set('block', state.block);
+        if (state.facilitySubLocation) params.set('facility_sub_location', state.facilitySubLocation);
+        return params.toString();
+      }
+
+      async function loadItems() {
         setStatus('Loading backgrounds...');
-        const res = await fetch(`/api/print-backgrounds?institute=${encodeURIComponent(state.institute)}`);
+        const res = await fetch(`/api/background-library?${buildLibraryQuery()}`);
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'Unable to load backgrounds');
-        state.backgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : [];
-        state.activeId = String(data.active_background_id || '');
+        if (!res.ok) throw new Error(data.error || 'Unable to load background library');
+        state.items = Array.isArray(data.items) ? data.items : [];
         renderGrid();
-        setStatus(`Loaded ${state.backgrounds.length} background(s).`);
+        setStatus(`Loaded ${state.items.length} background(s).`);
       }
 
-      async function activateBackground(id) {
-        if (!state.institute || !id) return;
-        setStatus('Setting active background...');
-        const res = await fetch(`/api/print-backgrounds/${encodeURIComponent(id)}/activate?institute=${encodeURIComponent(state.institute)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ institute: state.institute })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          setStatus(data.error || 'Unable to set active background.', true);
-          return;
-        }
-        state.backgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : state.backgrounds;
-        state.activeId = String(data.active_background_id || '');
-        renderGrid();
-        setStatus('Active background updated.');
-      }
-
-      async function deleteBackground(id) {
-        if (!state.institute || !id) return;
+      async function deleteItem(id) {
+        if (!id) return;
         setStatus('Deleting background...');
-        const res = await fetch(`/api/print-backgrounds/${encodeURIComponent(id)}?institute=${encodeURIComponent(state.institute)}`, {
+        const res = await fetch(`/api/background-library/${encodeURIComponent(id)}?${buildLibraryQuery()}`, {
           method: 'DELETE'
         });
         const data = await res.json().catch(() => ({}));
@@ -490,28 +561,48 @@
           setStatus(data.error || 'Unable to delete background.', true);
           return;
         }
-        state.backgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : [];
-        state.activeId = String(data.active_background_id || '');
+        state.items = Array.isArray(data.items) ? data.items : [];
         renderGrid();
         setStatus('Background deleted.');
       }
 
-      async function uploadBackground() {
+      function validateUploadSelection() {
+        if (state.scope === 'common') return true;
         if (!state.institute) {
           setStatus('Select institute first.', true);
-          return;
+          return false;
         }
+        if (state.scope === 'office') {
+          if (!isFacilityInstitute(state.institute)) {
+            setStatus('Office backgrounds are only available for institute types that use Block and Facility Sub Location.', true);
+            return false;
+          }
+          if (!state.block) {
+            setStatus('Select block first.', true);
+            return false;
+          }
+          if (!state.facilitySubLocation) {
+            setStatus('Select facility sub location first.', true);
+            return false;
+          }
+        }
+        return true;
+      }
+
+      async function uploadBackground() {
+        if (!validateUploadSelection()) return;
         if (!fileInput.files.length) return;
-        const file = fileInput.files[0];
         const form = new FormData();
-        form.append('background', file);
-        form.append('institute', state.institute);
-        form.append('orientation', state.pendingOrientation);
-        if (backgroundNameInput.value.trim()) {
-          form.append('name', backgroundNameInput.value.trim());
-        }
-        setStatus(`Uploading ${state.pendingOrientation} background...`);
-        const res = await fetch('/api/print-backgrounds', {
+        form.append('background', fileInput.files[0]);
+        form.append('scope', state.scope);
+        form.append('orientation', state.orientation);
+        if (state.institute) form.append('institute', state.institute);
+        if (state.block) form.append('block', state.block);
+        if (state.facilitySubLocation) form.append('facility_sub_location', state.facilitySubLocation);
+        if (backgroundNameInput.value.trim()) form.append('name', backgroundNameInput.value.trim());
+
+        setStatus(`Uploading ${state.scope} background...`);
+        const res = await fetch('/api/background-library', {
           method: 'POST',
           body: form
         });
@@ -521,45 +612,66 @@
           setStatus(data.error || 'Upload failed.', true);
           return;
         }
-        state.backgrounds = Array.isArray(data.backgrounds) ? data.backgrounds : state.backgrounds;
-        state.activeId = String(data.active_background_id || '');
-        state.orientation = state.pendingOrientation;
-        document.querySelectorAll('.tab').forEach((tab) => {
-          tab.classList.toggle('active', tab.getAttribute('data-orientation') === state.orientation);
-        });
+        state.items = Array.isArray(data.items) ? data.items : [];
         renderGrid();
-        setStatus(`${state.pendingOrientation === 'portrait' ? 'Portrait' : 'Landscape'} background uploaded.`);
+        setStatus('Background uploaded.');
       }
 
-      document.querySelectorAll('.tab').forEach((tab) => {
+      scopeTabs.querySelectorAll('.scope-tab').forEach((tab) => {
+        tab.addEventListener('click', async () => {
+          state.scope = tab.getAttribute('data-scope') || 'common';
+          updateScopeUI();
+          renderGrid();
+          await loadItems();
+        });
+      });
+
+      document.querySelectorAll('.mode-tab').forEach((tab) => {
         tab.addEventListener('click', () => {
           state.orientation = tab.getAttribute('data-orientation') || 'landscape';
-          document.querySelectorAll('.tab').forEach((item) => item.classList.toggle('active', item === tab));
-          renderGrid();
+          document.querySelectorAll('.mode-tab').forEach((item) => {
+            item.classList.toggle('active', item === tab);
+          });
         });
       });
 
       instituteSelect.addEventListener('change', async () => {
         state.institute = instituteSelect.value || '';
-        syncStudioLink();
-        await loadBackgrounds();
+        state.block = '';
+        state.facilitySubLocation = '';
+        updateBlockOptions();
+        updateSubLocationOptions();
+        updateScopeUI();
+        renderGrid();
+        await loadItems();
       });
 
-      document.getElementById('refreshBtn').addEventListener('click', loadBackgrounds);
-      document.getElementById('uploadLandscapeBtn').addEventListener('click', () => {
-        state.pendingOrientation = 'landscape';
-        fileInput.click();
+      blockSelect.addEventListener('change', async () => {
+        state.block = blockSelect.value || '';
+        state.facilitySubLocation = '';
+        updateSubLocationOptions();
+        renderGrid();
+        await loadItems();
       });
-      document.getElementById('uploadPortraitBtn').addEventListener('click', () => {
-        state.pendingOrientation = 'portrait';
+
+      subLocationSelect.addEventListener('change', async () => {
+        state.facilitySubLocation = subLocationSelect.value || '';
+        renderGrid();
+        await loadItems();
+      });
+
+      refreshBtn.addEventListener('click', loadItems);
+      uploadBtn.addEventListener('click', () => {
+        if (!validateUploadSelection()) return;
         fileInput.click();
       });
       fileInput.addEventListener('change', uploadBackground);
 
       (async () => {
         try {
-          await loadInstitutes();
-          await loadBackgrounds();
+          await loadStructure();
+          updateScopeUI();
+          await loadItems();
         } catch (err) {
           setStatus(err && err.message ? err.message : 'Unable to load background manager.', true);
         }

@@ -412,6 +412,7 @@ def default_institute_settings(institute=None):
         "background_drive_id": "",
         "print_background_active_id": "",
         "print_backgrounds": [],
+        "office_backgrounds": [],
         "fabric_batch_background_bindings": {},
         "certificate_background_url": "",
         "certificate_background_drive_id": "",
@@ -430,6 +431,72 @@ def default_admin_prefs():
         "last_auto_cleanup_at": "",
         "fabric_global_backgrounds": [],
     }
+
+
+FACILITY_LOCATION_INSTITUTES = [
+    "Govt. Community Health Centre (CHC), Jhunjhunu",
+    "Govt. Primary Health Centre (PHC), Jhunjhunu",
+    "Govt. Health Sub Centre, Jhunjhunu",
+]
+
+FACILITY_LOCATIONS = {
+    "Govt. Community Health Centre (CHC), Jhunjhunu": ["Jhunjhunu", "Chirawa", "Khetri", "Udaipurwati", "Nawalgarh", "Buhana", "Malsisar", "Mandawa", "Surajgarh"],
+    "Govt. Primary Health Centre (PHC), Jhunjhunu": ["All PHCs", "Jhunjhunu", "Chirawa", "Surajgarh", "Khetri", "Buhana", "Nawalgarh", "Udaipurwati", "Malsisar"],
+    "Govt. Health Sub Centre, Jhunjhunu": ["All Sub Centres", "Jhunjhunu", "Chirawa", "Buhana", "Khetri", "Nawalgarh", "Udaipurwati", "Pilani", "Surajgarh", "Mandawa"],
+}
+
+FACILITY_SUB_LOCATIONS = {
+    "Govt. Community Health Centre (CHC), Jhunjhunu": {
+        "Jhunjhunu": ["Bagar", "Indali", "Baragaon"],
+        "Chirawa": ["Chirawa", "Mandrella"],
+        "Khetri": ["Khetri", "Singhana"],
+        "Udaipurwati": ["Udaipurwati", "Gudhagorji", "Chirana", "Ponkh"],
+        "Nawalgarh": ["Nawalgarh", "Khirod", "Parasrampura"],
+        "Buhana": ["Buhana"],
+        "Malsisar": ["Malsisar", "Bissau", "Mahansar"],
+        "Mandawa": ["Mandawa"],
+        "Surajgarh": ["Surajgarh"],
+    },
+    "Govt. Primary Health Centre (PHC), Jhunjhunu": {
+        "All PHCs": [
+            "Islampur", "Kali Pahari", "Binjusar", "Hetamsar", "Bharu", "Bhadarwas", "Bharunda Kalan", "Patusari", "Churi", "Nua",
+            "Bakhtawarpura", "Padampura", "Solana", "Sultana", "Chanana", "Jakhora", "Ardawata", "Bangothri Kalan", "Kakoda", "Kajara",
+            "Kidwana", "Pipli", "Chhapara", "Devroad", "Jakhod", "Babai", "Shimla", "Sihod", "Papurana", "Rasulpur", "Tyonda", "Tatija",
+            "Jasarapur", "Tibba Basai", "Udamandi", "Kuhadwas", "Singhana", "Hirwa", "Pacheri Kalan", "Sawlod", "Sohali", "Churina",
+            "Jhajhar", "Basawa", "Mandasi", "Khirod", "Dhigal", "Bhagera", "Parasrampura", "Jakhal", "Jejusar", "Gothara", "Baragaun",
+            "Mandawara", "Bhorki", "Ponkh", "Pachlangi", "Chhapoli", "Chanwara", "Titanwad", "Gudha Gorji", "Alsisar", "Birmi",
+            "Gangiyasar", "Kaant", "Kaliyasar", "Ladusar", "Mahansar", "Niradhanu", "Tumkor",
+        ],
+        "Jhunjhunu": ["Islampur", "Bagar", "Hetamsar", "Indali", "Bharu", "Sultana", "Dhigal", "Birmi", "Bajla", "Gura", "Titanwad"],
+        "Chirawa": ["Bakhtawarpura", "Padampura", "Solana", "Sultana", "Chanana", "Jakhora", "Ardawata", "Bharunda Kalan"],
+        "Surajgarh": ["Bangothri Kalan", "Kakoda", "Kajara", "Kidwana", "Pipli", "Chhapara", "Devroad", "Jakhod"],
+        "Khetri": ["Babai", "Shimla", "Sihod", "Papurana", "Rasulpur", "Tyonda", "Tatija", "Jasarapur", "Tibba Basai"],
+        "Buhana": ["Udamandi", "Kuhadwas", "Singhana", "Hirwa", "Pacheri Kalan", "Sawlod", "Sohali", "Churina"],
+        "Nawalgarh": ["Jhajhar", "Basawa", "Mandasi", "Khirod", "Dhigal", "Bhagera", "Parasrampura", "Jakhal", "Jejusar", "Gothara"],
+        "Udaipurwati": ["Baragaun", "Mandawara", "Bhorki", "Ponkh", "Pachlangi", "Chhapoli", "Chanwara", "Titanwad", "Gudha Gorji"],
+        "Malsisar": ["Alsisar", "Birmi", "Gangiyasar", "Kaant", "Kaliyasar", "Ladusar", "Mahansar", "Niradhanu", "Tumkor"],
+    },
+    "Govt. Health Sub Centre, Jhunjhunu": {
+        "All Sub Centres": [
+            "Jhunjhunu Town", "Badalwas", "Dundlod", "Sultana", "Mandrella", "Nua", "Khudana", "Chirawa Town", "Mandrela", "Pilod",
+            "Arnia", "Kithana", "Bajawa", "Gidania", "Buhana Town", "Pacheri Kalan", "Sohli", "Singhana", "Bhirr", "Kuharwas", "Bhukana",
+            "Khetri Town", "Kolihan Nagar", "Banwas", "Ravla", "Papurna", "Ajeetpura", "Shimla", "Nawalgarh Town", "Mukasundgarh",
+            "Parsurampura", "Nayi Basti", "Jakhora", "Barwasi", "Basawa", "Udaipurwati Town", "Gudha Gorji", "Posana", "Chhapoli",
+            "Bagora", "Mankwas", "Morda", "Pilani Town", "Chidawa Road", "Hanutpura", "Basant Vihar", "Dulania", "Morwa", "Khedla",
+            "Surajgarh Town", "Kajra", "Loharu Road", "Malsisar", "Bhojasar", "Kakoda", "Jakhod", "Mandawa Town", "Alsisar", "Baloda",
+            "Bissau", "Tain", "Sehkalon Ki Dhani", "Hanumanpura",
+        ],
+        "Jhunjhunu": ["Jhunjhunu Town", "Badalwas", "Dundlod", "Sultana", "Mandrella", "Nua", "Khudana"],
+        "Chirawa": ["Chirawa Town", "Mandrela", "Pilod", "Arnia", "Kithana", "Bajawa", "Gidania"],
+        "Buhana": ["Buhana Town", "Pacheri Kalan", "Sohli", "Singhana", "Bhirr", "Kuharwas", "Bhukana"],
+        "Khetri": ["Khetri Town", "Kolihan Nagar", "Banwas", "Ravla", "Papurna", "Ajeetpura", "Shimla"],
+        "Nawalgarh": ["Nawalgarh Town", "Mukasundgarh", "Parsurampura", "Nayi Basti", "Jakhora", "Barwasi", "Basawa"],
+        "Udaipurwati": ["Udaipurwati Town", "Gudha Gorji", "Posana", "Chhapoli", "Bagora", "Mankwas", "Morda"],
+        "Pilani": ["Pilani Town", "Chidawa Road", "Hanutpura", "Basant Vihar", "Dulania", "Morwa", "Khedla"],
+        "Surajgarh": ["Surajgarh Town", "Kajra", "Loharu Road", "Malsisar", "Bhojasar", "Kakoda", "Jakhod"],
+        "Mandawa": ["Mandawa Town", "Alsisar", "Baloda", "Bissau", "Tain", "Sehkalon Ki Dhani", "Hanumanpura"],
+    },
+}
 
 
 def make_storage_slug(value):
@@ -625,6 +692,7 @@ def load_settings(institute=None):
         defaults.update(loaded)
     defaults["institute_name"] = institute
     ensure_print_background_state(defaults)
+    defaults["office_backgrounds"] = sanitize_office_backgrounds_list(defaults.get("office_backgrounds", []))
     return defaults
 
 
@@ -637,6 +705,7 @@ def save_settings(settings, institute):
         payload.update(settings)
     payload["institute_name"] = institute
     ensure_print_background_state(payload)
+    payload["office_backgrounds"] = sanitize_office_backgrounds_list(payload.get("office_backgrounds", []))
     save_json_store(make_storage_path("settings", institute), make_storage_filename("settings", institute), payload)
 
 
@@ -656,6 +725,28 @@ def sanitize_facility_custom_sub_locations(data):
         if items:
             cleaned[block_name] = sorted(items)
     return cleaned
+
+
+def build_facility_structure_payload():
+    structure = {}
+    for institute in FACILITY_LOCATION_INSTITUTES:
+        settings = load_settings(institute)
+        custom_map = sanitize_facility_custom_sub_locations(settings.get("facility_custom_sub_locations", {}))
+        merged_sub_locations = {}
+        for block in FACILITY_LOCATIONS.get(institute, []):
+            base_items = list(FACILITY_SUB_LOCATIONS.get(institute, {}).get(block, []))
+            custom_items = list(custom_map.get(block, []))
+            merged = []
+            for item in base_items + custom_items:
+                text = str(item or "").strip()
+                if text and text != "Add New" and text not in merged:
+                    merged.append(text)
+            merged_sub_locations[block] = merged
+        structure[institute] = {
+            "blocks": list(FACILITY_LOCATIONS.get(institute, [])),
+            "sub_locations": merged_sub_locations,
+        }
+    return structure
 
 
 def clamp_int(value, fallback, minimum, maximum):
@@ -772,6 +863,38 @@ def sanitize_print_backgrounds_list(items):
             "updated_at": str(item.get("updated_at") or ""),
         })
     return sanitized[:80]
+
+
+def sanitize_office_backgrounds_list(items):
+    if not isinstance(items, list):
+        return []
+    sanitized = []
+    seen_ids = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        background_id = str(item.get("id") or "").strip()
+        name = str(item.get("name") or "").strip()
+        url = str(item.get("url") or "").strip()
+        block = str(item.get("block") or "").strip()
+        facility_sub_location = str(item.get("facility_sub_location") or "").strip()
+        if not background_id or not url or background_id in seen_ids or not block or not facility_sub_location:
+            continue
+        seen_ids.add(background_id)
+        orientation = str(item.get("orientation") or "landscape").strip().lower()
+        if orientation not in ("landscape", "portrait"):
+            orientation = "landscape"
+        sanitized.append({
+            "id": background_id,
+            "name": name[:80] if name else "Office Background",
+            "url": url,
+            "block": block,
+            "facility_sub_location": facility_sub_location,
+            "orientation": orientation,
+            "created_at": str(item.get("created_at") or ""),
+            "updated_at": str(item.get("updated_at") or ""),
+        })
+    return sanitized[:200]
 
 
 def normalize_url_lookup_key(value):
@@ -3335,7 +3458,223 @@ def admin_institutes_api():
                 institutes.add(institute)
     except Exception:
         pass
-    return jsonify({"institutes": sorted(institutes)})
+    return jsonify({
+        "institutes": sorted(institutes),
+        "facility_institutes": list(FACILITY_LOCATION_INSTITUTES),
+        "facility_structure": build_facility_structure_payload(),
+    })
+
+
+def normalize_background_orientation(value):
+    orientation = str(value or "landscape").strip().lower()
+    return orientation if orientation in ("landscape", "portrait") else "landscape"
+
+
+def build_background_library_entry(entry_id, name, url, orientation, extra=None):
+    payload = {
+        "id": str(entry_id or "").strip(),
+        "name": str(name or "Background").strip()[:80] or "Background",
+        "url": str(url or "").strip(),
+        "orientation": normalize_background_orientation(orientation),
+        "created_at": current_timestamp_display(),
+        "updated_at": current_timestamp_display(),
+    }
+    if isinstance(extra, dict):
+        payload.update(extra)
+    return payload
+
+
+@app.route("/api/background-library", methods=["GET", "POST"])
+@admin_required
+def background_library_api():
+    if request.method == "GET":
+        scope = str(request.args.get("scope") or "common").strip().lower()
+        institute = canonicalize_institute_name(request.args.get("institute"))
+        block = str(request.args.get("block") or "").strip()
+        facility_sub_location = str(request.args.get("facility_sub_location") or "").strip()
+
+        if scope == "common":
+            prefs = load_admin_prefs()
+            items = sanitize_global_backgrounds_list(prefs.get("fabric_global_backgrounds", []))
+        elif scope == "institute":
+            if not institute:
+                return jsonify({"items": [], "scope": scope, "institute": ""})
+            settings = load_settings(institute)
+            items = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
+        elif scope == "office":
+            if not institute or not block or not facility_sub_location:
+                return jsonify({"items": [], "scope": scope, "institute": institute or "", "block": block, "facility_sub_location": facility_sub_location})
+            settings = load_settings(institute)
+            items = [
+                item for item in sanitize_office_backgrounds_list(settings.get("office_backgrounds", []))
+                if str(item.get("block") or "").strip() == block and str(item.get("facility_sub_location") or "").strip() == facility_sub_location
+            ]
+        else:
+            return jsonify({"error": "Invalid scope"}), 400
+
+        return jsonify({
+            "scope": scope,
+            "institute": institute or "",
+            "block": block,
+            "facility_sub_location": facility_sub_location,
+            "items": items,
+        })
+
+    scope = str(request.form.get("scope") or "common").strip().lower()
+    institute = canonicalize_institute_name(request.form.get("institute"))
+    block = str(request.form.get("block") or "").strip()
+    facility_sub_location = str(request.form.get("facility_sub_location") or "").strip()
+    orientation = normalize_background_orientation(request.form.get("orientation"))
+    name = (request.form.get("name") or "").strip()
+
+    if "background" not in request.files:
+        return jsonify({"error": "No background file provided"}), 400
+    file_storage = request.files["background"]
+    if not secure_filename(file_storage.filename):
+        return jsonify({"error": "Invalid filename"}), 400
+
+    if scope == "common":
+        storage_scope_name = "Common Background Library"
+    elif scope == "institute":
+        if not institute:
+            return jsonify({"error": "Institute is required"}), 400
+        storage_scope_name = institute
+    elif scope == "office":
+        if not institute:
+            return jsonify({"error": "Institute is required"}), 400
+        if not block:
+            return jsonify({"error": "Block is required"}), 400
+        if not facility_sub_location:
+            return jsonify({"error": "Facility Sub Location is required"}), 400
+        storage_scope_name = institute
+    else:
+        return jsonify({"error": "Invalid scope"}), 400
+
+    entry_id = f"bg-{scope}-" + datetime.now().strftime("%Y%m%d%H%M%S") + "-" + "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
+    entry_name = name or os.path.splitext(secure_filename(file_storage.filename))[0] or "Background"
+    try:
+        background_url, _ = save_print_background_image(file_storage, storage_scope_name, entry_id)
+    except Exception:
+        return jsonify({"error": "Unable to process background image"}), 400
+
+    if scope == "common":
+        prefs = load_admin_prefs()
+        items = sanitize_global_backgrounds_list(prefs.get("fabric_global_backgrounds", []))
+        items.insert(0, build_background_library_entry(entry_id, entry_name, background_url, orientation, {"institute_name": ""}))
+        prefs["fabric_global_backgrounds"] = items[:2000]
+        save_admin_prefs(prefs)
+        saved_items = prefs["fabric_global_backgrounds"]
+    elif scope == "institute":
+        settings = load_settings(institute)
+        items = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
+        items.insert(0, build_background_library_entry(entry_id, entry_name, background_url, orientation))
+        settings["print_backgrounds"] = items[:80]
+        save_settings(settings, institute)
+        saved_items = settings["print_backgrounds"]
+    else:
+        settings = load_settings(institute)
+        items = sanitize_office_backgrounds_list(settings.get("office_backgrounds", []))
+        items.insert(0, build_background_library_entry(entry_id, entry_name, background_url, orientation, {
+            "block": block,
+            "facility_sub_location": facility_sub_location,
+        }))
+        settings["office_backgrounds"] = items[:200]
+        save_settings(settings, institute)
+        saved_items = [
+            item for item in settings["office_backgrounds"]
+            if str(item.get("block") or "").strip() == block and str(item.get("facility_sub_location") or "").strip() == facility_sub_location
+        ]
+
+    return jsonify({
+        "status": "saved",
+        "scope": scope,
+        "institute": institute or "",
+        "block": block,
+        "facility_sub_location": facility_sub_location,
+        "items": saved_items,
+    })
+
+
+@app.route("/api/background-library/<background_id>", methods=["DELETE"])
+@admin_required
+def delete_background_library_item(background_id):
+    item_id = str(background_id or "").strip()
+    if not item_id:
+        return jsonify({"error": "Background id is required"}), 400
+
+    scope = str(request.args.get("scope") or "common").strip().lower()
+    institute = canonicalize_institute_name(request.args.get("institute"))
+    block = str(request.args.get("block") or "").strip()
+    facility_sub_location = str(request.args.get("facility_sub_location") or "").strip()
+
+    target = None
+    remaining = []
+    deleted_url = ""
+
+    if scope == "common":
+        prefs = load_admin_prefs()
+        items = sanitize_global_backgrounds_list(prefs.get("fabric_global_backgrounds", []))
+        target = next((item for item in items if str(item.get("id") or "").strip() == item_id), None)
+        if not target:
+            return jsonify({"error": "Background not found"}), 404
+        remaining = [item for item in items if str(item.get("id") or "").strip() != item_id]
+        prefs["fabric_global_backgrounds"] = remaining
+        save_admin_prefs(prefs)
+    elif scope == "institute":
+        if not institute:
+            return jsonify({"error": "Institute is required"}), 400
+        settings = load_settings(institute)
+        items = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
+        target = next((item for item in items if str(item.get("id") or "").strip() == item_id), None)
+        if not target:
+            return jsonify({"error": "Background not found"}), 404
+        remaining = [item for item in items if str(item.get("id") or "").strip() != item_id]
+        settings["print_backgrounds"] = remaining
+        if str(settings.get("print_background_active_id") or "").strip() == item_id:
+            settings["print_background_active_id"] = remaining[0].get("id", "") if remaining else ""
+            settings["background_url"] = remaining[0].get("url", "") if remaining else ""
+            settings["background_drive_id"] = ""
+        save_settings(settings, institute)
+    elif scope == "office":
+        if not institute:
+            return jsonify({"error": "Institute is required"}), 400
+        settings = load_settings(institute)
+        items = sanitize_office_backgrounds_list(settings.get("office_backgrounds", []))
+        target = next((item for item in items if str(item.get("id") or "").strip() == item_id), None)
+        if not target:
+            return jsonify({"error": "Background not found"}), 404
+        remaining_all = [item for item in items if str(item.get("id") or "").strip() != item_id]
+        settings["office_backgrounds"] = remaining_all
+        save_settings(settings, institute)
+        remaining = [
+            item for item in remaining_all
+            if (not block or str(item.get("block") or "").strip() == block)
+            and (not facility_sub_location or str(item.get("facility_sub_location") or "").strip() == facility_sub_location)
+        ]
+    else:
+        return jsonify({"error": "Invalid scope"}), 400
+
+    deleted_url = str((target or {}).get("url") or "").strip()
+    if deleted_url:
+        try:
+            delete_generated_asset_from_url(deleted_url)
+        except Exception:
+            pass
+        try:
+            delete_supabase_storage_url(deleted_url)
+        except Exception:
+            pass
+
+    return jsonify({
+        "status": "deleted",
+        "scope": scope,
+        "institute": institute or "",
+        "block": block,
+        "facility_sub_location": facility_sub_location,
+        "deleted_id": item_id,
+        "deleted_url": deleted_url,
+        "items": remaining,
+    })
 
 
 @app.route("/api/fabric-batch-background", methods=["GET", "POST"])
