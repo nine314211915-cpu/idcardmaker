@@ -23,6 +23,7 @@ STORE_DIR = os.path.join(RUNTIME_DIR, "data_store")
 RECORDS_DIR = os.path.join(STORE_DIR, "records")
 CERTIFICATES_DIR = os.path.join(STORE_DIR, "certificates")
 SETTINGS_DIR = os.path.join(STORE_DIR, "settings")
+COMMON_BACKGROUNDS_FILE = os.path.join(STORE_DIR, "common_backgrounds.json")
 LOGS_DIR = os.path.join(RUNTIME_DIR, "logs")
 APP_LOG_FILE = os.path.join(LOGS_DIR, "app.log")
 AUDIT_LOG_FILE = os.path.join(LOGS_DIR, "audit.log")
@@ -584,6 +585,29 @@ def save_admin_prefs(prefs):
     payload["last_auto_cleanup_at"] = str(payload.get("last_auto_cleanup_at") or "")
     payload["fabric_global_backgrounds"] = sanitize_global_backgrounds_list(payload.get("fabric_global_backgrounds", []))
     save_json_store(ADMIN_PREFS_FILE, "admin_prefs.json", payload)
+
+
+def load_common_backgrounds():
+    defaults = []
+    loaded = load_json_store(COMMON_BACKGROUNDS_FILE, "common_backgrounds.json", defaults)
+    items = sanitize_global_backgrounds_list(loaded if isinstance(loaded, list) else [])
+    if items:
+        return items
+
+    # One-time compatibility migration from older admin prefs storage.
+    prefs = load_admin_prefs()
+    legacy_items = sanitize_global_backgrounds_list(prefs.get("fabric_global_backgrounds", []))
+    if legacy_items:
+        save_common_backgrounds(legacy_items)
+        prefs["fabric_global_backgrounds"] = []
+        save_admin_prefs(prefs)
+        return legacy_items
+    return []
+
+
+def save_common_backgrounds(items):
+    payload = sanitize_global_backgrounds_list(items)
+    save_json_store(COMMON_BACKGROUNDS_FILE, "common_backgrounds.json", payload)
 
 
 def migrate_legacy_records_if_needed():
@@ -2573,6 +2597,9 @@ def load_json_store(local_path, drive_filename, default_value):
 
 
 def save_json_store(local_path, drive_filename, payload):
+    directory = os.path.dirname(local_path)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
     with open(local_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2)
 
@@ -3322,8 +3349,7 @@ def fabric_asset_delete():
 @app.route("/api/fabric-global-backgrounds", methods=["GET", "POST"])
 @admin_required
 def fabric_global_backgrounds():
-    prefs = load_admin_prefs()
-    backgrounds = sanitize_global_backgrounds_list(prefs.get("fabric_global_backgrounds", []))
+    backgrounds = load_common_backgrounds()
 
     if request.method == "GET":
         return jsonify({"backgrounds": backgrounds})
@@ -3355,9 +3381,8 @@ def fabric_global_backgrounds():
         "institute_name": institute or "",
     }
     backgrounds.insert(0, entry)
-    prefs["fabric_global_backgrounds"] = backgrounds[:2000]
-    save_admin_prefs(prefs)
-    return jsonify({"status": "saved", "background": entry, "backgrounds": prefs["fabric_global_backgrounds"]})
+    save_common_backgrounds(backgrounds[:2000])
+    return jsonify({"status": "saved", "background": entry, "backgrounds": load_common_backgrounds()})
 
 
 @app.route("/api/fabric-global-backgrounds/<background_id>", methods=["DELETE"])
@@ -3367,15 +3392,13 @@ def delete_fabric_global_background(background_id):
     if not target_id:
         return jsonify({"error": "Background id is required"}), 400
 
-    prefs = load_admin_prefs()
-    backgrounds = sanitize_global_backgrounds_list(prefs.get("fabric_global_backgrounds", []))
+    backgrounds = load_common_backgrounds()
     target = next((item for item in backgrounds if str(item.get("id") or "").strip() == target_id), None)
     if not target:
         return jsonify({"error": "Background not found"}), 404
 
     remaining = [item for item in backgrounds if str(item.get("id") or "").strip() != target_id]
-    prefs["fabric_global_backgrounds"] = remaining
-    save_admin_prefs(prefs)
+    save_common_backgrounds(remaining)
 
     cleanup_result = remove_global_background_from_all_settings(target.get("url"))
     delete_generated_asset_from_url(target.get("url"))
@@ -3421,8 +3444,7 @@ def fabric_shared_backgrounds():
         })
         return True
 
-    prefs = load_admin_prefs()
-    for item in sanitize_global_backgrounds_list(prefs.get("fabric_global_backgrounds", [])):
+    for item in load_common_backgrounds():
         register_item(
             item.get("id"),
             item.get("url"),
@@ -3517,8 +3539,7 @@ def background_library_api():
         facility_sub_location = str(request.args.get("facility_sub_location") or "").strip()
 
         if scope == "common":
-            prefs = load_admin_prefs()
-            items = sanitize_global_backgrounds_list(prefs.get("fabric_global_backgrounds", []))
+            items = load_common_backgrounds()
         elif scope == "institute":
             if not institute:
                 return jsonify({"items": [], "scope": scope, "institute": ""})
@@ -3582,12 +3603,10 @@ def background_library_api():
         return jsonify({"error": "Unable to process background image"}), 400
 
     if scope == "common":
-        prefs = load_admin_prefs()
-        items = sanitize_global_backgrounds_list(prefs.get("fabric_global_backgrounds", []))
+        items = load_common_backgrounds()
         items.insert(0, build_background_library_entry(entry_id, entry_name, background_url, orientation, side, {"institute_name": ""}))
-        prefs["fabric_global_backgrounds"] = items[:2000]
-        save_admin_prefs(prefs)
-        saved_items = prefs["fabric_global_backgrounds"]
+        save_common_backgrounds(items[:2000])
+        saved_items = load_common_backgrounds()
     elif scope == "institute":
         settings = load_settings(institute)
         items = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
@@ -3636,14 +3655,12 @@ def delete_background_library_item(background_id):
     deleted_url = ""
 
     if scope == "common":
-        prefs = load_admin_prefs()
-        items = sanitize_global_backgrounds_list(prefs.get("fabric_global_backgrounds", []))
+        items = load_common_backgrounds()
         target = next((item for item in items if str(item.get("id") or "").strip() == item_id), None)
         if not target:
             return jsonify({"error": "Background not found"}), 404
         remaining = [item for item in items if str(item.get("id") or "").strip() != item_id]
-        prefs["fabric_global_backgrounds"] = remaining
-        save_admin_prefs(prefs)
+        save_common_backgrounds(remaining)
     elif scope == "institute":
         if not institute:
             return jsonify({"error": "Institute is required"}), 400
