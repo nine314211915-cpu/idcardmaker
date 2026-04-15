@@ -688,6 +688,8 @@
   let selectedSharedBackgroundId = "";
   let selectedSharedBackgroundSource = "";
   let selectedSharedBackgroundInstitute = "";
+  let selectedSharedBackgroundBlock = "";
+  let selectedSharedBackgroundSubLocation = "";
   let batchBoundBackgroundUrl = "";
   let undoHistory = { front: [], back: [] };
   let undoRestoring = false;
@@ -831,9 +833,10 @@
       const activeByUrl = key && selectedKey && key === selectedKey;
       const activeClass = (activeById || activeByUrl) ? " active" : "";
       const instituteTag = String(item.institute_slug || "").trim();
+      const scopeTag = String(item.source || "").replace("_collection", "").replace("_pool", "").replace("_", " ");
       return `<button type="button" class="bg-tile${activeClass}" data-shared-bg-index="${idx}">
         <img src="${itemUrl}" alt="Shared background ${idx + 1}">
-        <div class="meta">${instituteTag || "shared"}</div>
+        <div class="meta">${scopeTag || "shared"}${instituteTag ? ` | ${instituteTag}` : ""}</div>
       </button>`;
     }).join("");
     sharedBgGridEl.querySelectorAll("[data-shared-bg-index]").forEach((btn) => {
@@ -845,6 +848,8 @@
         selectedSharedBackgroundUrl = String(item.url || "").trim();
         selectedSharedBackgroundSource = String(item.source || "").trim();
         selectedSharedBackgroundInstitute = String(item.institute_name || "").trim();
+        selectedSharedBackgroundBlock = String(item.block || "").trim();
+        selectedSharedBackgroundSubLocation = String(item.facility_sub_location || "").trim();
         renderSharedBackgroundOptions();
         setStatus("Shared background selected. Click Add To Card.");
       });
@@ -969,6 +974,8 @@
     const selectedId = String(selectedSharedBackgroundId || "").trim();
     const selectedSource = String(selectedSharedBackgroundSource || "").trim();
     const selectedInstitute = String(selectedSharedBackgroundInstitute || "").trim();
+    const selectedBlock = String(selectedSharedBackgroundBlock || "").trim();
+    const selectedSubLocation = String(selectedSharedBackgroundSubLocation || "").trim();
     if (!selectedId) {
       setStatus("Select a shared background first.", true);
       return;
@@ -984,6 +991,20 @@
         return;
       }
       res = await fetch(`/api/print-backgrounds/${encodeURIComponent(selectedId)}?institute=${encodeURIComponent(selectedInstitute)}`, {
+        method: "DELETE",
+      });
+    } else if (selectedSource === "office_collection") {
+      if (!selectedInstitute || !selectedBlock || !selectedSubLocation) {
+        setStatus("Selected office background is missing office details.", true);
+        return;
+      }
+      const params = new URLSearchParams({
+        scope: "office",
+        institute: selectedInstitute,
+        block: selectedBlock,
+        facility_sub_location: selectedSubLocation,
+      });
+      res = await fetch(`/api/background-library/${encodeURIComponent(selectedId)}?${params.toString()}`, {
         method: "DELETE",
       });
     } else {
@@ -1005,6 +1026,8 @@
     selectedSharedBackgroundUrl = "";
     selectedSharedBackgroundSource = "";
     selectedSharedBackgroundInstitute = "";
+    selectedSharedBackgroundBlock = "";
+    selectedSharedBackgroundSubLocation = "";
     await loadSharedBackgrounds();
     setStatus("Selected background removed from database.");
   }
@@ -1019,7 +1042,11 @@
     sharedBgGridEl.innerHTML = '<div class="tiny-note">Loading...</div>';
     try {
       const institute = getActiveInstitute();
-      const query = institute ? `?institute=${encodeURIComponent(institute)}` : "";
+      const batch = getActiveBatch();
+      const params = new URLSearchParams();
+      if (institute) params.set("institute", institute);
+      if (batch) params.set("batch_id", batch);
+      const query = params.toString() ? `?${params.toString()}` : "";
       const res = await fetch(`/api/fabric-shared-backgrounds${query}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Unable to load shared backgrounds");
@@ -1037,11 +1064,15 @@
           selectedSharedBackgroundUrl = String(matched.url || "").trim();
           selectedSharedBackgroundSource = String(matched.source || "").trim();
           selectedSharedBackgroundInstitute = String(matched.institute_name || "").trim();
+          selectedSharedBackgroundBlock = String(matched.block || "").trim();
+          selectedSharedBackgroundSubLocation = String(matched.facility_sub_location || "").trim();
         } else {
           selectedSharedBackgroundId = "";
           selectedSharedBackgroundUrl = "";
           selectedSharedBackgroundSource = "";
           selectedSharedBackgroundInstitute = "";
+          selectedSharedBackgroundBlock = "";
+          selectedSharedBackgroundSubLocation = "";
         }
       }
       renderSharedBackgroundOptions();
@@ -2373,6 +2404,7 @@
     batchSelectEl.addEventListener("change", async () => {
       currentBatchId = batchSelectEl.value || "";
       await loadRecordsForSelection({ autoLoadDesign: false });
+      await loadSharedBackgrounds();
     });
     document.getElementById("prevCardBtn").addEventListener("click", async () => {
       if (!employees.length) return;

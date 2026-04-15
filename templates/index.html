@@ -250,6 +250,21 @@
   .institute-lock-note .field-tab {
     background: var(--red-soft);
   }
+  .background-scope-note {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: linear-gradient(180deg, #fffdf9 0%, var(--cream) 100%);
+    color: var(--muted);
+    padding: 9px 11px;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+  .background-scope-note strong {
+    display: block;
+    color: var(--red);
+    font-size: 12px;
+    margin-bottom: 2px;
+  }
   .form-group { display: flex; flex-direction: column; gap: 4px; }
   .form-group.full { grid-column: 1 / -1; }
   label {
@@ -1109,6 +1124,10 @@
               </select>
               <input type="text" id="facilitySubLocationCustom" placeholder="Enter village / town" style="display:none; margin-top:8px;" oninput="handleFacilitySubLocationChange()">
             </div>
+          </div>
+          <div class="compact-field background-scope-note" id="backgroundScopeNote" style="display:none">
+            <strong id="backgroundScopeTitle">Background Scope</strong>
+            <span id="backgroundScopeText">Select institute to choose scope.</span>
           </div>
           <input type="file" id="signatureInput" accept="image/*" style="display:none" onchange="handleSignatureUpload(this)">
         </div>
@@ -2063,7 +2082,7 @@ function buildCurrentDraftPayload() {
     payload.custom_field_value = document.getElementById('customEmployeeFieldValue').value;
   }
 
-  return payload;
+  return applyBackgroundScopeToPayload(payload);
 }
 
 function saveCurrentFormAsLocalDraft() {
@@ -2121,6 +2140,8 @@ async function syncDraftToServerInBackground() {
   if (!payload.serial_no) return;
 
   autoDraftSyncInFlight = true;
+  applyBackgroundScopeToPayload(payload);
+
   try {
     await fetch('/api/submit', {
       method: 'POST',
@@ -2294,6 +2315,99 @@ function isFacilityLocationInstitute() {
   return FACILITY_LOCATION_INSTITUTES.includes(document.getElementById('instituteName').value);
 }
 
+function buildBackgroundScope(institute, block = '', facilitySubLocation = '') {
+  const selectedInstitute = String(institute || '').trim();
+  const selectedBlock = String(block || '').trim();
+  const selectedSubLocation = String(facilitySubLocation || '').trim();
+  const isOfficeInstitute = FACILITY_LOCATION_INSTITUTES.includes(selectedInstitute);
+  if (isOfficeInstitute && selectedBlock && selectedSubLocation) {
+    return {
+      scope: 'office',
+      label: `Office: ${selectedSubLocation}, ${selectedBlock}`,
+      institute: selectedInstitute,
+      block: selectedBlock,
+      facility_sub_location: selectedSubLocation,
+    };
+  }
+  if (selectedInstitute) {
+    return {
+      scope: 'institute',
+      label: isOfficeInstitute ? 'Institute scope until office is selected' : 'Institute',
+      institute: selectedInstitute,
+      block: selectedBlock,
+      facility_sub_location: selectedSubLocation,
+    };
+  }
+  return {
+    scope: 'common',
+    label: 'Common',
+    institute: '',
+    block: '',
+    facility_sub_location: '',
+  };
+}
+
+function getCurrentBackgroundScope() {
+  return buildBackgroundScope(
+    getInstituteValue(),
+    document.getElementById('facilityLocation').value,
+    getFacilitySubLocationValue()
+  );
+}
+
+function applyBackgroundScopeToPayload(payload) {
+  const scope = buildBackgroundScope(
+    payload.institute_name || getInstituteValue(),
+    payload.facility_location || document.getElementById('facilityLocation').value,
+    payload.facility_sub_location || getFacilitySubLocationValue()
+  );
+  payload.background_scope = scope.scope;
+  payload.background_scope_label = scope.label;
+  payload.background_scope_institute = scope.institute;
+  payload.background_scope_block = scope.block;
+  payload.background_scope_facility_sub_location = scope.facility_sub_location;
+  return payload;
+}
+
+function updateBackgroundScopePreview() {
+  const note = document.getElementById('backgroundScopeNote');
+  const title = document.getElementById('backgroundScopeTitle');
+  const text = document.getElementById('backgroundScopeText');
+  if (!note || !title || !text) return;
+  const institute = getInstituteValue();
+  if (!institute || institute === 'Other') {
+    note.style.display = 'none';
+    return;
+  }
+  const scope = getCurrentBackgroundScope();
+  note.style.display = '';
+  if (scope.scope === 'office') {
+    title.textContent = 'Background Scope: Office';
+    text.textContent = 'This CHC/PHC/Health Sub Centre entry will use Office backgrounds first, then Institute, then Common.';
+  } else if (FACILITY_LOCATION_INSTITUTES.includes(scope.institute)) {
+    title.textContent = 'Background Scope: Institute';
+    text.textContent = 'Select Block and Facility Sub Location to move this entry into Office scope.';
+  } else {
+    title.textContent = 'Background Scope: Institute';
+    text.textContent = 'This entry will use Institute backgrounds first, then Common backgrounds.';
+  }
+}
+
+function validateOfficeScopeSelection() {
+  if (!isFacilityLocationInstitute()) return true;
+  const block = document.getElementById('facilityLocation').value.trim();
+  const facilitySubLocation = getFacilitySubLocationValue();
+  if (!block) {
+    alert('Please select Block for this office.');
+    return false;
+  }
+  if (!facilitySubLocation) {
+    alert('Please select or add Facility Sub Location for this office.');
+    return false;
+  }
+  return true;
+}
+
 function getFacilitySubLocationValue() {
   const subLocationSelect = document.getElementById('facilitySubLocation');
   if (subLocationSelect.value === 'Add New') {
@@ -2334,6 +2448,7 @@ function handleFacilitySubLocationChange() {
     subLocationCustom.value = '';
   }
   updatePreview();
+  updateBackgroundScopePreview();
   saveUiState();
 }
 
@@ -2346,6 +2461,7 @@ function handleFacilityLocationChange() {
   subLocationSelect.innerHTML = `<option value="">${getFacilitySubLocationPlaceholder(institute)}</option>` + items.map((item) => `<option value="${item}">${item}</option>`).join('');
   setFacilitySubLocationValue(currentSubLocation);
   updatePreview();
+  updateBackgroundScopePreview();
   saveUiState();
 }
 
@@ -2461,6 +2577,7 @@ function handleInstituteChange() {
   }
 
   setType(anmMode ? 'student' : (collegeMode ? (currentType === 'employee' ? 'student' : currentType) : 'employee'));
+  updateBackgroundScopePreview();
   loadSettings();
   loadBatchSummary();
   refreshInstituteLock();
@@ -2622,6 +2739,7 @@ function renderSelectedBatchCard() {
   selectedCard.innerHTML = `
     <strong>${escapeHtml(record.name || 'Unnamed')}</strong>
     <span class="meta">${escapeHtml(record.serial_no || '-')} | ${escapeHtml(record.training_year || record.course || record.designation || record.profile_type || '')}</span>
+    <span class="meta">Background Scope: ${escapeHtml(record.background_scope_label || record.background_scope || 'Institute')}</span>
     <span class="status-chip saved">Draft Saved</span>
     <span class="meta">Saved on this device: ${escapeHtml(formatDateTime(record.saved_at || '-'))}</span>
     <span class="meta">Waiting for Submit Whole Data</span>
@@ -2738,6 +2856,7 @@ async function uploadSelectedPhotoFile(file) {
   refreshInstituteLock();
   showLoading('Uploading & auto-cropping photo...');
   ensureSerialGenerated(true);
+
   try {
     const institute = getInstituteValue();
     const serial = document.getElementById('serialNo').value.trim();
@@ -2914,6 +3033,7 @@ function updatePreview() {
     document.getElementById('prevCustomFieldValue').textContent = customFieldValue || '—';
     document.getElementById('prevCustomFieldRow').style.display = customFieldLabel || customFieldValue ? '' : 'none';
   }
+  updateBackgroundScopePreview();
   refreshInstituteLock();
 }
 
@@ -2976,6 +3096,7 @@ async function legacySaveCurrentCard() {
   const serial = document.getElementById('serialNo').value.trim();
   if (!name) { alert('Please enter full name.'); return; }
   if (!serial) { alert('Unable to generate serial number.'); return; }
+  if (!validateOfficeScopeSelection()) return;
 
   showLoading('Saving record…');
   const payload = {
@@ -3012,6 +3133,8 @@ async function legacySaveCurrentCard() {
     payload.custom_field_label = document.getElementById('customEmployeeFieldLabel').value;
     payload.custom_field_value = document.getElementById('customEmployeeFieldValue').value;
   }
+
+  applyBackgroundScopeToPayload(payload);
 
   try {
     await fetch('/api/submit', {
@@ -3256,6 +3379,7 @@ async function saveCurrentCard() {
   const serial = document.getElementById('serialNo').value.trim();
   if (!name) { alert('Please enter full name.'); return; }
   if (!serial) { alert('Unable to generate serial number.'); return; }
+  if (!validateOfficeScopeSelection()) return;
   persistCurrentFacilitySubLocation();
 
   showLoading('Saving record...');
@@ -3294,6 +3418,8 @@ async function saveCurrentCard() {
     payload.custom_field_label = document.getElementById('customEmployeeFieldLabel').value;
     payload.custom_field_value = document.getElementById('customEmployeeFieldValue').value;
   }
+
+  applyBackgroundScopeToPayload(payload);
 
   try {
     const institute = getInstituteValue();

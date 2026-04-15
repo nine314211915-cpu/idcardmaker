@@ -540,6 +540,17 @@
   .badge-student { background: #e8f4fd; color: #1a5276; }
   .badge-lecturer { background: #fdf5e8; color: #8b5e0d; }
   .badge-employee { background: #eaf7ed; color: #1a5c3a; }
+  .badge-scope {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 3px 8px;
+    background: var(--red-soft);
+    color: var(--red);
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
   .serial-code { font-family: monospace; font-size: 11px; color: var(--red); font-weight: 700; }
   .action-btns { display: flex; gap: 4px; }
   .btn-sm {
@@ -1318,6 +1329,7 @@ function renderBatchOverview() {
           const batchName = batch.batch_name || batchId || 'Unnamed batch';
           const batchTime = batch.submitted_at || batch.created_at || '-';
           const locationLabel = batch.location_label || '';
+          const scopeLabel = batch.background_scope_label || batch.background_scope || '';
           const checked = selectedOverviewBatchIds.includes(batchId) ? 'checked' : '';
           const selectControl = selectedInstitute ? `
             <label class="overview-check">
@@ -1329,7 +1341,7 @@ function renderBatchOverview() {
             <li>
               <div class="overview-batch-row">
                 <span class="overview-batch-label">
-                  ${escapeHtml(batchName)}${locationLabel ? ` <span style="color:var(--red)">| ${escapeHtml(locationLabel)}</span>` : ''} <span style="color:var(--muted)">| ${escapeHtml(batchTime)}</span>
+                  ${escapeHtml(batchName)}${locationLabel ? ` <span style="color:var(--red)">| ${escapeHtml(locationLabel)}</span>` : ''}${scopeLabel ? ` <span class="badge-scope">${escapeHtml(scopeLabel)}</span>` : ''} <span style="color:var(--muted)">| ${escapeHtml(batchTime)}</span>
                 </span>
                 ${selectControl}
                 <button class="btn-xs" type="button" onclick="openBatchFromOverview(${JSON.stringify(institute)}, ${JSON.stringify(batchId)})">Open</button>
@@ -1859,6 +1871,12 @@ function renderTable(records) {
       render: (row) => row.department || row.facility_location || '-',
     },
     {
+      key: 'background_scope',
+      label: 'Bg Scope',
+      show: (rows) => rows.some((row) => hasMeaningfulValue(row.background_scope_label) || hasMeaningfulValue(row.background_scope)),
+      render: (row) => `<span class="badge-scope">${escapeHtml(row.background_scope_label || row.background_scope || 'Institute')}</span>`,
+    },
+    {
       key: 'dob',
       label: 'DOB',
       show: (rows) => rows.some((row) => hasMeaningfulValue(row.dob)),
@@ -2168,6 +2186,7 @@ function viewRecord(r) {
     </div>
     <div style="margin-top:10px;padding:10px;background:var(--cream);border-radius:5px;font-size:11px">
       <strong>Father's Name:</strong> ${r.father_name || '-'}<br>
+      <strong>Background Scope:</strong> ${r.background_scope_label || r.background_scope || 'Institute'}<br>
       <strong>Aadhaar No.:</strong> ${r.aadhaar_no || '-'}<br>
       <strong>Address:</strong> ${r.address || '-'}<br>
       <strong>Saved At:</strong> ${formatDateTime(r.saved_at)}

@@ -1592,6 +1592,7 @@ def pack_supabase_record(record, batch_id, institute, submitted_at, batch_name):
     payload["batch_name"] = batch_name
     payload["submitted_at"] = submitted_at
     payload["saved_at"] = payload.get("saved_at") or current_timestamp_display()
+    normalize_record_background_scope(payload)
     return {
         "batch_id": batch_id,
         "institute_name": institute,
@@ -1756,12 +1757,21 @@ def enrich_batches_for_overview(batches):
         batch_id = str(item.get("id", "") or "").strip()
         institute = canonicalize_institute_name(item.get("institute_name"))
         location_label = ""
+        background_scope_label = ""
+        background_scope = ""
         if batch_id and institute:
             try:
-                location_label = build_batch_location_label(list_supabase_records(institute, batch_id))
+                batch_records = list_supabase_records(institute, batch_id)
+                location_label = build_batch_location_label(batch_records)
+                if batch_records:
+                    first_record = batch_records[0] or {}
+                    background_scope_label = str(first_record.get("background_scope_label") or "").strip()
+                    background_scope = str(first_record.get("background_scope") or "").strip()
             except Exception:
                 location_label = ""
         item["location_label"] = location_label
+        item["background_scope_label"] = background_scope_label
+        item["background_scope"] = background_scope
         enriched.append(item)
     return enriched
 
@@ -2061,6 +2071,47 @@ def normalize_record_dates(data):
     for field in ("dob", "valid_upto", "inserted_date", "issue_date"):
         if field in data:
             data[field] = normalize_date(data.get(field))
+    return data
+
+
+def build_record_background_scope(institute, facility_location="", facility_sub_location=""):
+    institute = canonicalize_institute_name(institute)
+    block = str(facility_location or "").strip()
+    sub_location = str(facility_sub_location or "").strip()
+    if institute in FACILITY_LOCATION_INSTITUTES and block and sub_location:
+        return {
+            "background_scope": "office",
+            "background_scope_label": f"Office: {sub_location}, {block}",
+            "background_scope_institute": institute,
+            "background_scope_block": block,
+            "background_scope_facility_sub_location": sub_location,
+        }
+    if institute:
+        label = "Institute scope until office is selected" if institute in FACILITY_LOCATION_INSTITUTES else "Institute"
+        return {
+            "background_scope": "institute",
+            "background_scope_label": label,
+            "background_scope_institute": institute,
+            "background_scope_block": block,
+            "background_scope_facility_sub_location": sub_location,
+        }
+    return {
+        "background_scope": "common",
+        "background_scope_label": "Common",
+        "background_scope_institute": "",
+        "background_scope_block": "",
+        "background_scope_facility_sub_location": "",
+    }
+
+
+def normalize_record_background_scope(data):
+    if not isinstance(data, dict):
+        return data
+    data.update(build_record_background_scope(
+        data.get("institute_name"),
+        data.get("facility_location") or data.get("department"),
+        data.get("facility_sub_location"),
+    ))
     return data
 
 
@@ -3425,7 +3476,7 @@ def fabric_shared_backgrounds():
     backgrounds = []
     seen_urls = set()
 
-    def register_item(item_id, url, name="", institute_slug="", institute_name="", object_path="", source=""):
+    def register_item(item_id, url, name="", institute_slug="", institute_name="", object_path="", source="", block="", facility_sub_location=""):
         value = str(url or "").strip()
         if not value:
             return False
@@ -3441,23 +3492,14 @@ def fabric_shared_backgrounds():
             "institute_slug": str(institute_slug or "").strip(),
             "institute_name": str(institute_name or "").strip(),
             "source": str(source or "").strip(),
+            "block": str(block or "").strip(),
+            "facility_sub_location": str(facility_sub_location or "").strip(),
         })
         return True
 
-    for item in load_common_backgrounds():
-        register_item(
-            item.get("id"),
-            item.get("url"),
-            name=item.get("name"),
-            institute_slug=make_storage_slug(item.get("institute_name")),
-            institute_name=item.get("institute_name"),
-            source="global_pool",
-        )
-        if len(backgrounds) >= limit_value:
-            return jsonify({"backgrounds": backgrounds})
-
     institutes = set()
     requested_institute = canonicalize_institute_name(request.args.get("institute"))
+    requested_batch_id = str(request.args.get("batch_id") or "").strip()
     if requested_institute:
         institutes.add(requested_institute)
     institutes.update(list_known_institutes_from_settings())
@@ -3469,7 +3511,63 @@ def fabric_shared_backgrounds():
     except Exception:
         pass
 
+    if requested_institute:
+        settings = load_settings(requested_institute)
+        batch_records = []
+        if requested_batch_id:
+            try:
+                batch_records = list_supabase_records(requested_institute, requested_batch_id)
+            except Exception:
+                batch_records = []
+        first_record = batch_records[0] if batch_records else {}
+        block = str(first_record.get("background_scope_block") or first_record.get("facility_location") or "").strip()
+        sub_location = str(first_record.get("background_scope_facility_sub_location") or first_record.get("facility_sub_location") or "").strip()
+        if block and sub_location:
+            for item in sanitize_office_backgrounds_list(settings.get("office_backgrounds", [])):
+                if str(item.get("block") or "").strip() != block:
+                    continue
+                if str(item.get("facility_sub_location") or "").strip() != sub_location:
+                    continue
+                if register_item(
+                    item.get("id"),
+                    item.get("url"),
+                    name=item.get("name"),
+                    institute_slug=make_storage_slug(f"{requested_institute}-{sub_location}"),
+                    institute_name=requested_institute,
+                    source="office_collection",
+                    block=block,
+                    facility_sub_location=sub_location,
+                ):
+                    if len(backgrounds) >= limit_value:
+                        return jsonify({"backgrounds": backgrounds})
+
+        for item in sanitize_print_backgrounds_list(settings.get("print_backgrounds", [])):
+            if register_item(
+                item.get("id"),
+                item.get("url"),
+                name=item.get("name"),
+                institute_slug=make_storage_slug(requested_institute),
+                institute_name=requested_institute,
+                source="institute_collection",
+            ):
+                if len(backgrounds) >= limit_value:
+                    return jsonify({"backgrounds": backgrounds})
+
+    for item in load_common_backgrounds():
+        register_item(
+            item.get("id"),
+            item.get("url"),
+            name=item.get("name"),
+            institute_slug=make_storage_slug(item.get("institute_name")) or "common",
+            institute_name=item.get("institute_name"),
+            source="global_pool",
+        )
+        if len(backgrounds) >= limit_value:
+            return jsonify({"backgrounds": backgrounds})
+
     for inst in sorted(institutes):
+        if requested_institute and inst == requested_institute:
+            continue
         settings = load_settings(inst)
         for item in sanitize_print_backgrounds_list(settings.get("print_backgrounds", [])):
             if register_item(
@@ -4447,6 +4545,7 @@ def submit():
     if not institute:
         return jsonify({"error": "Institute is required"}), 400
     normalize_record_dates(data)
+    normalize_record_background_scope(data)
     data["saved_at"] = current_timestamp_display()
     records = load_records(institute)
     # Check for duplicate serial
@@ -4728,6 +4827,7 @@ def update_card():
     normalize_record_dates(payload)
     payload["institute_name"] = institute
     payload["serial_no"] = serial
+    normalize_record_background_scope(payload)
     payload["saved_at"] = current_timestamp_display()
 
     if is_supabase_enabled():
