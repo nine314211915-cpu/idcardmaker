@@ -387,12 +387,13 @@
   </div>
 
   <script>
+    const pageQuery = new URLSearchParams(window.location.search);
     const state = {
       institutes: [],
       templates: [],
       orientation: "all",
       search: "",
-      institute: "",
+      institute: pageQuery.get("institute") || "",
     };
 
     const instituteSelect = document.getElementById("instituteSelect");
@@ -433,7 +434,11 @@
       const res = await fetch("/api/admin/institutes");
       const data = await readJson(res, "Unable to load institutes");
       state.institutes = data.institutes || [];
-      if (!state.institute && state.institutes.length) {
+      if (state.institute && state.institutes.includes(state.institute)) {
+        // Keep requested institute when passed from admin.
+      } else if (!state.institute && state.institutes.length) {
+        state.institute = state.institutes[0];
+      } else if (state.institutes.length) {
         state.institute = state.institutes[0];
       }
       const options = state.institutes.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`).join("");
@@ -604,6 +609,9 @@
         await loadInstitutes();
         await loadStorageMeter();
         await loadTemplates();
+        if (pageQuery.get("create") === "1") {
+          openCreateModal();
+        }
       } catch (error) {
         galleryGrid.innerHTML = `<div class="panel empty">${escapeHtml(error.message || "Unable to load template gallery.")}</div>`;
       }

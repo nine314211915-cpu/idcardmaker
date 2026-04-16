@@ -892,8 +892,8 @@
     <a href="/" class="nav-link">Home</a>
     <a href="/id-card" class="nav-link">ID Card Page</a>
     <a href="/certificate" class="nav-link">Certificate Page</a>
-    <a href="/templates" class="nav-link">Template Gallery</a>
-    <a href="/templates" class="nav-link">New Photo Studio</a>
+    <a href="/templates" class="nav-link" onclick="openTemplateGallery(); return false;">Template Gallery</a>
+    <a href="/photo-studio/new" class="nav-link" onclick="openNewPhotoStudio(); return false;">New Photo Studio</a>
     <form method="post" action="/admin/logout" style="margin:0">
       <button class="nav-link" type="submit" style="background:rgba(255,255,255,0.08)">Logout</button>
     </form>
@@ -1248,7 +1248,7 @@ function openTemplateGallery() {
 
 function openNewPhotoStudio() {
   const institute = getSelectedInstitute();
-  const url = institute ? `/templates?institute=${encodeURIComponent(institute)}` : '/templates';
+  const url = institute ? `/photo-studio/new?institute=${encodeURIComponent(institute)}` : '/photo-studio/new';
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 

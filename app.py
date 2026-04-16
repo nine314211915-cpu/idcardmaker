@@ -1552,6 +1552,20 @@ def list_supabase_profiles_for_studio(institute=None, limit=200):
         result.append(profile)
     return result
 
+
+def get_default_template_institute():
+    institutes = set(list_known_institutes_from_settings())
+    try:
+        for batch in list_all_supabase_batches():
+            institute = canonicalize_institute_name(batch.get("institute_name"))
+            if institute:
+                institutes.add(institute)
+    except Exception:
+        pass
+    if institutes:
+        return sorted(institutes)[0]
+    return "Govt. Medical College, Jhunjhunu"
+
 def delete_supabase_storage_url(file_url):
     if not file_url or not is_supabase_enabled():
         return
@@ -3528,6 +3542,38 @@ def id_card_photo_studio_page():
     response.headers["Expires"] = "0"
     response.headers["X-App-Build"] = app.config.get("APP_BUILD_TAG", "")
     return response
+
+
+@app.route("/photo-studio/new")
+@admin_required
+def id_card_photo_studio_new():
+    if not is_supabase_enabled():
+        return redirect(url_for("id_card_templates_page"))
+    institute = canonicalize_institute_name(request.args.get("institute")) or get_default_template_institute()
+    orientation = normalize_template_orientation(request.args.get("orientation"))
+    name = (request.args.get("name") or "Untitled Template").strip()[:120] or "Untitled Template"
+    try:
+        inserted = supabase_request(
+            "POST",
+            "templates",
+            payload={
+                "name": name,
+                "description": "",
+                "institute_name": institute,
+                "config": build_blank_template_config(orientation),
+                "thumbnail_url": "",
+            },
+            prefer_representation=True,
+        )
+        template = summarize_id_card_template((inserted or [{}])[0])
+        return redirect(url_for(
+            "id_card_photo_studio_page",
+            id=template.get("id"),
+            mode="edit",
+            institute=institute,
+        ))
+    except Exception:
+        return redirect(url_for("id_card_templates_page", institute=institute, create="1"))
 
 
 @app.route("/api/id-card-templates", methods=["GET", "POST"])
