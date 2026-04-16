@@ -925,6 +925,8 @@
     <button class="btn btn-outline" type="button" onclick="openAdminBulkPhotoPicker()">Bulk Upload Photos</button>
     <button class="btn btn-outline" onclick="deleteSelectedBatch()">Delete Batch</button>
     <button class="btn btn-outline" type="button" onclick="document.getElementById('csvImportInput').click()">CSV Import</button>
+    <button class="btn btn-green" type="button" onclick="openTemplateGallery()">Template Gallery</button>
+    <button class="btn btn-outline" type="button" onclick="openNewPhotoStudio()">New Photo Studio</button>
     <button class="btn btn-outline" type="button" onclick="openPrintLab()">Print Design Lab</button>
     <button class="btn btn-outline" type="button" onclick="openBackgroundLibrary()">Background Library</button>
     <button class="btn btn-outline" type="button" onclick="openPrintCards()">Open Print Preview</button>
@@ -1230,6 +1232,21 @@ function openBackgroundLibrary() {
   if (institute) params.set('institute', institute);
   const query = params.toString();
   const url = query ? `/admin/backgrounds?${query}` : '/admin/backgrounds';
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+function openTemplateGallery() {
+  const institute = getSelectedInstitute();
+  const params = new URLSearchParams();
+  if (institute) params.set('institute', institute);
+  const query = params.toString();
+  const url = query ? `/templates?${query}` : '/templates';
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+function openNewPhotoStudio() {
+  const institute = getSelectedInstitute();
+  const url = institute ? `/templates?institute=${encodeURIComponent(institute)}` : '/templates';
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
