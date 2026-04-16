@@ -2637,7 +2637,39 @@ def list_drive_storage_filenames(kind):
     return []
 
 
+def build_supabase_json_store_object_path(drive_filename):
+    filename = secure_filename(str(drive_filename or "").strip())
+    return f"shared/data-store/{filename or 'store.json'}"
+
+
+def download_supabase_storage_object_bytes(object_path, bucket_name=None):
+    if not is_supabase_enabled():
+        raise RuntimeError("Supabase is not configured")
+    url = build_supabase_storage_object_url(object_path, bucket_name)
+    req = urllib_request.Request(url, method="GET")
+    for key, value in supabase_headers().items():
+        if key.lower() == "content-type":
+            continue
+        req.add_header(key, value)
+    with urllib_request.urlopen(req, timeout=60) as response:
+        return response.read()
+
+
 def load_json_store(local_path, drive_filename, default_value):
+    if is_supabase_enabled() and drive_filename:
+        object_path = build_supabase_json_store_object_path(drive_filename)
+        try:
+            file_bytes = download_supabase_storage_object_bytes(object_path)
+            directory = os.path.dirname(local_path)
+            if directory:
+                os.makedirs(directory, exist_ok=True)
+            with open(local_path, "wb") as f:
+                f.write(file_bytes)
+            return json.loads(file_bytes.decode("utf-8"))
+        except urllib_error.HTTPError:
+            pass
+        except Exception:
+            app.logger.warning("Supabase JSON sync failed while loading %s", drive_filename, exc_info=True)
     if os.path.exists(local_path):
         with open(local_path, "r", encoding="utf-8") as f:
             try:
@@ -2653,6 +2685,16 @@ def save_json_store(local_path, drive_filename, payload):
         os.makedirs(directory, exist_ok=True)
     with open(local_path, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2)
+    if is_supabase_enabled() and drive_filename:
+        try:
+            object_path = build_supabase_json_store_object_path(drive_filename)
+            upload_bytes_to_supabase_storage(
+                json.dumps(payload, indent=2).encode("utf-8"),
+                object_path,
+                "application/json",
+            )
+        except Exception:
+            app.logger.warning("Supabase JSON sync failed while saving %s", drive_filename, exc_info=True)
 
 
 def build_drive_storage_status(institute=None):
