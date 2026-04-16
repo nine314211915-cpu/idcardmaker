@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, render_template, send_file, send_from_directory, session, redirect, url_for, make_response, g
-import json, os, random, string, zipfile, io, tempfile, csv, re
+import json, os, random, string, zipfile, io, tempfile, csv, re, base64
 import logging, time, uuid
 from html import escape
 from datetime import datetime, timedelta, timezone
@@ -38,11 +38,32 @@ app.config["ADMIN_PANEL_PASSWORD"] = os.environ.get("ADMIN_PANEL_PASSWORD", "adm
 app.config["SUPABASE_URL"] = os.environ.get("SUPABASE_URL", "").strip()
 app.config["SUPABASE_SERVICE_ROLE_KEY"] = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 app.config["SUPABASE_PHOTOS_BUCKET"] = os.environ.get("SUPABASE_PHOTOS_BUCKET", "id-card-photos").strip() or "id-card-photos"
+app.config["SUPABASE_TEMPLATE_THUMBNAILS_BUCKET"] = os.environ.get("SUPABASE_TEMPLATE_THUMBNAILS_BUCKET", "template-thumbnails").strip() or "template-thumbnails"
+app.config["SUPABASE_PROFILE_PHOTOS_BUCKET"] = os.environ.get("SUPABASE_PROFILE_PHOTOS_BUCKET", "profile-photos").strip() or "profile-photos"
+app.config["SUPABASE_TEMPLATE_ASSETS_BUCKET"] = os.environ.get("SUPABASE_TEMPLATE_ASSETS_BUCKET", "template-assets").strip() or "template-assets"
 app.config["APP_BUILD_TAG"] = os.environ.get("APP_BUILD_TAG", "").strip() or datetime.utcnow().strftime("%Y%m%d-%H%M%S")
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.config["CRON_BACKUP_TOKEN"] = os.environ.get("CRON_BACKUP_TOKEN", "").strip()
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "medical-id-card-secret")
 HEX_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
+ID_CARD_TEMPLATE_VARIABLES = [
+    "name",
+    "course",
+    "training_year",
+    "batch_session",
+    "father_name",
+    "aadhaar_no",
+    "employee_id",
+    "designation",
+    "department",
+    "dob",
+    "contact",
+    "blood_group",
+    "address",
+    "valid_upto",
+    "serial_no",
+    "photo_url",
+]
 
 
 def configure_project_logging():
@@ -1218,8 +1239,8 @@ def ensure_supabase_bucket(bucket_name):
         raise RuntimeError(raw or f"Bucket create failed with status {exc.code}") from exc
 
 
-def upload_bytes_to_supabase_storage(file_bytes, object_path, mime_type):
-    bucket = app.config["SUPABASE_PHOTOS_BUCKET"]
+def upload_bytes_to_supabase_storage_bucket(file_bytes, object_path, mime_type, bucket_name=None):
+    bucket = (bucket_name or app.config["SUPABASE_PHOTOS_BUCKET"]).strip() or app.config["SUPABASE_PHOTOS_BUCKET"]
     ensure_supabase_bucket(bucket)
     base = app.config["SUPABASE_URL"].rstrip("/")
     object_path = object_path.strip("/")
@@ -1249,10 +1270,14 @@ def upload_bytes_to_supabase_storage(file_bytes, object_path, mime_type):
         raise RuntimeError(raw or f"Supabase storage upload failed with status {exc.code}") from exc
 
 
-def list_supabase_storage_objects(prefix="", limit=1000):
+def upload_bytes_to_supabase_storage(file_bytes, object_path, mime_type):
+    return upload_bytes_to_supabase_storage_bucket(file_bytes, object_path, mime_type, app.config["SUPABASE_PHOTOS_BUCKET"])
+
+
+def list_supabase_storage_objects(prefix="", limit=1000, bucket_name=None):
     if not is_supabase_enabled():
         raise RuntimeError("Supabase is not configured")
-    bucket = app.config["SUPABASE_PHOTOS_BUCKET"]
+    bucket = (bucket_name or app.config["SUPABASE_PHOTOS_BUCKET"]).strip() or app.config["SUPABASE_PHOTOS_BUCKET"]
     base = app.config["SUPABASE_URL"].rstrip("/")
     url = f"{base}/storage/v1/object/list/{urllib_parse.quote(bucket, safe='')}"
     payload = {
@@ -1361,7 +1386,7 @@ def cleanup_supabase_log_archives(auto_delete_days):
     return result
 
 
-def collect_supabase_storage_usage(prefix=""):
+def collect_supabase_storage_usage(prefix="", bucket_name=None):
     total_bytes = 0
     object_count = 0
     folder_count = 0
@@ -1372,7 +1397,7 @@ def collect_supabase_storage_usage(prefix=""):
         if current_prefix in visited:
             continue
         visited.add(current_prefix)
-        for item in list_supabase_storage_objects(current_prefix):
+        for item in list_supabase_storage_objects(current_prefix, bucket_name=bucket_name):
             name = str(item.get("name") or "").strip()
             if not name:
                 continue
@@ -1404,6 +1429,128 @@ def build_photo_storage_path(institute, serial, original_filename=""):
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
     return f"{institute_slug}/photos/{serial_slug}-{timestamp}.jpg"
 
+
+def normalize_template_orientation(value):
+    return "landscape" if str(value or "").strip().lower() == "landscape" else "portrait"
+
+
+def build_blank_template_config(orientation="portrait"):
+    return {
+        "front": {},
+        "back": {},
+        "orientation": normalize_template_orientation(orientation),
+        "version": 1,
+    }
+
+
+def sanitize_template_config_payload(config, orientation=None):
+    source = dict(config) if isinstance(config, dict) else {}
+    cleaned_orientation = normalize_template_orientation(orientation or source.get("orientation"))
+    front = source.get("front") if isinstance(source.get("front"), dict) else {}
+    back = source.get("back") if isinstance(source.get("back"), dict) else {}
+    cleaned = {
+        "front": front,
+        "back": back,
+        "orientation": cleaned_orientation,
+        "version": int(source.get("version") or 1),
+    }
+    if source.get("lastModified"):
+        cleaned["lastModified"] = str(source.get("lastModified"))
+    return cleaned
+
+
+def decode_data_url(data_url):
+    text = str(data_url or "").strip()
+    if not text.startswith("data:") or "," not in text:
+        raise ValueError("Invalid data URL")
+    header, encoded = text.split(",", 1)
+    if ";base64" not in header:
+        raise ValueError("Unsupported data URL encoding")
+    mime_type = header[5:].split(";", 1)[0] or "application/octet-stream"
+    return base64.b64decode(encoded), mime_type
+
+
+def build_template_thumbnail_storage_path(institute, template_id):
+    institute_slug = make_storage_slug(institute or "default")
+    template_slug = make_storage_slug(template_id or str(uuid.uuid4()))
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    return f"{institute_slug}/thumbnails/{template_slug}-{timestamp}.png"
+
+
+def build_template_asset_storage_path(institute, template_id, original_filename="", category="assets"):
+    institute_slug = make_storage_slug(institute or "default")
+    template_slug = make_storage_slug(template_id or "template")
+    source_name = os.path.splitext(original_filename or "")[0] or category or "asset"
+    asset_slug = make_storage_slug(source_name)
+    ext = os.path.splitext(original_filename or "")[1].lower() or ".png"
+    if len(ext) > 10:
+        ext = ".png"
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    return f"{institute_slug}/{template_slug}/{category}/{asset_slug}-{timestamp}{ext}"
+
+
+def build_template_bucket_payload():
+    return {
+        "thumbnail_bucket": app.config["SUPABASE_TEMPLATE_THUMBNAILS_BUCKET"],
+        "asset_bucket": app.config["SUPABASE_TEMPLATE_ASSETS_BUCKET"],
+        "profile_bucket": app.config["SUPABASE_PROFILE_PHOTOS_BUCKET"],
+    }
+
+
+def summarize_id_card_template(row):
+    item = dict(row or {})
+    item["config"] = sanitize_template_config_payload(item.get("config"), item.get("orientation"))
+    item["orientation"] = item["config"]["orientation"]
+    item["name"] = str(item.get("name") or "").strip()
+    item["thumbnail_url"] = str(item.get("thumbnail_url") or "").strip()
+    item["institute_name"] = canonicalize_institute_name(item.get("institute_name")) or ""
+    item["created_at"] = str(item.get("created_at") or "")
+    item["updated_at"] = str(item.get("updated_at") or "")
+    item["description"] = str(item.get("description") or "")
+    item["is_system"] = bool(item.get("is_system"))
+    return item
+
+
+def list_supabase_templates(institute=None):
+    query = {
+        "select": "*",
+        "order": "updated_at.desc",
+    }
+    institute = canonicalize_institute_name(institute)
+    if institute:
+        query["institute_name"] = f"eq.{institute}"
+    rows = supabase_request("GET", "templates", query=query)
+    return [summarize_id_card_template(row) for row in (rows if isinstance(rows, list) else [])]
+
+
+def get_supabase_template(template_id):
+    template_id = str(template_id or "").strip()
+    if not template_id:
+        return None
+    rows = supabase_request("GET", "templates", query={"select": "*", "id": f"eq.{template_id}", "limit": 1})
+    if isinstance(rows, list) and rows:
+        return summarize_id_card_template(rows[0])
+    return None
+
+
+def list_supabase_profiles_for_studio(institute=None, limit=200):
+    fields = ",".join(["id", "institute_name"] + ID_CARD_TEMPLATE_VARIABLES)
+    query = {
+        "select": fields,
+        "order": "name.asc",
+        "limit": max(1, min(int(limit or 200), 500)),
+    }
+    institute = canonicalize_institute_name(institute)
+    if institute:
+        query["institute_name"] = f"eq.{institute}"
+    rows = supabase_request("GET", "profiles", query=query)
+    result = []
+    for row in (rows if isinstance(rows, list) else []):
+        profile = {field: row.get(field, "") for field in ID_CARD_TEMPLATE_VARIABLES}
+        profile["id"] = row.get("id")
+        profile["institute_name"] = canonicalize_institute_name(row.get("institute_name")) or ""
+        result.append(profile)
+    return result
 
 def delete_supabase_storage_url(file_url):
     if not file_url or not is_supabase_enabled():
@@ -1475,13 +1622,14 @@ def format_bytes(value):
     return f"{amount:.2f} {unit}"
 
 
-def build_supabase_storage_status(institute=None):
+def build_supabase_storage_status(institute=None, bucket_name=None):
     institute = canonicalize_institute_name(institute)
+    target_bucket = (bucket_name or app.config["SUPABASE_PHOTOS_BUCKET"]).strip() or app.config["SUPABASE_PHOTOS_BUCKET"]
     admin_prefs = load_admin_prefs()
     status = {
         "enabled": is_supabase_enabled(),
         "project_url": app.config["SUPABASE_URL"],
-        "bucket_name": app.config["SUPABASE_PHOTOS_BUCKET"],
+        "bucket_name": target_bucket,
         "bucket_ready": False,
         "bucket_error": "",
         "institute": institute or "",
@@ -1513,7 +1661,7 @@ def build_supabase_storage_status(institute=None):
 
     if status["bucket_ready"]:
         try:
-            usage = collect_supabase_storage_usage("")
+            usage = collect_supabase_storage_usage("", bucket_name=status["bucket_name"])
             quota_bytes = status["storage_quota_bytes"]
             used_bytes = int(usage.get("used_bytes", 0) or 0)
             left_bytes = max(0, quota_bytes - used_bytes)
@@ -1528,16 +1676,18 @@ def build_supabase_storage_status(institute=None):
         except Exception as exc:
             status["bucket_error"] = status["bucket_error"] or (str(exc) or "Unable to read bucket usage")
 
-    try:
-        latest = find_last_uploaded_photo_record(institute or None)
-    except Exception as exc:
-        status["bucket_error"] = status["bucket_error"] or (str(exc) or "Unable to read latest uploads")
-        latest = None
+    latest = None
+    if status["bucket_name"] == app.config["SUPABASE_PHOTOS_BUCKET"]:
+        try:
+            latest = find_last_uploaded_photo_record(institute or None)
+        except Exception as exc:
+            status["bucket_error"] = status["bucket_error"] or (str(exc) or "Unable to read latest uploads")
+            latest = None
 
-    if latest:
-        status["last_uploaded_file_url"] = latest.get("photo_url", "")
-        status["last_uploaded_file_path"] = extract_supabase_object_path(latest.get("photo_url", ""))
-        status["last_uploaded_serial_no"] = latest.get("serial_no", "")
+        if latest:
+            status["last_uploaded_file_url"] = latest.get("photo_url", "")
+            status["last_uploaded_file_path"] = extract_supabase_object_path(latest.get("photo_url", ""))
+            status["last_uploaded_serial_no"] = latest.get("serial_no", "")
     return status
 
 
@@ -3349,6 +3499,267 @@ def admin_backgrounds():
     return response
 
 
+@app.route("/templates")
+@admin_required
+def id_card_templates_page():
+    response = make_response(render_template(
+        "template_gallery.html",
+        build_tag=app.config.get("APP_BUILD_TAG", ""),
+        **build_template_bucket_payload(),
+    ))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["X-App-Build"] = app.config.get("APP_BUILD_TAG", "")
+    return response
+
+
+@app.route("/photo-studio")
+@admin_required
+def id_card_photo_studio_page():
+    response = make_response(render_template(
+        "photo_studio.html",
+        build_tag=app.config.get("APP_BUILD_TAG", ""),
+        **build_template_bucket_payload(),
+        template_variables=ID_CARD_TEMPLATE_VARIABLES,
+    ))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["X-App-Build"] = app.config.get("APP_BUILD_TAG", "")
+    return response
+
+
+@app.route("/api/id-card-templates", methods=["GET", "POST"])
+@admin_required
+def id_card_templates_api():
+    if not is_supabase_enabled():
+        return jsonify({"error": "Supabase is not configured"}), 400
+
+    if request.method == "GET":
+        institute = canonicalize_institute_name(request.args.get("institute"))
+        search = (request.args.get("search") or "").strip().lower()
+        orientation = normalize_template_orientation(request.args.get("orientation")) if request.args.get("orientation") else ""
+        try:
+            templates = list_supabase_templates(institute)
+        except Exception as exc:
+            return jsonify({"error": str(exc) or "Unable to load templates"}), 500
+        if search:
+            templates = [item for item in templates if search in str(item.get("name") or "").lower()]
+        if orientation:
+            templates = [item for item in templates if item.get("orientation") == orientation]
+        return jsonify({"templates": templates, "institute": institute or ""})
+
+    payload = request.get_json(silent=True) or {}
+    name = str(payload.get("name") or "").strip()
+    institute = canonicalize_institute_name(payload.get("institute_name"))
+    orientation = normalize_template_orientation(payload.get("orientation"))
+    if not name:
+        return jsonify({"error": "Template name is required"}), 400
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    try:
+        inserted = supabase_request(
+            "POST",
+            "templates",
+            payload={
+                "name": name[:120],
+                "description": str(payload.get("description") or "").strip(),
+                "institute_name": institute,
+                "config": build_blank_template_config(orientation),
+                "thumbnail_url": "",
+            },
+            prefer_representation=True,
+        )
+        template = summarize_id_card_template((inserted or [{}])[0])
+        return jsonify({"status": "created", "template": template}), 201
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Unable to create template"}), 500
+
+
+@app.route("/api/id-card-templates/<template_id>", methods=["GET", "PATCH", "DELETE"])
+@admin_required
+def id_card_template_detail_api(template_id):
+    if not is_supabase_enabled():
+        return jsonify({"error": "Supabase is not configured"}), 400
+
+    template_id = str(template_id or "").strip()
+    if not template_id:
+        return jsonify({"error": "Template id is required"}), 400
+
+    try:
+        current = get_supabase_template(template_id)
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Unable to load template"}), 500
+
+    if not current:
+        return jsonify({"error": "Template not found"}), 404
+
+    if request.method == "GET":
+        return jsonify({"template": current})
+
+    if request.method == "DELETE":
+        if current.get("is_system"):
+            return jsonify({"error": "System templates cannot be deleted"}), 400
+        try:
+            thumbnail_url = current.get("thumbnail_url", "")
+            thumbnail_path = extract_supabase_object_path(thumbnail_url)
+            if thumbnail_path:
+                delete_supabase_storage_object_path(thumbnail_path, app.config["SUPABASE_TEMPLATE_THUMBNAILS_BUCKET"])
+            supabase_request("DELETE", "templates", query={"id": f"eq.{template_id}"})
+            return jsonify({"status": "deleted", "template_id": template_id})
+        except Exception as exc:
+            return jsonify({"error": str(exc) or "Unable to delete template"}), 500
+
+    payload = request.get_json(silent=True) or {}
+    config = sanitize_template_config_payload(payload.get("config"), payload.get("orientation") or current.get("orientation"))
+    update_payload = {
+        "name": str(payload.get("name") or current.get("name") or "").strip()[:120],
+        "description": str(payload.get("description") or current.get("description") or "").strip(),
+        "institute_name": canonicalize_institute_name(payload.get("institute_name") or current.get("institute_name")),
+        "config": config,
+    }
+    thumbnail_data_url = str(payload.get("thumbnail_data_url") or "").strip()
+    if thumbnail_data_url:
+        try:
+            thumbnail_bytes, mime_type = decode_data_url(thumbnail_data_url)
+            object_path = build_template_thumbnail_storage_path(update_payload["institute_name"], template_id)
+            update_payload["thumbnail_url"] = upload_bytes_to_supabase_storage_bucket(
+                thumbnail_bytes,
+                object_path,
+                mime_type or "image/png",
+                app.config["SUPABASE_TEMPLATE_THUMBNAILS_BUCKET"],
+            )
+        except Exception as exc:
+            return jsonify({"error": str(exc) or "Unable to upload template thumbnail"}), 400
+
+    try:
+        updated = supabase_request(
+            "PATCH",
+            "templates",
+            payload=update_payload,
+            query={"id": f"eq.{template_id}"},
+            prefer_representation=True,
+        )
+        template = summarize_id_card_template((updated or [current])[0])
+        return jsonify({"status": "saved", "template": template})
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Unable to save template"}), 500
+
+
+@app.route("/api/id-card-templates/<template_id>/duplicate", methods=["POST"])
+@admin_required
+def duplicate_id_card_template_api(template_id):
+    if not is_supabase_enabled():
+        return jsonify({"error": "Supabase is not configured"}), 400
+    try:
+        template = get_supabase_template(template_id)
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Unable to load template"}), 500
+    if not template:
+        return jsonify({"error": "Template not found"}), 404
+    payload = request.get_json(silent=True) or {}
+    name_suffix = str(payload.get("suffix") or "(Copy)").strip() or "(Copy)"
+    try:
+        inserted = supabase_request(
+            "POST",
+            "templates",
+            payload={
+                "name": f"{template.get('name', 'Template')} {name_suffix}".strip(),
+                "description": template.get("description", ""),
+                "institute_name": template.get("institute_name", ""),
+                "config": sanitize_template_config_payload(template.get("config"), template.get("orientation")),
+                "thumbnail_url": template.get("thumbnail_url", ""),
+            },
+            prefer_representation=True,
+        )
+        duplicate = summarize_id_card_template((inserted or [{}])[0])
+        return jsonify({"status": "duplicated", "template": duplicate}), 201
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Unable to duplicate template"}), 500
+
+
+@app.route("/api/id-card-templates/<template_id>/use", methods=["POST"])
+@admin_required
+def use_id_card_template_api(template_id):
+    if not is_supabase_enabled():
+        return jsonify({"error": "Supabase is not configured"}), 400
+    try:
+        template = get_supabase_template(template_id)
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Unable to load template"}), 500
+    if not template:
+        return jsonify({"error": "Template not found"}), 404
+    try:
+        inserted = supabase_request(
+            "POST",
+            "templates",
+            payload={
+                "name": f"{template.get('name', 'Template')} Working Copy",
+                "description": template.get("description", ""),
+                "institute_name": template.get("institute_name", ""),
+                "config": sanitize_template_config_payload(template.get("config"), template.get("orientation")),
+                "thumbnail_url": template.get("thumbnail_url", ""),
+            },
+            prefer_representation=True,
+        )
+        copy_template = summarize_id_card_template((inserted or [{}])[0])
+        return jsonify({"status": "ready", "template": copy_template})
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Unable to create working copy"}), 500
+
+
+@app.route("/api/id-card-profiles")
+@admin_required
+def id_card_profiles_api():
+    if not is_supabase_enabled():
+        return jsonify({"error": "Supabase is not configured"}), 400
+    institute = canonicalize_institute_name(request.args.get("institute"))
+    try:
+        profiles = list_supabase_profiles_for_studio(institute, request.args.get("limit") or 200)
+        return jsonify({
+            "profiles": profiles,
+            "institute": institute or "",
+            "variables": ID_CARD_TEMPLATE_VARIABLES,
+        })
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Unable to load profiles"}), 500
+
+
+@app.route("/api/id-card-assets/upload", methods=["POST"])
+@admin_required
+def id_card_assets_upload_api():
+    if not is_supabase_enabled():
+        return jsonify({"error": "Supabase is not configured"}), 400
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+    upload_file = request.files["file"]
+    filename = secure_filename(upload_file.filename or "")
+    if not filename:
+        return jsonify({"error": "Invalid file name"}), 400
+    institute = canonicalize_institute_name(request.form.get("institute_name"))
+    template_id = str(request.form.get("template_id") or "").strip() or "draft"
+    category = str(request.form.get("category") or "assets").strip().lower() or "assets"
+    mime_type = str(upload_file.mimetype or "application/octet-stream").strip() or "application/octet-stream"
+    try:
+        object_path = build_template_asset_storage_path(institute, template_id, filename, category)
+        public_url = upload_bytes_to_supabase_storage_bucket(
+            upload_file.read(),
+            object_path,
+            mime_type,
+            app.config["SUPABASE_TEMPLATE_ASSETS_BUCKET"],
+        )
+        return jsonify({
+            "status": "uploaded",
+            "url": public_url,
+            "path": object_path,
+            "bucket": app.config["SUPABASE_TEMPLATE_ASSETS_BUCKET"],
+            "category": category,
+        })
+    except Exception as exc:
+        return jsonify({"error": str(exc) or "Unable to upload asset"}), 500
+
+
 @app.route("/api/fabric-design", methods=["GET", "POST"])
 @admin_required
 def fabric_design():
@@ -4705,9 +5116,10 @@ def batch_overview():
 @admin_required
 def supabase_storage_status():
     institute = canonicalize_institute_name(request.args.get("institute"))
+    bucket_name = (request.args.get("bucket") or "").strip()
     try:
         run_supabase_auto_cleanup()
-        return jsonify(build_supabase_storage_status(institute or None))
+        return jsonify(build_supabase_storage_status(institute or None, bucket_name or None))
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to load Supabase status"}), 500
 
