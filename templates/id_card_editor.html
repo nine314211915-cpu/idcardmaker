@@ -1397,6 +1397,122 @@
       queueAutosaveMessage();
     }
 
+    function makeStarterText(value, options = {}) {
+      const text = new fabric.Textbox(value, {
+        left: options.left || 0,
+        top: options.top || 0,
+        width: options.width || 240,
+        fontSize: options.fontSize || 24,
+        fontFamily: options.fontFamily || "Inter",
+        fontWeight: options.fontWeight || 500,
+        fill: options.fill || "#1e293b",
+        editable: options.editable !== false,
+        selectable: options.selectable !== false,
+        evented: options.evented !== false,
+      });
+      if (options.customType) text.customType = options.customType;
+      if (options.variableKey) text.variableKey = options.variableKey;
+      if (options.templateText) text.templateText = options.templateText;
+      if (text.customType === "variable-text") {
+        applyVariablePreviewToObject(text);
+      }
+      return text;
+    }
+
+    function makeStarterRect(options = {}) {
+      return new fabric.Rect({
+        left: options.left || 0,
+        top: options.top || 0,
+        width: options.width || 100,
+        height: options.height || 100,
+        rx: options.rx || 18,
+        ry: options.ry || 18,
+        fill: options.fill || "#ffffff",
+        stroke: options.stroke || "rgba(15,76,129,0.12)",
+        strokeWidth: options.strokeWidth == null ? 1 : options.strokeWidth,
+        selectable: options.selectable !== false,
+        evented: options.evented !== false,
+      });
+    }
+
+    function buildStarterDraftSnapshot(side) {
+      if (side === "back") {
+        const objects = [
+          makeStarterRect({ left: 62, top: 62, width: 892, height: 514, fill: "#ffffff", stroke: "#d7e2ec" }),
+          makeStarterText("Card Notes", { left: 96, top: 100, width: 220, fontSize: 24, fontWeight: 700, fill: "#0f4c81", editable: false }),
+          makeStarterText("Contact", { left: 96, top: 170, width: 120, fontSize: 14, fontWeight: 600, fill: "#64748b", editable: false }),
+          makeStarterText("{{contact}}", { left: 96, top: 194, width: 280, fontSize: 19, fill: "#111827", customType: "variable-text", variableKey: "contact", templateText: "{{contact}}" }),
+          makeStarterText("DOB", { left: 96, top: 254, width: 120, fontSize: 14, fontWeight: 600, fill: "#64748b", editable: false }),
+          makeStarterText("{{dob}}", { left: 96, top: 278, width: 220, fontSize: 19, fill: "#111827", customType: "variable-text", variableKey: "dob", templateText: "{{dob}}" }),
+          makeStarterText("Department", { left: 430, top: 170, width: 140, fontSize: 14, fontWeight: 600, fill: "#64748b", editable: false }),
+          makeStarterText("{{department}}", { left: 430, top: 194, width: 240, fontSize: 19, fill: "#111827", customType: "variable-text", variableKey: "department", templateText: "{{department}}" }),
+          makeStarterText("This is a starter draft. Replace text, upload a photo, align items, then save the template.", { left: 96, top: 378, width: 620, fontSize: 16, fill: "#475569", fontFamily: "Public Sans", editable: false }),
+        ];
+        return {
+          version: "5.3.0",
+          objects: objects.map((obj) => obj.toObject(CUSTOM_PROPS)),
+          background: "#ffffff",
+        };
+      }
+
+      const photoBase = new fabric.Rect({
+        width: 156,
+        height: 206,
+        rx: 18,
+        ry: 18,
+        fill: "#e2e8f0",
+        stroke: "#94a3b8",
+        strokeWidth: 2,
+        strokeDashArray: [6, 5],
+        originX: "center",
+        originY: "center",
+      });
+      const photoIcon = new fabric.Text("PHOTO", {
+        originX: "center",
+        originY: "center",
+        top: -14,
+        fontSize: 22,
+        fontWeight: 700,
+        fill: "#64748b",
+        evented: false,
+      });
+      const photoLabel = new fabric.Text("Click again to upload", {
+        originX: "center",
+        originY: "center",
+        top: 28,
+        fontSize: 14,
+        fill: "#64748b",
+        evented: false,
+      });
+      const photoGroup = new fabric.Group([photoBase, photoIcon, photoLabel], {
+        left: 180,
+        top: 310,
+        originX: "center",
+        originY: "center",
+        customType: "profile-photo",
+        photoShape: "rect",
+      });
+
+      const objects = [
+        makeStarterRect({ left: 46, top: 52, width: 924, height: 534, fill: "#ffffff", stroke: "#d7e2ec" }),
+        makeStarterRect({ left: 46, top: 52, width: 924, height: 92, rx: 18, ry: 18, fill: "#0f4c81", stroke: "#0f4c81" }),
+        makeStarterText("ID CARD PREVIEW", { left: 82, top: 76, width: 280, fontSize: 28, fontWeight: 700, fill: "#ffffff", fontFamily: "Public Sans", editable: false }),
+        makeStarterText("Direct Photo Studio draft", { left: 82, top: 108, width: 280, fontSize: 14, fill: "rgba(255,255,255,0.85)", fontFamily: "Public Sans", editable: false }),
+        photoGroup,
+        makeStarterText("{{name}}", { left: 320, top: 192, width: 360, fontSize: 32, fontWeight: 700, fill: "#111827", customType: "variable-text", variableKey: "name", templateText: "{{name}}" }),
+        makeStarterText("{{designation}}", { left: 320, top: 242, width: 320, fontSize: 22, fill: "#475569", fontFamily: "Public Sans", customType: "variable-text", variableKey: "designation", templateText: "{{designation}}" }),
+        makeStarterText("Employee ID", { left: 320, top: 304, width: 120, fontSize: 14, fontWeight: 600, fill: "#64748b", editable: false }),
+        makeStarterText("{{employee_id}}", { left: 320, top: 328, width: 240, fontSize: 20, fill: "#0f4c81", fontFamily: "DM Sans", customType: "variable-text", variableKey: "employee_id", templateText: "{{employee_id}}" }),
+        makeStarterText("Department", { left: 320, top: 388, width: 120, fontSize: 14, fontWeight: 600, fill: "#64748b", editable: false }),
+        makeStarterText("{{department}}", { left: 320, top: 412, width: 280, fontSize: 20, fill: "#1e293b", customType: "variable-text", variableKey: "department", templateText: "{{department}}" }),
+      ];
+      return {
+        version: "5.3.0",
+        objects: objects.map((obj) => obj.toObject(CUSTOM_PROPS)),
+        background: "#ffffff",
+      };
+    }
+
     function cloneFabricObject(obj) {
       return new Promise((resolve) => {
         obj.clone((cloned) => resolve(cloned), CUSTOM_PROPS);
@@ -1569,19 +1685,21 @@
         state.template = null;
         elements.templateName.value = elements.templateName.value || "Untitled Template";
         elements.templateInstitute.value = elements.templateInstitute.value || state.institute || "{{ default_institute or '' }}";
-        elements.orientationSelect.value = elements.orientationSelect.value || "landscape";
+        elements.orientationSelect.value = "landscape";
         state.institute = elements.templateInstitute.value.trim();
         applyCanvasSize();
-        state.sideSnapshots.front = deepClone(emptySnapshot());
-        state.sideSnapshots.back = deepClone(emptySnapshot());
+        state.sideSnapshots.front = buildStarterDraftSnapshot("front");
+        state.sideSnapshots.back = buildStarterDraftSnapshot("back");
         elements.templateIdText.textContent = "Draft";
+        elements.previewDataToggle.checked = true;
+        state.previewMode = true;
         await loadSide("front", false);
         fitCanvasToViewport();
         state.undoStack = [];
         state.redoStack = [];
         pushHistory();
         await loadSampleProfile();
-        setStatus("Blank draft ready. Add objects, then save after naming the template.", "ok");
+        setStatus("Starter draft ready. Edit the visible card, upload a photo, then save the template.", "ok");
         setSaveState("unsaved");
         return;
       }
