@@ -477,6 +477,13 @@ FACILITY_LOCATION_INSTITUTES = [
     "Govt. Primary Health Centre (PHC), Jhunjhunu",
     "Govt. Health Sub Centre, Jhunjhunu",
 ]
+DEFAULT_STUDIO_INSTITUTES = [
+    "Govt. Medical College, Jhunjhunu",
+    "Dist. Collector, Jhunjhunu",
+    "PHED Water Works Jhunjhunu",
+    "Govt. Nursing College, Jhunjhunu",
+    "Govt. ANM Training Center, Jhunjhunu",
+] + FACILITY_LOCATION_INSTITUTES
 
 FACILITY_LOCATIONS = {
     "Govt. Community Health Centre (CHC), Jhunjhunu": ["Jhunjhunu", "Chirawa", "Khetri", "Udaipurwati", "Nawalgarh", "Buhana", "Malsisar", "Mandawa", "Surajgarh"],
@@ -1886,9 +1893,19 @@ def list_local_batches(institute):
     if not institute:
         return []
     grouped = {}
+    draft_count = 0
+    draft_created_at = ""
+    draft_submitted_at = ""
     for record in load_records(institute):
         batch_id = str(record.get("batch_id") or "").strip()
         if not batch_id:
+            draft_count += 1
+            saved_at = str(record.get("saved_at") or "")
+            submitted_at = str(record.get("submitted_at") or saved_at)
+            if saved_at and (not draft_created_at or saved_at < draft_created_at):
+                draft_created_at = saved_at
+            if submitted_at and (not draft_submitted_at or submitted_at > draft_submitted_at):
+                draft_submitted_at = submitted_at
             continue
         item = grouped.setdefault(batch_id, {
             "id": batch_id,
@@ -1906,11 +1923,22 @@ def list_local_batches(institute):
             item["created_at"] = saved_at
         if submitted_at and (not item["submitted_at"] or submitted_at > item["submitted_at"]):
             item["submitted_at"] = submitted_at
+    if draft_count:
+        grouped["__drafts__"] = {
+            "id": "__drafts__",
+            "batch_name": "Saved Draft Records",
+            "institute_name": institute,
+            "status": "draft",
+            "total_cards": draft_count,
+            "created_at": draft_created_at,
+            "submitted_at": draft_submitted_at or draft_created_at,
+        }
     return sorted(grouped.values(), key=lambda item: str(item.get("submitted_at") or item.get("created_at") or ""), reverse=True)
 
 
 def get_default_template_institute():
-    institutes = set(list_known_institutes_from_settings())
+    institutes = set(DEFAULT_STUDIO_INSTITUTES)
+    institutes.update(list_known_institutes_from_settings())
     try:
         for batch in list_all_supabase_batches():
             institute = canonicalize_institute_name(batch.get("institute_name"))
@@ -3331,6 +3359,10 @@ def get_filtered_records():
         records = list_supabase_records(institute, batch_id or None)
     else:
         records = load_records(institute)
+        if batch_id == "__drafts__":
+            records = [record for record in records if not str(record.get("batch_id") or "").strip()]
+        elif batch_id:
+            records = [record for record in records if str(record.get("batch_id") or "").strip() == batch_id]
     records = [decorate_record_display(record) for record in records]
     return records, institute
 
@@ -4417,7 +4449,8 @@ def fabric_shared_backgrounds():
 @app.route("/api/admin/institutes")
 @admin_required
 def admin_institutes_api():
-    institutes = set(list_known_institutes_from_settings())
+    institutes = set(DEFAULT_STUDIO_INSTITUTES)
+    institutes.update(list_known_institutes_from_settings())
     try:
         for batch in list_all_supabase_batches():
             institute = canonicalize_institute_name(batch.get("institute_name"))
