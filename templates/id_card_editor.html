@@ -448,6 +448,13 @@
             <input id="templateInstitute" type="text" value="{{ default_institute or '' }}" placeholder="Institute">
           </div>
           <div class="field">
+            <label for="batchSelect">Batch</label>
+            <select id="batchSelect">
+              <option value="">All batches / latest data</option>
+            </select>
+          </div>
+          <div class="subtle" id="batchHint">Choose an institute first, then select a batch to preview card data from that batch.</div>
+          <div class="field">
             <label for="orientationSelect">Orientation</label>
             <select id="orientationSelect">
               <option value="landscape">Landscape</option>
@@ -665,6 +672,7 @@
     const state = {
       templateId: (params.get("id") || "").trim(),
       institute: (params.get("institute") || "{{ default_institute or '' }}").trim(),
+      selectedBatchId: (params.get("batch_id") || "").trim(),
       mode: (params.get("mode") || "edit").trim(),
       currentSide: "front",
       canvas: null,
@@ -697,6 +705,8 @@
       saveStateBadge: document.getElementById("saveStateBadge"),
       templateName: document.getElementById("templateName"),
       templateInstitute: document.getElementById("templateInstitute"),
+      batchSelect: document.getElementById("batchSelect"),
+      batchHint: document.getElementById("batchHint"),
       orientationSelect: document.getElementById("orientationSelect"),
       variableSelect: document.getElementById("variableSelect"),
       previewDataToggle: document.getElementById("previewDataToggle"),
@@ -773,6 +783,16 @@
       if (!elements.saveStateBadge) return;
       elements.saveStateBadge.className = `save-badge ${kind === "saved" ? "saved" : "unsaved"}`;
       elements.saveStateBadge.textContent = kind === "saved" ? "Saved" : "Unsaved";
+    }
+
+    function updateEditorUrl() {
+      const query = new URLSearchParams();
+      if (state.templateId) query.set("id", state.templateId);
+      if (state.mode) query.set("mode", state.mode);
+      const institute = (elements.templateInstitute.value || state.institute || "").trim();
+      if (institute) query.set("institute", institute);
+      if (state.selectedBatchId) query.set("batch_id", state.selectedBatchId);
+      history.replaceState({}, "", `/id-card-editor${query.toString() ? `?${query.toString()}` : ""}`);
     }
 
     function deepClone(value) {
@@ -1698,6 +1718,7 @@
         state.undoStack = [];
         state.redoStack = [];
         pushHistory();
+        await loadBatchOptions();
         await loadSampleProfile();
         setStatus("Starter draft ready. Edit the visible card, upload a photo, then save the template.", "ok");
         setSaveState("unsaved");
@@ -1708,7 +1729,8 @@
         const useData = await readJson(useRes, "Unable to create working copy");
         state.templateId = useData.template.id;
         state.mode = "edit";
-        history.replaceState({}, "", `/id-card-editor?id=${encodeURIComponent(state.templateId)}&mode=edit&institute=${encodeURIComponent(useData.template.institute_name || state.institute || "")}`);
+        state.institute = useData.template.institute_name || state.institute || "";
+        updateEditorUrl();
       }
       const res = await fetch(`/api/id-card-templates/${encodeURIComponent(state.templateId)}`);
       const data = await readJson(res, "Unable to load template");
@@ -1727,6 +1749,7 @@
       state.undoStack = [];
       state.redoStack = [];
       pushHistory();
+      await loadBatchOptions();
       await loadSampleProfile();
       setStatus("Editor ready.", "ok");
       setSaveState("saved");
@@ -1743,17 +1766,72 @@
       }
     }
 
+    async function loadBatchOptions() {
+      const institute = (elements.templateInstitute.value || state.institute || "").trim();
+      state.institute = institute;
+      if (!elements.batchSelect) return;
+      if (!institute) {
+        elements.batchSelect.innerHTML = `<option value="">All batches / latest data</option>`;
+        elements.batchSelect.value = "";
+        state.selectedBatchId = "";
+        if (elements.batchHint) {
+          elements.batchHint.textContent = "Choose an institute first, then select a batch to preview card data from that batch.";
+        }
+        updateEditorUrl();
+        return;
+      }
+      try {
+        const res = await fetch(`/api/batches?institute=${encodeURIComponent(institute)}`);
+        const data = await readJson(res, "Unable to load batches");
+        const batches = Array.isArray(data.batches) ? data.batches : [];
+        const options = [`<option value="">All batches / latest data</option>`].concat(
+          batches.map((batch) => {
+            const id = String(batch.id || "").trim();
+            const label = String(batch.batch_name || batch.id || "Batch").trim();
+            const count = batch.total_cards ? ` (${batch.total_cards})` : "";
+            return `<option value="${escapeHtml(id)}">${escapeHtml(label + count)}</option>`;
+          })
+        );
+        elements.batchSelect.innerHTML = options.join("");
+        const validSelected = state.selectedBatchId && batches.some((batch) => String(batch.id || "").trim() === state.selectedBatchId);
+        elements.batchSelect.value = validSelected ? state.selectedBatchId : "";
+        state.selectedBatchId = elements.batchSelect.value || "";
+        if (elements.batchHint) {
+          elements.batchHint.textContent = batches.length
+            ? "Batch selection controls which saved batch record is used for sample preview on the card."
+            : "No saved batches found for this institute yet. The editor will use latest profile data instead.";
+        }
+      } catch (error) {
+        elements.batchSelect.innerHTML = `<option value="">All batches / latest data</option>`;
+        elements.batchSelect.value = "";
+        state.selectedBatchId = "";
+        if (elements.batchHint) {
+          elements.batchHint.textContent = error.message || "Unable to load batches for this institute.";
+        }
+      }
+      updateEditorUrl();
+    }
+
     async function loadSampleProfile() {
       try {
-        const institute = encodeURIComponent((elements.templateInstitute.value || state.institute || "").trim());
-        const res = await fetch(`/api/id-card-profiles?institute=${institute}&limit=1`);
-        const data = await readJson(res, "Unable to load profile preview");
-        const first = Array.isArray(data.profiles) && data.profiles.length ? data.profiles[0] : {};
-        state.sampleProfile = first || {};
+        const institute = (elements.templateInstitute.value || state.institute || "").trim();
+        const batchId = state.selectedBatchId || "";
+        if (institute && batchId) {
+          const res = await fetch(`/api/batch-records?institute=${encodeURIComponent(institute)}&batch_id=${encodeURIComponent(batchId)}`);
+          const data = await readJson(res, "Unable to load batch preview");
+          const first = Array.isArray(data.records) && data.records.length ? data.records[0] : {};
+          state.sampleProfile = first || {};
+        } else {
+          const res = await fetch(`/api/id-card-profiles?institute=${encodeURIComponent(institute)}&limit=1`);
+          const data = await readJson(res, "Unable to load profile preview");
+          const first = Array.isArray(data.profiles) && data.profiles.length ? data.profiles[0] : {};
+          state.sampleProfile = first || {};
+        }
       } catch (error) {
         state.sampleProfile = {};
       }
       refreshVariablePreview();
+      updateEditorUrl();
     }
 
     function buildSavePayload() {
@@ -2030,6 +2108,10 @@
       elements.templateInstitute.addEventListener("change", () => {
         state.institute = elements.templateInstitute.value.trim();
         loadSupabaseMeter();
+        loadBatchOptions().then(() => loadSampleProfile());
+      });
+      elements.batchSelect.addEventListener("change", () => {
+        state.selectedBatchId = elements.batchSelect.value || "";
         loadSampleProfile();
       });
       document.querySelectorAll("[data-align]").forEach((button) => {
