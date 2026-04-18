@@ -1936,9 +1936,87 @@ def list_local_batches(institute):
     return sorted(grouped.values(), key=lambda item: str(item.get("submitted_at") or item.get("created_at") or ""), reverse=True)
 
 
+def summarize_batches_from_records(records, institute):
+    institute = canonicalize_institute_name(institute)
+    if not institute:
+        return []
+    grouped = {}
+    draft_count = 0
+    draft_created_at = ""
+    draft_submitted_at = ""
+    for record in records or []:
+        batch_id = str(record.get("batch_id") or "").strip()
+        if not batch_id:
+            draft_count += 1
+            saved_at = str(record.get("saved_at") or "")
+            submitted_at = str(record.get("submitted_at") or saved_at)
+            if saved_at and (not draft_created_at or saved_at < draft_created_at):
+                draft_created_at = saved_at
+            if submitted_at and (not draft_submitted_at or submitted_at > draft_submitted_at):
+                draft_submitted_at = submitted_at
+            continue
+        item = grouped.setdefault(batch_id, {
+            "id": batch_id,
+            "batch_name": str(record.get("batch_name") or batch_id).strip() or batch_id,
+            "institute_name": institute,
+            "status": "saved",
+            "total_cards": 0,
+            "created_at": str(record.get("saved_at") or ""),
+            "submitted_at": str(record.get("submitted_at") or record.get("saved_at") or ""),
+        })
+        item["total_cards"] += 1
+        saved_at = str(record.get("saved_at") or "")
+        submitted_at = str(record.get("submitted_at") or saved_at)
+        if saved_at and (not item["created_at"] or saved_at < item["created_at"]):
+            item["created_at"] = saved_at
+        if submitted_at and (not item["submitted_at"] or submitted_at > item["submitted_at"]):
+            item["submitted_at"] = submitted_at
+    if draft_count:
+        grouped["__drafts__"] = {
+            "id": "__drafts__",
+            "batch_name": "Saved Draft Records",
+            "institute_name": institute,
+            "status": "draft",
+            "total_cards": draft_count,
+            "created_at": draft_created_at,
+            "submitted_at": draft_submitted_at or draft_created_at,
+        }
+    return sorted(grouped.values(), key=lambda item: str(item.get("submitted_at") or item.get("created_at") or ""), reverse=True)
+
+
+def list_record_backed_batches(institute):
+    institute = canonicalize_institute_name(institute)
+    if not institute:
+        return []
+    if is_supabase_enabled():
+        try:
+            return summarize_batches_from_records(list_supabase_records(institute), institute)
+        except Exception:
+            pass
+    return list_local_batches(institute)
+
+
+def list_record_backed_institutes():
+    institutes = set()
+    for record in load_records():
+        institute = canonicalize_institute_name(record.get("institute_name"))
+        if institute:
+            institutes.add(institute)
+    if is_supabase_enabled():
+        try:
+            for record in list_supabase_records():
+                institute = canonicalize_institute_name(record.get("institute_name"))
+                if institute:
+                    institutes.add(institute)
+        except Exception:
+            pass
+    return institutes
+
+
 def get_default_template_institute():
     institutes = set(DEFAULT_STUDIO_INSTITUTES)
     institutes.update(list_known_institutes_from_settings())
+    institutes.update(list_record_backed_institutes())
     try:
         for batch in list_all_supabase_batches():
             institute = canonicalize_institute_name(batch.get("institute_name"))
@@ -3856,6 +3934,7 @@ def id_card_editor_page():
         build_tag=app.config.get("APP_BUILD_TAG", ""),
         default_institute=get_default_template_institute(),
         template_variables=ID_CARD_TEMPLATE_VARIABLES,
+        default_starter_config=build_blank_template_config("landscape", "gov_employee"),
         **build_admin_institutes_payload(),
         **build_template_bucket_payload(),
     ))
@@ -4453,6 +4532,7 @@ def fabric_shared_backgrounds():
 def admin_institutes_api():
     institutes = set(DEFAULT_STUDIO_INSTITUTES)
     institutes.update(list_known_institutes_from_settings())
+    institutes.update(list_record_backed_institutes())
     try:
         for batch in list_all_supabase_batches():
             institute = canonicalize_institute_name(batch.get("institute_name"))
@@ -4470,6 +4550,7 @@ def admin_institutes_api():
 def build_admin_institutes_payload():
     institutes = set(DEFAULT_STUDIO_INSTITUTES)
     institutes.update(list_known_institutes_from_settings())
+    institutes.update(list_record_backed_institutes())
     try:
         for batch in list_all_supabase_batches():
             institute = canonicalize_institute_name(batch.get("institute_name"))
@@ -5519,7 +5600,23 @@ def get_batches():
     if not institute:
         return jsonify({"batches": [], "institute": ""})
     try:
-        batches = list_supabase_batches(institute) if is_supabase_enabled() else list_local_batches(institute)
+        batches = []
+        seen_ids = set()
+        if is_supabase_enabled():
+            try:
+                for batch in list_supabase_batches(institute):
+                    batch_id = str((batch or {}).get("id") or "").strip()
+                    if batch_id and batch_id not in seen_ids:
+                        seen_ids.add(batch_id)
+                        batches.append(batch)
+            except Exception:
+                batches = []
+                seen_ids = set()
+        for batch in list_record_backed_batches(institute):
+            batch_id = str((batch or {}).get("id") or "").strip()
+            if batch_id and batch_id not in seen_ids:
+                seen_ids.add(batch_id)
+                batches.append(batch)
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to load batches"}), 500
     return jsonify({"batches": batches, "institute": institute})

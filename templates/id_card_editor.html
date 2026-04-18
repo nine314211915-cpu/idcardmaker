@@ -657,6 +657,7 @@
   <input id="photoReplaceInput" type="file" accept="image/*" hidden>
   <script>
     const TEMPLATE_VARIABLES = {{ (template_variables or []) | tojson }};
+    const DEFAULT_STARTER_CONFIG = {{ (default_starter_config or {}) | tojson }};
     const CUSTOM_PROPS = ["customType", "variableKey", "templateText", "photoShape", "helperTag", "lockedAspectRatio"];
     const SNAP_TOLERANCE = 6;
     const HISTORY_LIMIT = 20;
@@ -1731,8 +1732,8 @@
         elements.orientationSelect.value = "landscape";
         state.institute = elements.templateInstitute.value.trim();
         applyCanvasSize();
-        state.sideSnapshots.front = buildStarterDraftSnapshot("front");
-        state.sideSnapshots.back = buildStarterDraftSnapshot("back");
+        state.sideSnapshots.front = deepClone((DEFAULT_STARTER_CONFIG && DEFAULT_STARTER_CONFIG.front) || buildStarterDraftSnapshot("front"));
+        state.sideSnapshots.back = deepClone((DEFAULT_STARTER_CONFIG && DEFAULT_STARTER_CONFIG.back) || buildStarterDraftSnapshot("back"));
         elements.templateIdText.textContent = "Draft";
         elements.previewDataToggle.checked = true;
         state.previewMode = true;
