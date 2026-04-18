@@ -1866,6 +1866,49 @@ def list_supabase_profiles_for_studio(institute=None, limit=200):
     return deduped[:limit_value]
 
 
+def list_records_for_studio(institute=None, limit=200):
+    institute = canonicalize_institute_name(institute)
+    records = load_records(institute) if institute else load_records()
+    profiles = []
+    for index, row in enumerate(records[: max(1, min(int(limit or 200), 500))]):
+        profile = {field: row.get(field, "") for field in ID_CARD_TEMPLATE_VARIABLES}
+        for key, value in (row or {}).items():
+            if key not in profile:
+                profile[key] = value
+        profile["id"] = row.get("id") or row.get("serial_no") or f"local-{index}"
+        profile["institute_name"] = canonicalize_institute_name(row.get("institute_name")) or institute or ""
+        profiles.append(profile)
+    return profiles
+
+
+def list_local_batches(institute):
+    institute = canonicalize_institute_name(institute)
+    if not institute:
+        return []
+    grouped = {}
+    for record in load_records(institute):
+        batch_id = str(record.get("batch_id") or "").strip()
+        if not batch_id:
+            continue
+        item = grouped.setdefault(batch_id, {
+            "id": batch_id,
+            "batch_name": str(record.get("batch_name") or batch_id).strip() or batch_id,
+            "institute_name": institute,
+            "status": "saved",
+            "total_cards": 0,
+            "created_at": str(record.get("saved_at") or ""),
+            "submitted_at": str(record.get("submitted_at") or record.get("saved_at") or ""),
+        })
+        item["total_cards"] += 1
+        saved_at = str(record.get("saved_at") or "")
+        submitted_at = str(record.get("submitted_at") or saved_at)
+        if saved_at and (not item["created_at"] or saved_at < item["created_at"]):
+            item["created_at"] = saved_at
+        if submitted_at and (not item["submitted_at"] or submitted_at > item["submitted_at"]):
+            item["submitted_at"] = submitted_at
+    return sorted(grouped.values(), key=lambda item: str(item.get("submitted_at") or item.get("created_at") or ""), reverse=True)
+
+
 def get_default_template_institute():
     institutes = set(list_known_institutes_from_settings())
     try:
@@ -4039,11 +4082,12 @@ def use_id_card_template_api(template_id):
 @app.route("/api/id-card-profiles")
 @admin_required
 def id_card_profiles_api():
-    if not is_supabase_enabled():
-        return jsonify({"error": "Supabase is not configured"}), 400
     institute = canonicalize_institute_name(request.args.get("institute"))
     try:
-        profiles = list_supabase_profiles_for_studio(institute, request.args.get("limit") or 200)
+        if is_supabase_enabled():
+            profiles = list_supabase_profiles_for_studio(institute, request.args.get("limit") or 200)
+        else:
+            profiles = list_records_for_studio(institute, request.args.get("limit") or 200)
         variables = list(ID_CARD_TEMPLATE_VARIABLES)
         for profile in profiles:
             for key in (profile or {}).keys():
@@ -5422,10 +5466,8 @@ def get_batches():
     institute = canonicalize_institute_name(request.args.get("institute"))
     if not institute:
         return jsonify({"batches": [], "institute": ""})
-    if not is_supabase_enabled():
-        return jsonify({"batches": [], "institute": institute, "warning": "Supabase is not configured"})
     try:
-        batches = list_supabase_batches(institute)
+        batches = list_supabase_batches(institute) if is_supabase_enabled() else list_local_batches(institute)
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to load batches"}), 500
     return jsonify({"batches": batches, "institute": institute})

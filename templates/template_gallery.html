@@ -411,7 +411,9 @@
         </div>
         <div class="field">
           <label for="instituteName">Institute</label>
-          <input id="instituteName" type="text" value="{{ default_institute or '' }}" placeholder="Select institute">
+          <select id="instituteName">
+            <option value="">Select Institute</option>
+          </select>
         </div>
         <div class="field">
           <label for="orientationSelect">Orientation</label>
@@ -546,6 +548,33 @@
         throw new Error(data.error || fallback);
       }
       return data;
+    }
+
+    async function loadInstituteOptions() {
+      const currentValue = (elements.instituteName.value || state.institute || "{{ default_institute or '' }}").trim();
+      try {
+        const res = await fetch("/api/admin/institutes");
+        const data = await readJson(res, "Unable to load institutes");
+        const institutes = Array.isArray(data.institutes) ? data.institutes : [];
+        const unique = [];
+        institutes.forEach((item) => {
+          const value = String(item || "").trim();
+          if (value && !unique.includes(value)) unique.push(value);
+        });
+        if (currentValue && !unique.includes(currentValue)) {
+          unique.unshift(currentValue);
+        }
+        elements.instituteName.innerHTML = [`<option value="">Select Institute</option>`]
+          .concat(unique.map((item) => `<option value="${escapeHtml(item)}">${escapeHtml(item)}</option>`))
+          .join("");
+        elements.instituteName.value = currentValue || "";
+        state.institute = elements.instituteName.value || currentValue || "";
+      } catch (error) {
+        const fallback = currentValue || "{{ default_institute or '' }}";
+        elements.instituteName.innerHTML = `<option value="">Select Institute</option><option value="${escapeHtml(fallback)}">${escapeHtml(fallback)}</option>`;
+        elements.instituteName.value = fallback;
+        state.institute = fallback;
+      }
     }
 
     function formatDate(value) {
@@ -770,7 +799,14 @@
     });
 
     renderSuggestionPreviews();
-    loadTemplates().catch((error) => setStatus(error.message || "Unable to initialise template gallery", true));
+    (async function bootstrap() {
+      try {
+        await loadInstituteOptions();
+        await loadTemplates();
+      } catch (error) {
+        setStatus(error.message || "Unable to initialise template gallery", true);
+      }
+    })();
   </script>
 </body>
 </html>
