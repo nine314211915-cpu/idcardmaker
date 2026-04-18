@@ -1,0 +1,53 @@
+<svg width="1080" height="1080" viewBox="0 0 1080 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="60" x2="920" y2="1020" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FBFF"/>
+      <stop offset="1" stop-color="#E8F1F8"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="200" y1="180" x2="878" y2="820" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F4C81"/>
+      <stop offset="1" stop-color="#2D6AA0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1080" height="1080" rx="40" fill="url(#bg)"/>
+  <rect x="78" y="78" width="924" height="924" rx="34" fill="#FFFFFF"/>
+
+  <rect x="126" y="126" width="232" height="60" rx="18" fill="#EEF5FB"/>
+  <text x="160" y="165" fill="#0F4C81" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">ID Card Workspace</text>
+
+  <text x="126" y="270" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="74" font-weight="700">Upload. Fill.</text>
+  <text x="126" y="344" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="74" font-weight="700">Get Your Card.</text>
+
+  <text x="126" y="410" fill="#64748B" font-family="Arial, Helvetica, sans-serif" font-size="30">
+    Share this with staff, students, visitors, or teams who need
+  </text>
+  <text x="126" y="448" fill="#64748B" font-family="Arial, Helvetica, sans-serif" font-size="30">
+    to upload details and get a clean ID card made quickly.
+  </text>
+
+  <rect x="126" y="516" width="394" height="354" rx="28" fill="url(#accent)"/>
+  <text x="162" y="590" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700">Fast project flow</text>
+  <circle cx="170" cy="664" r="10" fill="#FFFFFF"/>
+  <text x="198" y="674" fill="#F8FBFF" font-family="Arial, Helvetica, sans-serif" font-size="28">Upload photo</text>
+  <circle cx="170" cy="730" r="10" fill="#FFFFFF"/>
+  <text x="198" y="740" fill="#F8FBFF" font-family="Arial, Helvetica, sans-serif" font-size="28">Enter details</text>
+  <circle cx="170" cy="796" r="10" fill="#FFFFFF"/>
+  <text x="198" y="806" fill="#F8FBFF" font-family="Arial, Helvetica, sans-serif" font-size="28">Generate ID card</text>
+
+  <rect x="566" y="516" width="316" height="418" rx="28" fill="#F8FBFF" stroke="#D9E2EC" stroke-width="2"/>
+  <rect x="594" y="548" width="260" height="56" rx="16" fill="#0F4C81"/>
+  <text x="628" y="585" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700">Share with users</text>
+
+  <rect x="618" y="644" width="110" height="142" rx="22" fill="#DCE7F1"/>
+  <rect x="744" y="656" width="94" height="14" rx="7" fill="#C7D4E2"/>
+  <rect x="744" y="688" width="108" height="14" rx="7" fill="#C7D4E2"/>
+  <rect x="744" y="738" width="98" height="12" rx="6" fill="#D3DEE8"/>
+  <rect x="744" y="766" width="72" height="12" rx="6" fill="#D3DEE8"/>
+  <rect x="744" y="794" width="106" height="12" rx="6" fill="#D3DEE8"/>
+
+  <rect x="126" y="912" width="756" height="64" rx="18" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="2"/>
+  <text x="162" y="954" fill="#111827" font-family="Arial, Helvetica, sans-serif" font-size="29" font-weight="700">
+    Best for WhatsApp shares, status posts, and quick project promotion.
+  </text>
+</svg>

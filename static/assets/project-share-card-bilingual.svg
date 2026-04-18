@@ -1,0 +1,80 @@
+<svg width="1080" height="1350" viewBox="0 0 1080 1350" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="80" x2="940" y2="1270" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FBFF"/>
+      <stop offset="1" stop-color="#E9F1F8"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="240" y1="160" x2="884" y2="944" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F4C81"/>
+      <stop offset="1" stop-color="#2D6AA0"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1080" height="1350" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="18" stdDeviation="30" flood-color="#0F172A" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect width="1080" height="1350" rx="40" fill="url(#bg)"/>
+  <circle cx="180" cy="132" r="160" fill="#DCEAF6"/>
+  <circle cx="934" cy="1180" r="220" fill="#D9E8F3"/>
+
+  <g filter="url(#shadow)">
+    <rect x="82" y="82" width="916" height="1186" rx="34" fill="#FFFFFF"/>
+  </g>
+
+  <rect x="126" y="126" width="260" height="64" rx="20" fill="#EFF6FC"/>
+  <text x="156" y="168" fill="#0F4C81" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="30" font-weight="700">ID Card Workspace</text>
+
+  <text x="126" y="274" fill="#111827" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="62" font-weight="700">अब फोटो अपलोड करें और</text>
+  <text x="126" y="348" fill="#111827" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="62" font-weight="700">प्रोफेशनल ID कार्ड बनवाएं</text>
+
+  <text x="126" y="418" fill="#64748B" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="31">
+    Upload your photo, fill details, and get a clean ID card made in a few simple steps.
+  </text>
+  <text x="126" y="458" fill="#64748B" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="31">
+    फोटो अपलोड करें, जानकारी भरें, और अपना कार्ड तैयार करवाएं।
+  </text>
+
+  <rect x="126" y="526" width="258" height="58" rx="18" fill="#EEF5FB"/>
+  <rect x="402" y="526" width="248" height="58" rx="18" fill="#EEF5FB"/>
+  <rect x="668" y="526" width="202" height="58" rx="18" fill="#EEF5FB"/>
+  <text x="164" y="564" fill="#0F4C81" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="28" font-weight="700">फोटो अपलोड</text>
+  <text x="440" y="564" fill="#0F4C81" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="28" font-weight="700">डिटेल भरें</text>
+  <text x="706" y="564" fill="#0F4C81" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="28" font-weight="700">कार्ड पाएं</text>
+
+  <rect x="126" y="644" width="410" height="456" rx="30" fill="url(#accent)"/>
+  <text x="164" y="726" fill="#FFFFFF" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="34" font-weight="700">किनके लिए उपयोगी है</text>
+
+  <circle cx="168" cy="804" r="10" fill="#FFFFFF"/>
+  <text x="196" y="814" fill="#F8FBFF" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="29">कर्मचारी / स्टाफ</text>
+
+  <circle cx="168" cy="874" r="10" fill="#FFFFFF"/>
+  <text x="196" y="884" fill="#F8FBFF" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="29">विद्यार्थी / ट्रेनी</text>
+
+  <circle cx="168" cy="944" r="10" fill="#FFFFFF"/>
+  <text x="196" y="954" fill="#F8FBFF" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="29">विजिटर / पास</text>
+
+  <circle cx="168" cy="1014" r="10" fill="#FFFFFF"/>
+  <text x="196" y="1024" fill="#F8FBFF" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="29">डिपार्टमेंट / ऑफिस टीम</text>
+
+  <rect x="572" y="644" width="324" height="496" rx="28" fill="#F8FBFF" stroke="#D9E2EC" stroke-width="2"/>
+  <rect x="598" y="676" width="272" height="60" rx="18" fill="#0F4C81"/>
+  <text x="624" y="716" fill="#FFFFFF" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="26" font-weight="700">कैसे शुरू करें / Start</text>
+
+  <rect x="618" y="780" width="110" height="146" rx="22" fill="#DCE7F1"/>
+  <rect x="746" y="794" width="94" height="14" rx="7" fill="#C7D4E2"/>
+  <rect x="746" y="826" width="108" height="14" rx="7" fill="#C7D4E2"/>
+  <rect x="746" y="874" width="98" height="12" rx="6" fill="#D3DEE8"/>
+  <rect x="746" y="902" width="72" height="12" rx="6" fill="#D3DEE8"/>
+  <rect x="746" y="930" width="106" height="12" rx="6" fill="#D3DEE8"/>
+
+  <text x="618" y="1004" fill="#111827" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="26" font-weight="700">ID Card page खोलें</text>
+  <text x="618" y="1042" fill="#64748B" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="24">Open the page, upload details,</text>
+  <text x="618" y="1074" fill="#64748B" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="24">and get the card created.</text>
+
+  <rect x="126" y="1160" width="790" height="70" rx="22" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="2"/>
+  <text x="158" y="1206" fill="#111827" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="28" font-weight="700">Share this card with people who need to upload details and make ID cards.</text>
+
+  <text x="126" y="1286" fill="#64748B" font-family="'Noto Sans Devanagari', Arial, Helvetica, sans-serif" font-size="24">
+    Powered by Aipexlabs | English + Hindi share card
+  </text>
+</svg>

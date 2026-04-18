@@ -6,7 +6,7 @@
   <title>Photo Studio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Inter:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Oswald:wght@400;500;600&family=Playfair+Display:wght@500;700&family=Plus+Jakarta+Sans:wght@400;600;700&family=Public+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Inter:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Noto+Sans+Devanagari:wght@400;500;700&family=Noto+Serif+Devanagari:wght@400;700&family=Oswald:wght@400;500;600&family=Playfair+Display:wght@500;700&family=Plus+Jakarta+Sans:wght@400;600;700&family=Public+Sans:wght@400;600;700&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
   <style>
     :root {
@@ -27,7 +27,7 @@
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: "Inter", "Segoe UI", Arial, sans-serif;
+      font-family: "Inter", "Noto Sans Devanagari", "Mangal", "Nirmala UI", "Segoe UI", Arial, sans-serif;
       color: var(--ink);
       background:
         radial-gradient(circle at top left, rgba(15, 76, 129, 0.08), transparent 30%),
@@ -232,6 +232,18 @@
     .tool-group h3 {
       margin: 0;
       font-size: 13px;
+    }
+    .preset-chip-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .preset-chip {
+      min-width: 0;
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      line-height: 1.2;
     }
     .canvas-panel {
       padding: 14px;
@@ -478,6 +490,18 @@
           </div>
 
           <div class="tool-group">
+            <h3>Hindi Labels</h3>
+            <div class="preset-chip-grid">
+              <button class="btn btn-quiet preset-chip" type="button" data-hindi-preset="नाम">नाम</button>
+              <button class="btn btn-quiet preset-chip" type="button" data-hindi-preset="पद">पद</button>
+              <button class="btn btn-quiet preset-chip" type="button" data-hindi-preset="विभाग">विभाग</button>
+              <button class="btn btn-quiet preset-chip" type="button" data-hindi-preset="जन्म तिथि">जन्म तिथि</button>
+              <button class="btn btn-quiet preset-chip" type="button" data-hindi-preset="वैधता तक">वैधता तक</button>
+            </div>
+            <div class="subtle">One click adds a Hindi label with a Devanagari-friendly font.</div>
+          </div>
+
+          <div class="tool-group">
             <h3>Keyboard</h3>
             <div class="subtle">Ctrl+Z undo, Ctrl+Shift+Z redo, Delete remove. Front and back stay available from the top bar.</div>
           </div>
@@ -629,10 +653,13 @@
       { label: "Public Sans", value: "Public Sans" },
       { label: "DM Sans", value: "DM Sans" },
       { label: "Plus Jakarta Sans", value: "Plus Jakarta Sans" },
+      { label: "Noto Sans Devanagari", value: "\"Noto Sans Devanagari\"" },
+      { label: "Noto Serif Devanagari", value: "\"Noto Serif Devanagari\"" },
       { label: "Oswald", value: "Oswald" },
       { label: "Playfair Display", value: "Playfair Display" },
       { label: "Merriweather", value: "Merriweather" }
     ];
+    const HINDI_LABEL_PRESETS = ["नाम", "पद", "विभाग", "जन्म तिथि", "वैधता तक"];
 
     const params = new URLSearchParams(window.location.search);
     const state = {
@@ -1263,6 +1290,32 @@
       queueAutosaveMessage();
     }
 
+    function addPresetLabel(textValue, options = {}) {
+      const text = new fabric.Textbox(textValue, {
+        left: options.left || 88,
+        top: options.top || 88,
+        width: options.width || 220,
+        fontSize: options.fontSize || 24,
+        fontFamily: options.fontFamily || elements.fontPresetSelect.value || FONT_PRESETS[0].value,
+        fill: options.fill || "#1e293b",
+      });
+      state.canvas.add(text);
+      state.canvas.setActiveObject(text);
+      state.canvas.requestRenderAll();
+      syncInspector();
+      scheduleHistoryPush();
+      queueAutosaveMessage();
+    }
+
+    function addHindiPresetLabel(label) {
+      addPresetLabel(label, {
+        width: 240,
+        fontSize: 24,
+        fontFamily: "\"Noto Sans Devanagari\"",
+        fill: "#1e293b",
+      });
+    }
+
     function addVariableObject() {
       const key = elements.variableSelect.value || TEMPLATE_VARIABLES[0] || "name";
       const token = "{{" + key + "}}";
@@ -1793,6 +1846,13 @@
       elements.scrollDownBtn.addEventListener("click", () => scrollCanvasBy(0, 160));
       elements.addTextBtn.addEventListener("click", addTextObject);
       elements.addVariableBtn.addEventListener("click", addVariableObject);
+      document.querySelectorAll("[data-hindi-preset]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const label = button.getAttribute("data-hindi-preset") || "";
+          if (!label || !HINDI_LABEL_PRESETS.includes(label)) return;
+          addHindiPresetLabel(label);
+        });
+      });
       elements.applyFontBtn.addEventListener("click", () => applyFontFamilyToSelection(elements.fontPresetSelect.value));
       elements.addPhotoRectBtn.addEventListener("click", () => addPhotoPlaceholder("rect"));
       elements.addPhotoCircleBtn.addEventListener("click", () => addPhotoPlaceholder("circle"));

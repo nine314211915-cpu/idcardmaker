@@ -41,6 +41,7 @@ app.config["SUPABASE_PHOTOS_BUCKET"] = os.environ.get("SUPABASE_PHOTOS_BUCKET", 
 app.config["SUPABASE_TEMPLATE_THUMBNAILS_BUCKET"] = os.environ.get("SUPABASE_TEMPLATE_THUMBNAILS_BUCKET", "template-thumbnails").strip() or "template-thumbnails"
 app.config["SUPABASE_PROFILE_PHOTOS_BUCKET"] = os.environ.get("SUPABASE_PROFILE_PHOTOS_BUCKET", "profile-photos").strip() or "profile-photos"
 app.config["SUPABASE_TEMPLATE_ASSETS_BUCKET"] = os.environ.get("SUPABASE_TEMPLATE_ASSETS_BUCKET", "template-assets").strip() or "template-assets"
+app.config["SUPABASE_TEMPLATE_TABLE"] = os.environ.get("SUPABASE_TEMPLATE_TABLE", "templates").strip() or "templates"
 app.config["APP_BUILD_TAG"] = os.environ.get("APP_BUILD_TAG", "").strip() or datetime.utcnow().strftime("%Y%m%d-%H%M%S")
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.config["CRON_BACKUP_TOKEN"] = os.environ.get("CRON_BACKUP_TOKEN", "").strip()
@@ -1718,6 +1719,44 @@ def summarize_id_card_template(row):
     return item
 
 
+def is_supabase_missing_table_error(exc):
+    text = str(exc or "")
+    return "PGRST205" in text or "schema cache" in text or "Could not find the table" in text
+
+
+def get_supabase_template_table_candidates():
+    preferred = str(app.config.get("SUPABASE_TEMPLATE_TABLE") or "templates").strip() or "templates"
+    candidates = []
+    for name in (preferred, "templates", "id_card_templates"):
+        cleaned = str(name or "").strip()
+        if cleaned and cleaned not in candidates:
+            candidates.append(cleaned)
+    return candidates
+
+
+def supabase_template_request(method, query=None, payload=None, prefer_representation=False):
+    last_error = None
+    for table_name in get_supabase_template_table_candidates():
+        try:
+            result = supabase_request(
+                method,
+                table_name,
+                query=query,
+                payload=payload,
+                prefer_representation=prefer_representation,
+            )
+            if table_name != app.config.get("SUPABASE_TEMPLATE_TABLE"):
+                app.config["SUPABASE_TEMPLATE_TABLE"] = table_name
+            return result
+        except Exception as exc:
+            last_error = exc
+            if not is_supabase_missing_table_error(exc):
+                raise
+    if last_error:
+        raise last_error
+    raise RuntimeError("Unable to resolve a Supabase template table")
+
+
 def list_supabase_templates(institute=None):
     query = {
         "select": "*",
@@ -1726,7 +1765,7 @@ def list_supabase_templates(institute=None):
     institute = canonicalize_institute_name(institute)
     if institute:
         query["institute_name"] = f"eq.{institute}"
-    rows = supabase_request("GET", "templates", query=query)
+    rows = supabase_template_request("GET", query=query)
     return [summarize_id_card_template(row) for row in (rows if isinstance(rows, list) else [])]
 
 
@@ -1734,7 +1773,7 @@ def get_supabase_template(template_id):
     template_id = str(template_id or "").strip()
     if not template_id:
         return None
-    rows = supabase_request("GET", "templates", query={"select": "*", "id": f"eq.{template_id}", "limit": 1})
+    rows = supabase_template_request("GET", query={"select": "*", "id": f"eq.{template_id}", "limit": 1})
     if isinstance(rows, list) and rows:
         return summarize_id_card_template(rows[0])
     return None
@@ -3760,9 +3799,8 @@ def id_card_templates_api():
     if not institute:
         return jsonify({"error": "Institute is required"}), 400
     try:
-        inserted = supabase_request(
+        inserted = supabase_template_request(
             "POST",
-            "templates",
             payload={
                 "name": name[:120],
                 "description": str(payload.get("description") or "").strip(),
@@ -3807,7 +3845,7 @@ def id_card_template_detail_api(template_id):
             thumbnail_path = extract_supabase_object_path(thumbnail_url)
             if thumbnail_path:
                 delete_supabase_storage_object_path(thumbnail_path, app.config["SUPABASE_TEMPLATE_THUMBNAILS_BUCKET"])
-            supabase_request("DELETE", "templates", query={"id": f"eq.{template_id}"})
+            supabase_template_request("DELETE", query={"id": f"eq.{template_id}"})
             return jsonify({"status": "deleted", "template_id": template_id})
         except Exception as exc:
             return jsonify({"error": str(exc) or "Unable to delete template"}), 500
@@ -3835,9 +3873,8 @@ def id_card_template_detail_api(template_id):
             return jsonify({"error": str(exc) or "Unable to upload template thumbnail"}), 400
 
     try:
-        updated = supabase_request(
+        updated = supabase_template_request(
             "PATCH",
-            "templates",
             payload=update_payload,
             query={"id": f"eq.{template_id}"},
             prefer_representation=True,
@@ -3862,9 +3899,8 @@ def duplicate_id_card_template_api(template_id):
     payload = request.get_json(silent=True) or {}
     name_suffix = str(payload.get("suffix") or "(Copy)").strip() or "(Copy)"
     try:
-        inserted = supabase_request(
+        inserted = supabase_template_request(
             "POST",
-            "templates",
             payload={
                 "name": f"{template.get('name', 'Template')} {name_suffix}".strip(),
                 "description": template.get("description", ""),
@@ -3892,9 +3928,8 @@ def use_id_card_template_api(template_id):
     if not template:
         return jsonify({"error": "Template not found"}), 404
     try:
-        inserted = supabase_request(
+        inserted = supabase_template_request(
             "POST",
-            "templates",
             payload={
                 "name": f"{template.get('name', 'Template')} Working Copy",
                 "description": template.get("description", ""),
