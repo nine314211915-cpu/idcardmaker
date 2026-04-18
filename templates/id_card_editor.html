@@ -693,6 +693,7 @@
       safeGuidesVisible: true,
       previewMode: false,
       sampleProfile: {},
+      dynamicVariables: [],
     };
 
     const elements = {
@@ -810,6 +811,23 @@
       const text = String(value || "").trim();
       if (/^#[0-9a-f]{6}$/i.test(text)) return text;
       return "#1e293b";
+    }
+
+    function getAvailableVariableKeys() {
+      const keys = [];
+      const pushKey = (value) => {
+        const cleaned = String(value || "").trim();
+        if (cleaned && !keys.includes(cleaned)) keys.push(cleaned);
+      };
+      TEMPLATE_VARIABLES.forEach(pushKey);
+      (state.dynamicVariables || []).forEach(pushKey);
+      Object.keys(state.sampleProfile || {}).forEach(pushKey);
+      if (state.canvas) {
+        getLayerObjects().forEach((obj) => {
+          if (obj && obj.variableKey) pushKey(obj.variableKey);
+        });
+      }
+      return keys;
     }
 
     function getCanvasSize() {
@@ -1855,12 +1873,15 @@
         } else {
           const res = await fetch(`/api/id-card-profiles?institute=${encodeURIComponent(institute)}&limit=1`);
           const data = await readJson(res, "Unable to load profile preview");
+          state.dynamicVariables = Array.isArray(data.variables) ? data.variables : [];
           const first = Array.isArray(data.profiles) && data.profiles.length ? data.profiles[0] : {};
           state.sampleProfile = first || {};
         }
       } catch (error) {
         state.sampleProfile = {};
+        state.dynamicVariables = [];
       }
+      populateVariableMenus();
       refreshVariablePreview();
       updateEditorUrl();
     }
@@ -2221,14 +2242,17 @@
     }
 
     function populateVariableMenus() {
+      const currentVariable = elements.variableSelect.value || "";
+      const currentInspectorVariable = elements.inspectorVariableKey.value || "";
+      const variableKeys = getAvailableVariableKeys();
       const options = [`<option value="">Select variable</option>`].concat(
-        TEMPLATE_VARIABLES.map((item) => `<option value="${item}">${item}</option>`)
+        variableKeys.map((item) => `<option value="${item}">${item}</option>`)
       );
       elements.variableSelect.innerHTML = options.join("");
       elements.inspectorVariableKey.innerHTML = options.join("");
-      if (TEMPLATE_VARIABLES[0]) {
-        elements.variableSelect.value = TEMPLATE_VARIABLES[0];
-      }
+      if (currentVariable && variableKeys.includes(currentVariable)) elements.variableSelect.value = currentVariable;
+      else if (variableKeys[0]) elements.variableSelect.value = variableKeys[0];
+      if (currentInspectorVariable && variableKeys.includes(currentInspectorVariable)) elements.inspectorVariableKey.value = currentInspectorVariable;
       const fontOptions = FONT_PRESETS.map((item) => `<option value="${item.value}">${item.label}</option>`);
       elements.fontPresetSelect.innerHTML = fontOptions.join("");
       elements.inspectorFontFamily.innerHTML = fontOptions.join("");

@@ -51,6 +51,8 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "medical-id-card-secret")
 HEX_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
 ID_CARD_TEMPLATE_VARIABLES = [
     "name",
+    "institute_name",
+    "profile_type",
     "course",
     "training_year",
     "batch_session",
@@ -65,6 +67,18 @@ ID_CARD_TEMPLATE_VARIABLES = [
     "address",
     "valid_upto",
     "serial_no",
+    "batch_id",
+    "batch_name",
+    "submitted_at",
+    "saved_at",
+    "facility_location",
+    "facility_sub_location",
+    "background_scope",
+    "background_scope_label",
+    "background_scope_block",
+    "background_scope_facility_sub_location",
+    "custom_employee_field_label",
+    "custom_employee_field_value",
     "photo_url",
 ]
 
@@ -1807,23 +1821,49 @@ def get_supabase_template(template_id):
 
 
 def list_supabase_profiles_for_studio(institute=None, limit=200):
+    limit_value = max(1, min(int(limit or 200), 500))
+    institute = canonicalize_institute_name(institute)
+    rows = []
     fields = ",".join(["id", "institute_name"] + ID_CARD_TEMPLATE_VARIABLES)
     query = {
         "select": fields,
         "order": "name.asc",
-        "limit": max(1, min(int(limit or 200), 500)),
+        "limit": limit_value,
     }
-    institute = canonicalize_institute_name(institute)
     if institute:
         query["institute_name"] = f"eq.{institute}"
-    rows = supabase_request("GET", "profiles", query=query)
+    try:
+        rows = supabase_request("GET", "profiles", query=query)
+    except Exception:
+        rows = []
     result = []
     for row in (rows if isinstance(rows, list) else []):
         profile = {field: row.get(field, "") for field in ID_CARD_TEMPLATE_VARIABLES}
         profile["id"] = row.get("id")
         profile["institute_name"] = canonicalize_institute_name(row.get("institute_name")) or ""
         result.append(profile)
-    return result
+    record_rows = list_supabase_records(institute)[:limit_value]
+    for index, row in enumerate(record_rows):
+        profile = {field: row.get(field, "") for field in ID_CARD_TEMPLATE_VARIABLES}
+        for key, value in (row or {}).items():
+            if key not in profile:
+                profile[key] = value
+        profile["id"] = row.get("id") or f"record-{index}"
+        profile["institute_name"] = canonicalize_institute_name(row.get("institute_name")) or institute or ""
+        result.append(profile)
+    deduped = []
+    seen = set()
+    for item in result:
+        marker = (
+            str(item.get("serial_no") or "").strip(),
+            str(item.get("employee_id") or "").strip(),
+            str(item.get("name") or "").strip(),
+        )
+        if marker in seen:
+            continue
+        seen.add(marker)
+        deduped.append(item)
+    return deduped[:limit_value]
 
 
 def get_default_template_institute():
@@ -4004,10 +4044,16 @@ def id_card_profiles_api():
     institute = canonicalize_institute_name(request.args.get("institute"))
     try:
         profiles = list_supabase_profiles_for_studio(institute, request.args.get("limit") or 200)
+        variables = list(ID_CARD_TEMPLATE_VARIABLES)
+        for profile in profiles:
+            for key in (profile or {}).keys():
+                cleaned = str(key or "").strip()
+                if cleaned and cleaned not in variables:
+                    variables.append(cleaned)
         return jsonify({
             "profiles": profiles,
             "institute": institute or "",
-            "variables": ID_CARD_TEMPLATE_VARIABLES,
+            "variables": variables,
         })
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to load profiles"}), 500
