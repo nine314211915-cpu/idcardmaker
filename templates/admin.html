@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin Panel - ID Card System</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --cream: #fdf8f0;
@@ -538,6 +538,145 @@
     text-transform: uppercase;
   }
   .badge-student { background: #e8f4fd; color: #1a5276; }
+
+  /* Compact admin overrides */
+  :root {
+    --cream: #f8f9fa;
+    --cream2: #eef3f8;
+    --red: #0f4c81;
+    --red-light: #1461a8;
+    --red-soft: #edf5fc;
+    --gold: #28a745;
+    --text: #212529;
+    --muted: #667085;
+    --border: #d9e2ec;
+    --shadow: 0 16px 38px rgba(15, 23, 42, 0.09);
+  }
+  body {
+    font-family: 'Public Sans', sans-serif;
+    font-size: 12px;
+    background:
+      radial-gradient(circle at top left, rgba(15,76,129,0.14), transparent 24%),
+      linear-gradient(180deg, #ffffff 0%, var(--cream) 100%);
+  }
+  header {
+    width: min(1240px, calc(100% - 24px));
+    margin: 10px auto 0;
+    padding: 14px 18px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.82);
+    color: var(--text);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(14px);
+  }
+  header .logo-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #edf4fb 100%);
+    border: 1px solid rgba(15,76,129,0.14);
+  }
+  header .logo-icon svg { width: 22px; height: 22px; }
+  header h1 {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 16px;
+  }
+  header p,
+  header .credit-line {
+    font-size: 10px;
+    color: var(--muted);
+  }
+  header .credit-line strong {
+    color: var(--text);
+    font-weight: 700;
+  }
+  header .right-brand {
+    padding: 6px 8px;
+    border-radius: 999px;
+    background: var(--red-soft);
+    border: 1px solid rgba(15,76,129,0.1);
+    box-shadow: none;
+  }
+  header .brand-top a,
+  header .brand-top a:visited { color: var(--muted); }
+  header .brand-chip {
+    background: white;
+    color: var(--red);
+    border: 1px solid rgba(15,76,129,0.12);
+  }
+  header .nav-link {
+    background: white;
+    color: var(--text);
+    padding: 7px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+  }
+  .toolbar, .asset-panel, .table-wrap, .overview-panel, .status-strip {
+    max-width: 1240px;
+    padding: 0 12px;
+  }
+  .toolbar { margin-top: 14px; gap: 8px; }
+  .stat-pill, .asset-box, .panel, .overview-card, .status-strip-card {
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+  }
+  .stat-pill {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+  .overview-card,
+  .status-strip-card { padding: 10px 12px; }
+  .overview-card h3,
+  .panel-header {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+  .overview-card h3 { font-size: 14px; }
+  .panel-header {
+    padding: 12px 14px;
+    font-size: 13px;
+    background: linear-gradient(180deg, #ffffff 0%, #f7fafc 100%);
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+  }
+  .overview-lines,
+  .status-strip-card,
+  .status-meta,
+  .overview-check,
+  .overview-line,
+  .btn-xs,
+  .asset-box.compact p,
+  .compact-status {
+    font-size: 10px;
+  }
+  input, select, textarea, button {
+    font-family: 'Public Sans', sans-serif;
+  }
+  input, select, textarea {
+    border-radius: 10px;
+    font-size: 12px;
+  }
+  table, th, td { font-size: 11px; }
+  thead th { padding: 8px 9px; font-size: 10px; }
+  tbody td { padding: 7px 9px; }
+  .asset-box h3,
+  .modal h3,
+  .confirm-box h3,
+  .ch-text .institute-name,
+  .card-name {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    color: var(--text);
+  }
+  .btn-red,
+  .btn-view,
+  .type-badge,
+  .card-header,
+  .camera-panel-head {
+    background: var(--red);
+    color: white;
+  }
+  .photo-cell-button::after {
+    background: rgba(15, 76, 129, 0.84);
+  }
   .badge-lecturer { background: #fdf5e8; color: #8b5e0d; }
   .badge-employee { background: #eaf7ed; color: #1a5c3a; }
   .badge-scope {
@@ -873,7 +1012,7 @@
 
 <header>
   <div class="logo-icon">
-    <svg viewBox="0 0 24 24" fill="none" stroke="#8b0000" stroke-width="1.8">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#0f4c81" stroke-width="1.8">
       <path d="M12 3l7 4-7 4-7-4 7-4z"></path>
       <path d="M5 14l7 4 7-4"></path>
       <path d="M12 8v10"></path>
@@ -886,7 +1025,7 @@
   </div>
   <div class="right-brand">
     <div class="brand-top">
-      <span class="brand-chip">AI Enabled</span>
+      <span class="brand-chip">Admin View</span>
       <a href="https://aipexlabs.in" target="_blank" rel="noopener noreferrer">Aipexlabs.in</a>
     </div>
     <a href="/" class="nav-link">Home</a>
@@ -1125,7 +1264,7 @@
     <p id="confirmMsg">This will permanently delete the record and photo.</p>
     <div class="cbtn">
       <button style="background:#eee;color:#333" onclick="closeConfirm()">Cancel</button>
-      <button style="background:#8b0000;color:white" onclick="doDelete()">Delete</button>
+      <button style="background:#0f4c81;color:white" onclick="doDelete()">Delete</button>
     </div>
   </div>
 </div>

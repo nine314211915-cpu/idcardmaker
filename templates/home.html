@@ -4,127 +4,405 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ID Card Data Collection System</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Sans+3:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:#f8f3eb;
-    --panel:#fffdf9;
-    --red:#8b0000;
-    --text:#2c1810;
-    --muted:#74685d;
-    --border:#e3d8cb;
-    --shadow:0 20px 40px rgba(63, 24, 8, 0.08);
+    --bg: #f8f9fa;
+    --panel: rgba(255, 255, 255, 0.84);
+    --surface: #ffffff;
+    --text: #212529;
+    --muted: #667085;
+    --line: #dfe3e8;
+    --accent: #0f4c81;
+    --accent-strong: #09345a;
+    --soft: #eef4fa;
+    --shadow: 0 18px 42px rgba(15, 23, 42, 0.1);
+    --radius-lg: 20px;
+    --radius-md: 12px;
   }
-  * { box-sizing:border-box; margin:0; padding:0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    min-height:100vh;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding:24px;
-    font-family:'Source Sans 3',sans-serif;
-    color:var(--text);
-    background:linear-gradient(180deg, #fbf7f1 0%, var(--bg) 100%);
+    min-height: 100vh;
+    padding: 18px;
+    font-family: 'Public Sans', sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(circle at top left, rgba(15, 76, 129, 0.14), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(15, 76, 129, 0.08), transparent 32%),
+      linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
   }
   .shell {
-    width:min(860px, 100%);
-    background:var(--panel);
-    border:1px solid var(--border);
-    border-radius:28px;
-    box-shadow:var(--shadow);
-    padding:42px 34px;
-    text-align:center;
+    width: min(1240px, 100%);
+    margin: 0 auto;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 36px;
+    background: rgba(255, 255, 255, 0.56);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(18px);
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
   .mark {
-    width:62px;
-    height:62px;
-    margin:0 auto 18px;
-    border-radius:20px;
-    background:#fff;
-    border:1px solid rgba(139,0,0,0.12);
-    display:flex;
-    align-items:center;
-    justify-content:center;
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #ffffff 0%, #edf4fb 100%);
+    border: 1px solid rgba(15, 76, 129, 0.14);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 10px 24px rgba(15, 76, 129, 0.12);
   }
   .mark svg {
-    width:32px;
-    height:32px;
-    stroke:var(--red);
+    width: 24px;
+    height: 24px;
+    stroke: var(--accent);
+  }
+  .brand-text strong {
+    display: block;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 14px;
+    letter-spacing: -0.03em;
+  }
+  .brand-text span {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .brand-link {
+    text-decoration: none;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.92fr);
+    gap: 18px;
+    align-items: stretch;
+  }
+  .hero-copy,
+  .hero-preview {
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(15, 76, 129, 0.08);
+    background: var(--panel);
+    backdrop-filter: blur(18px);
+  }
+  .hero-copy {
+    padding: 26px;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: var(--soft);
+    color: var(--accent);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
   h1 {
-    font-family:'Playfair Display',serif;
-    font-size:38px;
-    line-height:1.08;
+    margin-top: 12px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: clamp(28px, 4vw, 44px);
+    line-height: 1.04;
+    letter-spacing: -0.05em;
   }
-  p {
-    margin:14px auto 0;
-    max-width:560px;
-    color:var(--muted);
-    font-size:16px;
-    line-height:1.6;
+  .subtitle {
+    margin-top: 12px;
+    max-width: 620px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--muted);
   }
   .actions {
-    margin-top:28px;
-    display:flex;
-    justify-content:center;
-    gap:12px;
-    flex-wrap:wrap;
+    margin-top: 18px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
   }
   .actions a {
-    text-decoration:none;
-    border-radius:12px;
-    padding:12px 18px;
-    font-weight:700;
-    font-size:14px;
+    min-width: 150px;
+    text-decoration: none;
+    border-radius: 11px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   }
-  .actions a.primary {
-    background:var(--red);
-    color:#fff;
+  .actions a:hover {
+    transform: translateY(-1px);
   }
-  .actions a.soft {
-    background:#fff;
-    color:var(--red);
-    border:1px solid var(--border);
+  .actions .primary {
+    background: linear-gradient(135deg, var(--accent) 0%, #1461a8 100%);
+    color: #fff;
+    box-shadow: 0 16px 30px rgba(15, 76, 129, 0.2);
+  }
+  .actions .soft {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--line);
+  }
+  .stats {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .stat {
+    padding: 12px 14px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.9);
+  }
+  .stat strong {
+    display: block;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 18px;
+    letter-spacing: -0.04em;
+  }
+  .stat span {
+    display: block;
+    margin-top: 4px;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .hero-preview {
+    position: relative;
+    overflow: hidden;
+    padding: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .hero-preview::before,
+  .hero-preview::after {
+    content: "";
+    position: absolute;
+    border-radius: 999px;
+    background: rgba(15, 76, 129, 0.08);
+    filter: blur(8px);
+  }
+  .hero-preview::before {
+    width: 220px;
+    height: 220px;
+    top: -40px;
+    right: -70px;
+  }
+  .hero-preview::after {
+    width: 180px;
+    height: 180px;
+    bottom: -50px;
+    left: -60px;
+  }
+  .preview-stack {
+    position: relative;
+    width: min(100%, 360px);
+    z-index: 1;
+  }
+  .preview-panel {
+    padding: 14px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(15, 76, 129, 0.1);
+    box-shadow: 0 24px 50px rgba(15, 23, 42, 0.12);
+  }
+  .preview-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .preview-head strong {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 14px;
+  }
+  .preview-head span {
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .mini-form {
+    display: grid;
+    gap: 9px;
+  }
+  .mini-row {
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, #ffffff 0%, #f9fbfc 100%);
+  }
+  .mini-row.short {
+    width: 66%;
+  }
+  .mini-card {
+    position: absolute;
+    right: -10px;
+    bottom: -8px;
+    width: 170px;
+    padding: 12px;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #113a61 0%, #0a2d4c 100%);
+    color: #fff;
+    box-shadow: 0 18px 40px rgba(10, 45, 76, 0.34);
+  }
+  .mini-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .mini-avatar {
+    width: 44px;
+    height: 60px;
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.86) 0%, rgba(255,255,255,0.66) 100%);
+  }
+  .mini-meta strong {
+    display: block;
+    font-size: 9px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.72);
+  }
+  .mini-meta span {
+    display: block;
+    margin-top: 3px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 11px;
+    line-height: 1.35;
+  }
+  .mini-chip {
+    display: inline-flex;
+    margin-top: 10px;
+    padding: 5px 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.12);
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
   .footer {
-    margin-top:24px;
-    font-size:13px;
-    color:var(--muted);
+    margin-top: 12px;
+    text-align: right;
+    color: var(--muted);
+    font-size: 11px;
   }
-  .footer a {
-    color:var(--red);
-    text-decoration:none;
-    font-weight:700;
+  @media (max-width: 980px) {
+    body { padding: 14px; }
+    .shell { padding: 14px; border-radius: 20px; }
+    .hero { grid-template-columns: 1fr; }
+    .hero-copy { padding: 20px 18px; }
+    .hero-preview { min-height: 300px; }
+    .footer { text-align: left; }
   }
-  @media (max-width:640px) {
-    .shell { padding:30px 22px; border-radius:22px; }
-    h1 { font-size:30px; }
-    p { font-size:15px; }
-    .actions { flex-direction:column; }
-    .actions a { width:100%; }
+  @media (max-width: 640px) {
+    body { padding: 10px; }
+    .topbar { flex-direction: column; align-items: flex-start; }
+    .hero-copy { padding: 18px 16px; }
+    .subtitle { font-size: 13px; }
+    .actions { flex-direction: column; }
+    .actions a { width: 100%; min-width: 0; text-align: center; }
+    .stats { grid-template-columns: 1fr; }
+    .hero-preview { padding: 14px; min-height: 250px; }
+    .mini-card {
+      position: static;
+      width: 100%;
+      margin-top: 16px;
+    }
   }
 </style>
 </head>
 <body>
   <main class="shell">
-    <div class="mark">
-      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
-        <path d="M12 3l7 4-7 4-7-4 7-4z"></path>
-        <path d="M5 14l7 4 7-4"></path>
-        <path d="M12 8v10"></path>
-        <path d="M9 12h6"></path>
-      </svg>
+    <div class="topbar">
+      <div class="brand">
+        <div class="mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8">
+            <path d="M12 3l7 4-7 4-7-4 7-4z"></path>
+            <path d="M5 14l7 4 7-4"></path>
+            <path d="M12 8v10"></path>
+            <path d="M9 12h6"></path>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <strong>Medical ID Card System</strong>
+          <span>Secure collection, preview, and batch submission for institutional cards.</span>
+        </div>
+      </div>
+      <a class="brand-link" href="https://aipexlabs.in" target="_blank" rel="noopener noreferrer">Built by Aipexlabs.in</a>
     </div>
-    <h1>ID Card Data Collection System</h1>
-    <p>Choose the page you want to work on.</p>
-    <div class="actions">
-      <a class="primary" href="/id-card">ID Card Page</a>
-      <a class="soft" href="/certificate">Certificate Page</a>
-      <a class="soft" href="/admin">Admin Panel</a>
-    </div>
-    <div class="footer">
-      Developed by <a href="https://aipexlabs.in" target="_blank" rel="noopener noreferrer">Aipexlabs.in</a>
-    </div>
+
+    <section class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow">Professional SaaS Interface</span>
+        <h1>Create and manage ID cards with a cleaner, faster workflow.</h1>
+        <p class="subtitle">A focused workspace for collecting details, reviewing live previews, and organizing submissions for colleges, health centers, and administrative teams without visual clutter.</p>
+
+        <div class="actions">
+          <a class="primary" href="/id-card">Open ID Card Workspace</a>
+          <a class="soft" href="/certificate">Certificate Module</a>
+          <a class="soft" href="/admin">Admin Panel</a>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <strong>Live</strong>
+            <span>Instant preview updates as each field is entered.</span>
+          </div>
+          <div class="stat">
+            <strong>Batch</strong>
+            <span>Draft multiple cards safely before final submission.</span>
+          </div>
+          <div class="stat">
+            <strong>Mobile</strong>
+            <span>Responsive layout for office desktops and field devices.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-preview">
+        <div class="preview-stack">
+          <div class="preview-panel">
+            <div class="preview-head">
+              <strong>Collection Workspace</strong>
+              <span>Live preview ready</span>
+            </div>
+            <div class="mini-form">
+              <div class="mini-row"></div>
+              <div class="mini-row short"></div>
+              <div class="mini-row"></div>
+              <div class="mini-row"></div>
+              <div class="mini-row short"></div>
+            </div>
+          </div>
+          <div class="mini-card">
+            <div class="mini-card-top">
+              <div class="mini-meta">
+                <strong>Institute ID</strong>
+                <span>Medical College Card Preview</span>
+              </div>
+              <div class="mini-avatar"></div>
+            </div>
+            <div class="mini-chip">Verified Layout</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer">Department-facing interface with a cleaner visual hierarchy and less clutter.</div>
   </main>
 </body>
 </html>
