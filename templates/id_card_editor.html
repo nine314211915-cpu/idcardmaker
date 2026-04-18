@@ -1566,7 +1566,24 @@
 
     async function loadTemplate() {
       if (!state.templateId) {
-        throw new Error("Template id is required");
+        state.template = null;
+        elements.templateName.value = elements.templateName.value || "Untitled Template";
+        elements.templateInstitute.value = elements.templateInstitute.value || state.institute || "{{ default_institute or '' }}";
+        elements.orientationSelect.value = elements.orientationSelect.value || "landscape";
+        state.institute = elements.templateInstitute.value.trim();
+        applyCanvasSize();
+        state.sideSnapshots.front = deepClone(emptySnapshot());
+        state.sideSnapshots.back = deepClone(emptySnapshot());
+        elements.templateIdText.textContent = "Draft";
+        await loadSide("front", false);
+        fitCanvasToViewport();
+        state.undoStack = [];
+        state.redoStack = [];
+        pushHistory();
+        await loadSampleProfile();
+        setStatus("Blank draft ready. Add objects, then save after naming the template.", "ok");
+        setSaveState("unsaved");
+        return;
       }
       if (state.mode === "use") {
         const useRes = await fetch(`/api/id-card-templates/${encodeURIComponent(state.templateId)}/use`, { method: "POST" });
