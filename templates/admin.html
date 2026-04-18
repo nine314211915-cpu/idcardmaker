@@ -1031,6 +1031,7 @@
     <a href="/" class="nav-link">Home</a>
     <a href="/id-card" class="nav-link">ID Card Page</a>
     <a href="/certificate" class="nav-link">Certificate Page</a>
+    <a href="/templates" class="nav-link">Template Editor</a>
     <form method="post" action="/admin/logout" style="margin:0">
       <button class="nav-link" type="submit" style="background:rgba(255,255,255,0.08)">Logout</button>
     </form>
@@ -1061,6 +1062,7 @@
     <option value="">Select Batch</option>
   </select>
   <div class="toolbar-actions">
+    <button class="btn btn-outline" type="button" onclick="window.location.href='/templates'">Open Template Editor</button>
     <button class="btn btn-outline" type="button" onclick="openAdminBulkPhotoPicker()">Bulk Upload Photos</button>
     <button class="btn btn-outline" onclick="deleteSelectedBatch()">Delete Batch</button>
     <button class="btn btn-outline" type="button" onclick="document.getElementById('csvImportInput').click()">CSV Import</button>

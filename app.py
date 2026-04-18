@@ -1434,7 +1434,214 @@ def normalize_template_orientation(value):
     return "landscape" if str(value or "").strip().lower() == "landscape" else "portrait"
 
 
-def build_blank_template_config(orientation="portrait"):
+def _fabric_textbox(text, left, top, width, font_size=24, fill="#1e293b", font_family="Inter", extra=None):
+    payload = {
+        "type": "textbox",
+        "version": "5.3.0",
+        "originX": "left",
+        "originY": "top",
+        "left": left,
+        "top": top,
+        "width": width,
+        "height": max(font_size * 1.4, 24),
+        "fill": fill,
+        "fontFamily": font_family,
+        "fontSize": font_size,
+        "lineHeight": 1.16,
+        "text": text,
+        "splitByGrapheme": False,
+    }
+    if extra:
+        payload.update(extra)
+    return payload
+
+
+def _fabric_profile_photo(left, top, shape="rect"):
+    if shape == "circle":
+        base_shape = {
+            "type": "circle",
+            "version": "5.3.0",
+            "originX": "center",
+            "originY": "center",
+            "radius": 85,
+            "fill": "#e2e8f0",
+            "stroke": "#94a3b8",
+            "strokeWidth": 2,
+            "strokeDashArray": [6, 5],
+        }
+    else:
+        base_shape = {
+            "type": "rect",
+            "version": "5.3.0",
+            "originX": "center",
+            "originY": "center",
+            "width": 160,
+            "height": 210,
+            "rx": 18,
+            "ry": 18,
+            "fill": "#e2e8f0",
+            "stroke": "#94a3b8",
+            "strokeWidth": 2,
+            "strokeDashArray": [6, 5],
+        }
+    return {
+        "type": "group",
+        "version": "5.3.0",
+        "originX": "center",
+        "originY": "center",
+        "left": left,
+        "top": top,
+        "customType": "profile-photo",
+        "photoShape": shape,
+        "objects": [
+            base_shape,
+            {
+                "type": "text",
+                "version": "5.3.0",
+                "originX": "center",
+                "originY": "center",
+                "top": -14,
+                "text": "PHOTO",
+                "fontSize": 22,
+                "fontWeight": 700,
+                "fill": "#64748b",
+            },
+            {
+                "type": "text",
+                "version": "5.3.0",
+                "originX": "center",
+                "originY": "center",
+                "top": 28,
+                "text": "Click again to upload",
+                "fontSize": 14,
+                "fill": "#64748b",
+            },
+        ],
+    }
+
+
+def _blank_side_snapshot():
+    return {"version": "5.3.0", "objects": [], "background": "#ffffff"}
+
+
+def _build_template_preset_config(preset_id, orientation):
+    cleaned_orientation = normalize_template_orientation(orientation)
+    front = _blank_side_snapshot()
+    back = _blank_side_snapshot()
+    if preset_id == "gov_employee":
+        front["objects"] = [
+            _fabric_textbox("GOVERNMENT DEPARTMENT", 48, 36, 320, 20, fill="#0f4c81", font_family="Public Sans"),
+            _fabric_profile_photo(160, 230, "rect"),
+            _fabric_textbox("{{name}}", 300, 130, 320, 30, fill="#111827", font_family="Inter", extra={"customType": "variable-text", "variableKey": "name", "templateText": "{{name}}"}),
+            _fabric_textbox("{{designation}}", 300, 175, 300, 20, fill="#475569", font_family="Public Sans", extra={"customType": "variable-text", "variableKey": "designation", "templateText": "{{designation}}"}),
+            _fabric_textbox("Employee ID", 300, 225, 120, 13, fill="#64748b"),
+            _fabric_textbox("{{employee_id}}", 300, 246, 220, 18, fill="#0f4c81", font_family="DM Sans", extra={"customType": "variable-text", "variableKey": "employee_id", "templateText": "{{employee_id}}"}),
+            _fabric_textbox("Department", 300, 286, 120, 13, fill="#64748b"),
+            _fabric_textbox("{{department}}", 300, 307, 250, 18, fill="#1e293b", extra={"customType": "variable-text", "variableKey": "department", "templateText": "{{department}}"}),
+        ]
+        back["objects"] = [
+            _fabric_textbox("Card Notes", 54, 54, 240, 22, fill="#0f4c81"),
+            _fabric_textbox("Contact", 54, 122, 120, 13, fill="#64748b"),
+            _fabric_textbox("{{contact}}", 54, 144, 260, 18, fill="#111827", extra={"customType": "variable-text", "variableKey": "contact", "templateText": "{{contact}}"}),
+            _fabric_textbox("DOB", 54, 192, 120, 13, fill="#64748b"),
+            _fabric_textbox("{{dob}}", 54, 214, 220, 18, fill="#111827", extra={"customType": "variable-text", "variableKey": "dob", "templateText": "{{dob}}"}),
+            _fabric_textbox("This card is for institutional identification only.", 54, 304, 430, 16, fill="#475569", font_family="Public Sans"),
+        ]
+    elif preset_id == "hospital_staff":
+        front["objects"] = [
+            _fabric_textbox("HOSPITAL STAFF", 74, 54, 220, 24, fill="#0f4c81", font_family="Public Sans"),
+            _fabric_profile_photo(180, 214, "circle"),
+            _fabric_textbox("{{name}}", 70, 360, 260, 28, fill="#111827", font_family="Inter", extra={"customType": "variable-text", "variableKey": "name", "templateText": "{{name}}"}),
+            _fabric_textbox("{{designation}}", 70, 406, 230, 18, fill="#475569", extra={"customType": "variable-text", "variableKey": "designation", "templateText": "{{designation}}"}),
+            _fabric_textbox("{{employee_id}}", 70, 456, 180, 18, fill="#0f4c81", font_family="DM Sans", extra={"customType": "variable-text", "variableKey": "employee_id", "templateText": "{{employee_id}}"}),
+        ]
+        back["objects"] = [
+            _fabric_textbox("Emergency Contact", 54, 62, 200, 22, fill="#0f4c81"),
+            _fabric_textbox("{{contact}}", 54, 116, 220, 18, fill="#111827", extra={"customType": "variable-text", "variableKey": "contact", "templateText": "{{contact}}"}),
+            _fabric_textbox("Department", 54, 170, 140, 14, fill="#64748b"),
+            _fabric_textbox("{{department}}", 54, 194, 240, 18, fill="#111827", extra={"customType": "variable-text", "variableKey": "department", "templateText": "{{department}}"}),
+        ]
+    elif preset_id == "dept_office":
+        front["objects"] = [
+            _fabric_textbox("DEPARTMENT OFFICE", 48, 44, 360, 22, fill="#0f4c81", font_family="Public Sans"),
+            _fabric_profile_photo(152, 210, "rect"),
+            _fabric_textbox("{{name}}", 284, 124, 360, 30, fill="#111827", extra={"customType": "variable-text", "variableKey": "name", "templateText": "{{name}}"}),
+            _fabric_textbox("{{designation}}", 284, 170, 310, 20, fill="#475569", extra={"customType": "variable-text", "variableKey": "designation", "templateText": "{{designation}}"}),
+            _fabric_textbox("{{department}}", 284, 220, 280, 18, fill="#0f4c81", extra={"customType": "variable-text", "variableKey": "department", "templateText": "{{department}}"}),
+        ]
+        back["objects"] = [
+            _fabric_textbox("Office Address / Notes", 54, 54, 260, 22, fill="#0f4c81"),
+            _fabric_textbox("{{institute_name}}", 54, 116, 360, 18, fill="#111827", extra={"customType": "variable-text", "variableKey": "institute_name", "templateText": "{{institute_name}}"}),
+            _fabric_textbox("Issued by department office.", 54, 180, 280, 16, fill="#475569"),
+        ]
+    elif preset_id == "student_card":
+        front["objects"] = [
+            _fabric_textbox("STUDENT SMART CARD", 54, 46, 230, 22, fill="#0f4c81", font_family="Public Sans"),
+            _fabric_profile_photo(160, 204, "circle"),
+            _fabric_textbox("{{name}}", 54, 344, 230, 26, fill="#111827", extra={"customType": "variable-text", "variableKey": "name", "templateText": "{{name}}"}),
+            _fabric_textbox("{{training_year}}", 54, 388, 220, 17, fill="#475569", extra={"customType": "variable-text", "variableKey": "training_year", "templateText": "{{training_year}}"}),
+            _fabric_textbox("{{serial_no}}", 54, 436, 180, 17, fill="#0f4c81", font_family="DM Sans", extra={"customType": "variable-text", "variableKey": "serial_no", "templateText": "{{serial_no}}"}),
+        ]
+        back["objects"] = [
+            _fabric_textbox("Student Details", 52, 56, 200, 22, fill="#0f4c81"),
+            _fabric_textbox("{{father_name}}", 52, 120, 240, 18, fill="#111827", extra={"customType": "variable-text", "variableKey": "father_name", "templateText": "{{father_name}}"}),
+            _fabric_textbox("{{dob}}", 52, 166, 180, 18, fill="#111827", extra={"customType": "variable-text", "variableKey": "dob", "templateText": "{{dob}}"}),
+            _fabric_textbox("{{contact}}", 52, 212, 180, 18, fill="#111827", extra={"customType": "variable-text", "variableKey": "contact", "templateText": "{{contact}}"}),
+        ]
+    elif preset_id == "faculty_card":
+        front["objects"] = [
+            _fabric_textbox("FACULTY ID CARD", 48, 42, 300, 22, fill="#0f4c81", font_family="Public Sans"),
+            _fabric_profile_photo(156, 220, "rect"),
+            _fabric_textbox("{{name}}", 292, 126, 320, 28, fill="#111827", extra={"customType": "variable-text", "variableKey": "name", "templateText": "{{name}}"}),
+            _fabric_textbox("{{designation}}", 292, 172, 300, 19, fill="#475569", extra={"customType": "variable-text", "variableKey": "designation", "templateText": "{{designation}}"}),
+            _fabric_textbox("{{department}}", 292, 220, 280, 18, fill="#0f4c81", extra={"customType": "variable-text", "variableKey": "department", "templateText": "{{department}}"}),
+        ]
+        back["objects"] = [
+            _fabric_textbox("Academic Info", 54, 54, 220, 22, fill="#0f4c81"),
+            _fabric_textbox("{{institute_name}}", 54, 118, 340, 18, fill="#111827", extra={"customType": "variable-text", "variableKey": "institute_name", "templateText": "{{institute_name}}"}),
+            _fabric_textbox("{{contact}}", 54, 164, 180, 18, fill="#111827", extra={"customType": "variable-text", "variableKey": "contact", "templateText": "{{contact}}"}),
+        ]
+    elif preset_id == "security_badge":
+        front["objects"] = [
+            _fabric_textbox("SECURITY BADGE", 56, 54, 220, 24, fill="#0f4c81", font_family="Oswald"),
+            _fabric_profile_photo(180, 214, "circle"),
+            _fabric_textbox("{{name}}", 62, 352, 240, 27, fill="#111827", font_family="Inter", extra={"customType": "variable-text", "variableKey": "name", "templateText": "{{name}}"}),
+            _fabric_textbox("{{employee_id}}", 62, 402, 200, 22, fill="#0f4c81", font_family="DM Sans", extra={"customType": "variable-text", "variableKey": "employee_id", "templateText": "{{employee_id}}"}),
+            _fabric_textbox("{{department}}", 62, 446, 220, 17, fill="#475569", extra={"customType": "variable-text", "variableKey": "department", "templateText": "{{department}}"}),
+        ]
+        back["objects"] = [
+            _fabric_textbox("Emergency Contact", 56, 66, 220, 20, fill="#0f4c81"),
+            _fabric_textbox("{{contact}}", 56, 114, 220, 18, fill="#111827", extra={"customType": "variable-text", "variableKey": "contact", "templateText": "{{contact}}"}),
+            _fabric_textbox("Property of Security Office", 56, 188, 240, 16, fill="#475569"),
+        ]
+    elif preset_id == "visitor_pass":
+        front["objects"] = [
+            _fabric_textbox("VISITOR PASS", 48, 44, 260, 22, fill="#0f4c81", font_family="Public Sans"),
+            _fabric_profile_photo(152, 220, "rect"),
+            _fabric_textbox("{{name}}", 282, 134, 300, 28, fill="#111827", extra={"customType": "variable-text", "variableKey": "name", "templateText": "{{name}}"}),
+            _fabric_textbox("Visitor", 282, 178, 160, 18, fill="#475569"),
+            _fabric_textbox("{{contact}}", 282, 228, 220, 18, fill="#0f4c81", extra={"customType": "variable-text", "variableKey": "contact", "templateText": "{{contact}}"}),
+        ]
+        back["objects"] = [
+            _fabric_textbox("Visit Details", 56, 56, 220, 20, fill="#0f4c81"),
+            _fabric_textbox("{{institute_name}}", 56, 112, 320, 18, fill="#111827", extra={"customType": "variable-text", "variableKey": "institute_name", "templateText": "{{institute_name}}"}),
+            _fabric_textbox("Valid for one day / one visit only.", 56, 180, 260, 16, fill="#475569"),
+        ]
+    else:
+        return None
+
+    return {
+        "front": front,
+        "back": back,
+        "orientation": cleaned_orientation,
+        "version": 1,
+    }
+
+
+def build_blank_template_config(orientation="portrait", preset_id=""):
+    preset_config = _build_template_preset_config(str(preset_id or "").strip().lower(), orientation)
+    if preset_config:
+        return preset_config
     return {
         "front": {},
         "back": {},
@@ -3444,6 +3651,38 @@ def admin():
     return render_template("admin.html")
 
 
+@app.route("/templates")
+@admin_required
+def id_card_template_gallery_page():
+    response = make_response(render_template(
+        "template_gallery.html",
+        build_tag=app.config.get("APP_BUILD_TAG", ""),
+        default_institute=get_default_template_institute(),
+    ))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["X-App-Build"] = app.config.get("APP_BUILD_TAG", "")
+    return response
+
+
+@app.route("/id-card-editor")
+@admin_required
+def id_card_editor_page():
+    response = make_response(render_template(
+        "id_card_editor.html",
+        build_tag=app.config.get("APP_BUILD_TAG", ""),
+        default_institute=get_default_template_institute(),
+        template_variables=ID_CARD_TEMPLATE_VARIABLES,
+        **build_template_bucket_payload(),
+    ))
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["X-App-Build"] = app.config.get("APP_BUILD_TAG", "")
+    return response
+
+
 @app.route("/admin/print-cards")
 @admin_required
 def admin_print_cards():
@@ -3515,6 +3754,7 @@ def id_card_templates_api():
     name = str(payload.get("name") or "").strip()
     institute = canonicalize_institute_name(payload.get("institute_name"))
     orientation = normalize_template_orientation(payload.get("orientation"))
+    preset_id = str(payload.get("preset_id") or "").strip().lower()
     if not name:
         return jsonify({"error": "Template name is required"}), 400
     if not institute:
@@ -3527,7 +3767,7 @@ def id_card_templates_api():
                 "name": name[:120],
                 "description": str(payload.get("description") or "").strip(),
                 "institute_name": institute,
-                "config": build_blank_template_config(orientation),
+                "config": build_blank_template_config(orientation, preset_id),
                 "thumbnail_url": "",
             },
             prefer_representation=True,
