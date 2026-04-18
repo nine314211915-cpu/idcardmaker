@@ -23,6 +23,7 @@ STORE_DIR = os.path.join(RUNTIME_DIR, "data_store")
 RECORDS_DIR = os.path.join(STORE_DIR, "records")
 CERTIFICATES_DIR = os.path.join(STORE_DIR, "certificates")
 SETTINGS_DIR = os.path.join(STORE_DIR, "settings")
+ID_CARD_TEMPLATES_DIR = os.path.join(STORE_DIR, "id_card_templates")
 COMMON_BACKGROUNDS_FILE = os.path.join(STORE_DIR, "common_backgrounds.json")
 LOGS_DIR = os.path.join(RUNTIME_DIR, "logs")
 APP_LOG_FILE = os.path.join(LOGS_DIR, "app.log")
@@ -32,6 +33,7 @@ os.makedirs(ASSET_DIR, exist_ok=True)
 os.makedirs(RECORDS_DIR, exist_ok=True)
 os.makedirs(CERTIFICATES_DIR, exist_ok=True)
 os.makedirs(SETTINGS_DIR, exist_ok=True)
+os.makedirs(ID_CARD_TEMPLATES_DIR, exist_ok=True)
 os.makedirs(LOGS_DIR, exist_ok=True)
 app.config["SIGNATURE_UPLOAD_PASSWORD"] = os.environ.get("SIGNATURE_UPLOAD_PASSWORD", "admin123")
 app.config["ADMIN_PANEL_PASSWORD"] = os.environ.get("ADMIN_PANEL_PASSWORD", "admin123")
@@ -536,6 +538,7 @@ def make_storage_path(kind, institute):
         "records": RECORDS_DIR,
         "certificates": CERTIFICATES_DIR,
         "settings": SETTINGS_DIR,
+        "id_card_templates": ID_CARD_TEMPLATES_DIR,
     }
     return os.path.join(directory_map[kind], make_storage_filename(kind, institute))
 
@@ -545,6 +548,7 @@ def list_local_storage_filenames(kind):
         "records": RECORDS_DIR,
         "certificates": CERTIFICATES_DIR,
         "settings": SETTINGS_DIR,
+        "id_card_templates": ID_CARD_TEMPLATES_DIR,
     }
     directory = directory_map[kind]
     if not os.path.isdir(directory):
@@ -1707,6 +1711,7 @@ def build_template_bucket_payload():
 
 def summarize_id_card_template(row):
     item = dict(row or {})
+    item["id"] = str(item.get("id") or "").strip()
     item["config"] = sanitize_template_config_payload(item.get("config"), item.get("orientation"))
     item["orientation"] = item["config"]["orientation"]
     item["name"] = str(item.get("name") or "").strip()
@@ -1719,63 +1724,85 @@ def summarize_id_card_template(row):
     return item
 
 
-def is_supabase_missing_table_error(exc):
-    text = str(exc or "")
-    return "PGRST205" in text or "schema cache" in text or "Could not find the table" in text
+def sanitize_id_card_templates_list(items):
+    if not isinstance(items, list):
+        return []
+    sanitized = []
+    seen_ids = set()
+    for item in items:
+        template = summarize_id_card_template(item)
+        template_id = template.get("id", "")
+        if not template_id or template_id in seen_ids:
+            continue
+        seen_ids.add(template_id)
+        sanitized.append(template)
+    return sanitized[:500]
 
 
-def get_supabase_template_table_candidates():
-    preferred = str(app.config.get("SUPABASE_TEMPLATE_TABLE") or "templates").strip() or "templates"
-    candidates = []
-    for name in (preferred, "templates", "id_card_templates"):
-        cleaned = str(name or "").strip()
-        if cleaned and cleaned not in candidates:
-            candidates.append(cleaned)
-    return candidates
+def make_id_card_template_id():
+    return "idt-" + datetime.now().strftime("%Y%m%d%H%M%S") + "-" + "".join(
+        random.choices(string.ascii_lowercase + string.digits, k=6)
+    )
 
 
-def supabase_template_request(method, query=None, payload=None, prefer_representation=False):
-    last_error = None
-    for table_name in get_supabase_template_table_candidates():
-        try:
-            result = supabase_request(
-                method,
-                table_name,
-                query=query,
-                payload=payload,
-                prefer_representation=prefer_representation,
-            )
-            if table_name != app.config.get("SUPABASE_TEMPLATE_TABLE"):
-                app.config["SUPABASE_TEMPLATE_TABLE"] = table_name
-            return result
-        except Exception as exc:
-            last_error = exc
-            if not is_supabase_missing_table_error(exc):
-                raise
-    if last_error:
-        raise last_error
-    raise RuntimeError("Unable to resolve a Supabase template table")
+def load_id_card_templates_for_institute(institute):
+    institute = canonicalize_institute_name(institute)
+    if not institute:
+        return []
+    path = make_storage_path("id_card_templates", institute)
+    filename = make_storage_filename("id_card_templates", institute)
+    return sanitize_id_card_templates_list(load_json_store(path, filename, []))
+
+
+def save_id_card_templates_for_institute(institute, templates):
+    institute = canonicalize_institute_name(institute)
+    if not institute:
+        return
+    path = make_storage_path("id_card_templates", institute)
+    filename = make_storage_filename("id_card_templates", institute)
+    save_json_store(path, filename, sanitize_id_card_templates_list(templates))
+
+
+def list_id_card_template_institutes():
+    institutes = set()
+    if not os.path.isdir(ID_CARD_TEMPLATES_DIR):
+        return institutes
+    for filename in os.listdir(ID_CARD_TEMPLATES_DIR):
+        if not (filename.startswith("id_card_templates__") and filename.endswith(".json")):
+            continue
+        file_path = os.path.join(ID_CARD_TEMPLATES_DIR, filename)
+        payload = load_json_store(file_path, filename, [])
+        for item in payload if isinstance(payload, list) else []:
+            institute = canonicalize_institute_name((item or {}).get("institute_name"))
+            if institute:
+                institutes.add(institute)
+    return institutes
 
 
 def list_supabase_templates(institute=None):
-    query = {
-        "select": "*",
-        "order": "updated_at.desc",
-    }
     institute = canonicalize_institute_name(institute)
     if institute:
-        query["institute_name"] = f"eq.{institute}"
-    rows = supabase_template_request("GET", query=query)
-    return [summarize_id_card_template(row) for row in (rows if isinstance(rows, list) else [])]
+        templates = load_id_card_templates_for_institute(institute)
+    else:
+        templates = []
+        for current_institute in sorted(list_id_card_template_institutes()):
+            templates.extend(load_id_card_templates_for_institute(current_institute))
+    templates = sanitize_id_card_templates_list(templates)
+    templates.sort(key=lambda item: str(item.get("updated_at") or item.get("created_at") or ""), reverse=True)
+    return templates
 
 
 def get_supabase_template(template_id):
     template_id = str(template_id or "").strip()
     if not template_id:
         return None
-    rows = supabase_template_request("GET", query={"select": "*", "id": f"eq.{template_id}", "limit": 1})
-    if isinstance(rows, list) and rows:
-        return summarize_id_card_template(rows[0])
+    for institute in sorted(list_id_card_template_institutes()):
+        template = next(
+            (item for item in load_id_card_templates_for_institute(institute) if item.get("id") == template_id),
+            None,
+        )
+        if template:
+            return template
     return None
 
 
@@ -3772,9 +3799,6 @@ def build_print_preview_context():
 @app.route("/api/id-card-templates", methods=["GET", "POST"])
 @admin_required
 def id_card_templates_api():
-    if not is_supabase_enabled():
-        return jsonify({"error": "Supabase is not configured"}), 400
-
     if request.method == "GET":
         institute = canonicalize_institute_name(request.args.get("institute"))
         search = (request.args.get("search") or "").strip().lower()
@@ -3799,18 +3823,21 @@ def id_card_templates_api():
     if not institute:
         return jsonify({"error": "Institute is required"}), 400
     try:
-        inserted = supabase_template_request(
-            "POST",
-            payload={
-                "name": name[:120],
-                "description": str(payload.get("description") or "").strip(),
-                "institute_name": institute,
-                "config": build_blank_template_config(orientation, preset_id),
-                "thumbnail_url": "",
-            },
-            prefer_representation=True,
-        )
-        template = summarize_id_card_template((inserted or [{}])[0])
+        now_text = current_timestamp_display()
+        template = summarize_id_card_template({
+            "id": make_id_card_template_id(),
+            "name": name[:120],
+            "description": str(payload.get("description") or "").strip(),
+            "institute_name": institute,
+            "config": build_blank_template_config(orientation, preset_id),
+            "thumbnail_url": "",
+            "created_at": now_text,
+            "updated_at": now_text,
+            "is_system": False,
+        })
+        templates = load_id_card_templates_for_institute(institute)
+        templates.insert(0, template)
+        save_id_card_templates_for_institute(institute, templates)
         return jsonify({"status": "created", "template": template}), 201
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to create template"}), 500
@@ -3819,9 +3846,6 @@ def id_card_templates_api():
 @app.route("/api/id-card-templates/<template_id>", methods=["GET", "PATCH", "DELETE"])
 @admin_required
 def id_card_template_detail_api(template_id):
-    if not is_supabase_enabled():
-        return jsonify({"error": "Supabase is not configured"}), 400
-
     template_id = str(template_id or "").strip()
     if not template_id:
         return jsonify({"error": "Template id is required"}), 400
@@ -3845,7 +3869,10 @@ def id_card_template_detail_api(template_id):
             thumbnail_path = extract_supabase_object_path(thumbnail_url)
             if thumbnail_path:
                 delete_supabase_storage_object_path(thumbnail_path, app.config["SUPABASE_TEMPLATE_THUMBNAILS_BUCKET"])
-            supabase_template_request("DELETE", query={"id": f"eq.{template_id}"})
+            institute = canonicalize_institute_name(current.get("institute_name"))
+            templates = load_id_card_templates_for_institute(institute)
+            templates = [item for item in templates if item.get("id") != template_id]
+            save_id_card_templates_for_institute(institute, templates)
             return jsonify({"status": "deleted", "template_id": template_id})
         except Exception as exc:
             return jsonify({"error": str(exc) or "Unable to delete template"}), 500
@@ -3860,6 +3887,8 @@ def id_card_template_detail_api(template_id):
     }
     thumbnail_data_url = str(payload.get("thumbnail_data_url") or "").strip()
     if thumbnail_data_url:
+        if not is_supabase_enabled():
+            return jsonify({"error": "Supabase is required for template thumbnail upload"}), 400
         try:
             thumbnail_bytes, mime_type = decode_data_url(thumbnail_data_url)
             object_path = build_template_thumbnail_storage_path(update_payload["institute_name"], template_id)
@@ -3873,13 +3902,33 @@ def id_card_template_detail_api(template_id):
             return jsonify({"error": str(exc) or "Unable to upload template thumbnail"}), 400
 
     try:
-        updated = supabase_template_request(
-            "PATCH",
-            payload=update_payload,
-            query={"id": f"eq.{template_id}"},
-            prefer_representation=True,
-        )
-        template = summarize_id_card_template((updated or [current])[0])
+        institute = canonicalize_institute_name(current.get("institute_name"))
+        templates = load_id_card_templates_for_institute(institute)
+        next_templates = []
+        merged_template = None
+        for item in templates:
+            if item.get("id") != template_id:
+                next_templates.append(item)
+                continue
+            merged_template = summarize_id_card_template({
+                **item,
+                **update_payload,
+                "id": template_id,
+                "created_at": item.get("created_at", current.get("created_at", "")),
+                "updated_at": current_timestamp_display(),
+                "is_system": bool(item.get("is_system")),
+            })
+            next_templates.append(merged_template)
+        if not merged_template:
+            return jsonify({"error": "Template not found"}), 404
+        if update_payload["institute_name"] == institute:
+            save_id_card_templates_for_institute(institute, next_templates)
+        else:
+            destination_templates = load_id_card_templates_for_institute(update_payload["institute_name"])
+            destination_templates.insert(0, merged_template)
+            save_id_card_templates_for_institute(update_payload["institute_name"], destination_templates)
+            save_id_card_templates_for_institute(institute, [t for t in templates if t.get("id") != template_id])
+        template = merged_template
         return jsonify({"status": "saved", "template": template})
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to save template"}), 500
@@ -3888,8 +3937,6 @@ def id_card_template_detail_api(template_id):
 @app.route("/api/id-card-templates/<template_id>/duplicate", methods=["POST"])
 @admin_required
 def duplicate_id_card_template_api(template_id):
-    if not is_supabase_enabled():
-        return jsonify({"error": "Supabase is not configured"}), 400
     try:
         template = get_supabase_template(template_id)
     except Exception as exc:
@@ -3899,18 +3946,21 @@ def duplicate_id_card_template_api(template_id):
     payload = request.get_json(silent=True) or {}
     name_suffix = str(payload.get("suffix") or "(Copy)").strip() or "(Copy)"
     try:
-        inserted = supabase_template_request(
-            "POST",
-            payload={
-                "name": f"{template.get('name', 'Template')} {name_suffix}".strip(),
-                "description": template.get("description", ""),
-                "institute_name": template.get("institute_name", ""),
-                "config": sanitize_template_config_payload(template.get("config"), template.get("orientation")),
-                "thumbnail_url": template.get("thumbnail_url", ""),
-            },
-            prefer_representation=True,
-        )
-        duplicate = summarize_id_card_template((inserted or [{}])[0])
+        now_text = current_timestamp_display()
+        duplicate = summarize_id_card_template({
+            "id": make_id_card_template_id(),
+            "name": f"{template.get('name', 'Template')} {name_suffix}".strip(),
+            "description": template.get("description", ""),
+            "institute_name": template.get("institute_name", ""),
+            "config": sanitize_template_config_payload(template.get("config"), template.get("orientation")),
+            "thumbnail_url": template.get("thumbnail_url", ""),
+            "created_at": now_text,
+            "updated_at": now_text,
+            "is_system": False,
+        })
+        templates = load_id_card_templates_for_institute(duplicate.get("institute_name"))
+        templates.insert(0, duplicate)
+        save_id_card_templates_for_institute(duplicate.get("institute_name"), templates)
         return jsonify({"status": "duplicated", "template": duplicate}), 201
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to duplicate template"}), 500
@@ -3919,8 +3969,6 @@ def duplicate_id_card_template_api(template_id):
 @app.route("/api/id-card-templates/<template_id>/use", methods=["POST"])
 @admin_required
 def use_id_card_template_api(template_id):
-    if not is_supabase_enabled():
-        return jsonify({"error": "Supabase is not configured"}), 400
     try:
         template = get_supabase_template(template_id)
     except Exception as exc:
@@ -3928,18 +3976,21 @@ def use_id_card_template_api(template_id):
     if not template:
         return jsonify({"error": "Template not found"}), 404
     try:
-        inserted = supabase_template_request(
-            "POST",
-            payload={
-                "name": f"{template.get('name', 'Template')} Working Copy",
-                "description": template.get("description", ""),
-                "institute_name": template.get("institute_name", ""),
-                "config": sanitize_template_config_payload(template.get("config"), template.get("orientation")),
-                "thumbnail_url": template.get("thumbnail_url", ""),
-            },
-            prefer_representation=True,
-        )
-        copy_template = summarize_id_card_template((inserted or [{}])[0])
+        now_text = current_timestamp_display()
+        copy_template = summarize_id_card_template({
+            "id": make_id_card_template_id(),
+            "name": f"{template.get('name', 'Template')} Working Copy",
+            "description": template.get("description", ""),
+            "institute_name": template.get("institute_name", ""),
+            "config": sanitize_template_config_payload(template.get("config"), template.get("orientation")),
+            "thumbnail_url": template.get("thumbnail_url", ""),
+            "created_at": now_text,
+            "updated_at": now_text,
+            "is_system": False,
+        })
+        templates = load_id_card_templates_for_institute(copy_template.get("institute_name"))
+        templates.insert(0, copy_template)
+        save_id_card_templates_for_institute(copy_template.get("institute_name"), templates)
         return jsonify({"status": "ready", "template": copy_template})
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to create working copy"}), 500
