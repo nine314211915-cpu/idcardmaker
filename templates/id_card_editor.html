@@ -447,6 +447,9 @@
             <label for="templateInstitute">Institute</label>
             <select id="templateInstitute">
               <option value="">Select Institute</option>
+              {% for institute in (template_institutes or []) %}
+              <option value="{{ institute }}" {% if institute == (default_institute or '') %}selected{% endif %}>{{ institute }}</option>
+              {% endfor %}
             </select>
           </div>
           <div class="field">

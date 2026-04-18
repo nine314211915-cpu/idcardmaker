@@ -3839,6 +3839,7 @@ def id_card_template_gallery_page():
         "template_gallery.html",
         build_tag=app.config.get("APP_BUILD_TAG", ""),
         default_institute=get_default_template_institute(),
+        **build_admin_institutes_payload(),
     ))
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
@@ -3855,6 +3856,7 @@ def id_card_editor_page():
         build_tag=app.config.get("APP_BUILD_TAG", ""),
         default_institute=get_default_template_institute(),
         template_variables=ID_CARD_TEMPLATE_VARIABLES,
+        **build_admin_institutes_payload(),
         **build_template_bucket_payload(),
     ))
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
@@ -4463,6 +4465,23 @@ def admin_institutes_api():
         "facility_institutes": list(FACILITY_LOCATION_INSTITUTES),
         "facility_structure": build_facility_structure_payload(),
     })
+
+
+def build_admin_institutes_payload():
+    institutes = set(DEFAULT_STUDIO_INSTITUTES)
+    institutes.update(list_known_institutes_from_settings())
+    try:
+        for batch in list_all_supabase_batches():
+            institute = canonicalize_institute_name(batch.get("institute_name"))
+            if institute:
+                institutes.add(institute)
+    except Exception:
+        pass
+    return {
+        "template_institutes": sorted(institutes),
+        "facility_institutes": list(FACILITY_LOCATION_INSTITUTES),
+        "facility_structure": build_facility_structure_payload(),
+    }
 
 
 def normalize_background_orientation(value):
