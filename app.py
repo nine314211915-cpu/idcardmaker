@@ -3365,10 +3365,13 @@ def index():
 @app.route("/id-card-edit")
 @admin_required
 def id_card_edit_page():
+    supabase_enabled = is_supabase_enabled()
     return render_template(
         "id_card_edit.html",
         initial_institute=canonicalize_institute_name(request.args.get("institute")) or "",
         initial_serial=(request.args.get("serial_no") or "").strip(),
+        supabase_enabled=supabase_enabled,
+        data_source_label="Supabase" if supabase_enabled else "Local JSON",
     )
 
 
@@ -4375,13 +4378,14 @@ def load_record_for_lookup(institute, serial_lookup="", query_lookup=""):
     institute = canonicalize_institute_name(institute)
     serial_lookup = (serial_lookup or "").strip()
     query_lookup = (query_lookup or "").strip()
+    supabase_enabled = is_supabase_enabled()
     if not institute:
         raise ValueError("Institute is required")
     if not serial_lookup and not query_lookup:
         raise ValueError("ID card number or name is required")
 
     lookup_value = serial_lookup or query_lookup
-    if is_supabase_enabled():
+    if supabase_enabled:
         records = list_supabase_records(institute)
     else:
         records = load_records(institute)
@@ -4395,6 +4399,10 @@ def load_record_for_lookup(institute, serial_lookup="", query_lookup=""):
         raise LookupError("More than one card matches this short ID. Please enter the full ID card number.")
     record = matches[0] if matches else None
     if not record:
+        if not supabase_enabled:
+            raise FileNotFoundError(
+                "Card not found in local records store. This local run is using local JSON because Supabase is not configured."
+            )
         raise FileNotFoundError("Card not found")
     return {
         "record": record,
