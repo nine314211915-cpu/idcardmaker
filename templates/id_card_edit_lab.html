@@ -650,9 +650,9 @@
       <input id="serialInput" value="{{ initial_serial }}" type="hidden">
     </header>
 
-    <div class="workspace">
-      <aside class="left-rail">
-        <div class="side-scroll-head">
+    <div class="workspace" id="editorWorkspace">
+      <aside class="left-rail" id="leftRail">
+        <div class="side-scroll-head" id="leftScrollHead">
           <div class="side-scroll-actions" id="leftScrollActions">
             <button class="side-scroll-btn" type="button" onclick="scrollPanelBy('leftRailBody', -220)">Up</button>
             <button class="side-scroll-btn" type="button" onclick="scrollPanelBy('leftRailBody', 220)">Down</button>
@@ -715,8 +715,8 @@
         </section>
       </main>
 
-      <aside class="right-panel">
-        <div class="right-scroll-head">
+      <aside class="right-panel" id="rightPanel">
+        <div class="right-scroll-head" id="rightScrollHead">
           <div class="right-scroll-actions" id="rightScrollActions">
             <button class="mini-btn" type="button" onclick="scrollPanelBy('rightPanelBody', -260)">Up</button>
             <button class="mini-btn" type="button" onclick="scrollPanelBy('rightPanelBody', 260)">Down</button>
@@ -1190,7 +1190,27 @@
       panel.scrollTop += amount;
     }
 
+    function syncPanelHeights() {
+      const leftRail = field('leftRail');
+      const leftHead = field('leftScrollHead');
+      const leftBody = field('leftRailBody');
+      const rightPanel = field('rightPanel');
+      const rightHead = field('rightScrollHead');
+      const rightBody = field('rightPanelBody');
+      if (leftRail && leftHead && leftBody) {
+        const leftHeight = Math.max(120, leftRail.clientHeight - leftHead.offsetHeight);
+        leftBody.style.height = `${leftHeight}px`;
+        leftBody.style.overflowY = 'auto';
+      }
+      if (rightPanel && rightHead && rightBody) {
+        const rightHeight = Math.max(120, rightPanel.clientHeight - rightHead.offsetHeight);
+        rightBody.style.height = `${rightHeight}px`;
+        rightBody.style.overflowY = 'auto';
+      }
+    }
+
     function refreshPanelScrollControls() {
+      syncPanelHeights();
       const leftPanel = field('leftRailBody');
       const rightPanel = field('rightPanelBody');
       const leftActions = field('leftScrollActions');
@@ -2988,6 +3008,7 @@
       syncObjectInspector(null);
       setToolMode('select');
       window.setTimeout(refreshPanelScrollControls, 80);
+      window.setTimeout(refreshPanelScrollControls, 260);
       if (!SUPABASE_ENABLED) {
         setStatus(`Editor is connected to ${DATA_SOURCE_LABEL}. Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in this shell to load hosted records.`, false, true);
       }
