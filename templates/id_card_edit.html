@@ -350,15 +350,34 @@
             <div class="grid two">
               <div class="field">
                 <label for="instituteInput">Institute</label>
-                <input id="instituteInput" value="{{ initial_institute }}" placeholder="Institute name">
+                <select id="instituteInput">
+                  <option value="">Select institute</option>
+                  {% for institute in known_institutes %}
+                  <option value="{{ institute }}" {% if institute == initial_institute %}selected{% endif %}>{{ institute }}</option>
+                  {% endfor %}
+                </select>
               </div>
               <div class="field">
-                <label for="serialInput">Serial No</label>
-                <input id="serialInput" value="{{ initial_serial }}" placeholder="ID-20260419-0001">
+                <label for="batchSelector">Batch</label>
+                <select id="batchSelector">
+                  <option value="">Select batch</option>
+                </select>
+              </div>
+            </div>
+            <div class="grid two">
+              <div class="field">
+                <label for="recordSelector">Card Record</label>
+                <select id="recordSelector">
+                  <option value="">Select card</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="serialInput">Selected Serial</label>
+                <input id="serialInput" value="{{ initial_serial }}" placeholder="Serial auto-fills after record selection" readonly>
               </div>
             </div>
             <div class="toolbar">
-              <button class="btn primary" type="button" onclick="loadCard()">Load</button>
+              <button class="btn primary" type="button" onclick="loadSelectedCard()">Load Selected</button>
               <button class="btn" type="button" onclick="saveCard()">Save</button>
               <button class="btn" type="button" onclick="exportCard('png')">PNG</button>
               <button class="btn" type="button" onclick="exportCard('pdf')">PDF</button>
@@ -629,6 +648,7 @@
     const state = {
       record: null,
       settings: null,
+      availableRecords: [],
       canvas: null,
       staticObjects: {},
       sides: { front: {}, back: {} },
@@ -726,6 +746,70 @@
     function updateLoadedChips(record) {
       field('loadedSerialChip').textContent = `Serial: ${record && record.serial_no ? record.serial_no : '--'}`;
       field('loadedTypeChip').textContent = `Type: ${record && record.profile_type ? record.profile_type : '--'}`;
+    }
+
+    function resetRecordPicker() {
+      state.availableRecords = [];
+      field('recordSelector').innerHTML = '<option value="">Select card</option>';
+      field('serialInput').value = '';
+    }
+
+    async function loadBatchOptions() {
+      const institute = escapeValue(field('instituteInput').value);
+      const batchSelector = field('batchSelector');
+      batchSelector.innerHTML = '<option value="">Select batch</option>';
+      resetRecordPicker();
+      if (!institute) return;
+      try {
+        const res = await fetch(`/api/batches?institute=${encodeURIComponent(institute)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to load batches.');
+        const batches = Array.isArray(data.batches) ? data.batches : [];
+        batchSelector.innerHTML = '<option value="">Select batch</option>' + batches.map((batch) => {
+          const id = batch && batch.id ? String(batch.id) : '';
+          const label = `${batch.batch_name || id || 'Unnamed batch'} | ${batch.submitted_at || batch.created_at || '-'}`;
+          return `<option value="${id}">${label}</option>`;
+        }).join('');
+      } catch (error) {
+        setStatus(error.message || 'Unable to load batches.', false, true);
+      }
+    }
+
+    async function loadRecordOptions(preferredSerial = '') {
+      const institute = escapeValue(field('instituteInput').value);
+      const batchId = escapeValue(field('batchSelector').value);
+      resetRecordPicker();
+      if (!institute || !batchId) return;
+      try {
+        const res = await fetch(`/api/records?institute=${encodeURIComponent(institute)}&batch_id=${encodeURIComponent(batchId)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to load batch records.');
+        state.availableRecords = Array.isArray(data.records) ? data.records : [];
+        field('recordSelector').innerHTML = '<option value="">Select card</option>' + state.availableRecords.map((record, index) => {
+          const serial = record.serial_no || '';
+          const type = record.profile_type || '-';
+          const name = record.name || 'Unnamed';
+          return `<option value="${index}">${name} | ${serial} | ${type}</option>`;
+        }).join('');
+        if (preferredSerial) {
+          const foundIndex = state.availableRecords.findIndex((record) => (record.serial_no || '') === preferredSerial);
+          if (foundIndex >= 0) {
+            field('recordSelector').value = String(foundIndex);
+            syncSelectedRecord();
+          }
+        }
+      } catch (error) {
+        setStatus(error.message || 'Unable to load records for this batch.', false, true);
+      }
+    }
+
+    function syncSelectedRecord() {
+      const selectedIndex = field('recordSelector').value;
+      const record = selectedIndex === '' ? null : state.availableRecords[Number(selectedIndex)];
+      field('serialInput').value = record && record.serial_no ? record.serial_no : '';
+      if (record) {
+        updateLoadedChips(record);
+      }
     }
 
     function updateSliderValue(id, value, suffix = '') {
@@ -1371,6 +1455,26 @@
       }
     }
 
+    async function loadSelectedCard() {
+      const institute = escapeValue(field('instituteInput').value);
+      const batchId = escapeValue(field('batchSelector').value);
+      const selectedIndex = field('recordSelector').value;
+      if (!institute) {
+        setStatus('Select an institute first.');
+        return;
+      }
+      if (!batchId) {
+        setStatus('Select a batch first.');
+        return;
+      }
+      if (selectedIndex === '') {
+        setStatus('Select a card record first.');
+        return;
+      }
+      syncSelectedRecord();
+      await loadCard();
+    }
+
     async function saveCard() {
       const payload = currentPayload();
       if (!payload.institute_name || !payload.serial_no || !payload.name) {
@@ -1613,6 +1717,17 @@
         applyAppearanceControls();
         pushHistoryState();
       });
+
+      field('instituteInput').addEventListener('change', async () => {
+        await loadBatchOptions();
+        renderRecordOnCanvas();
+      });
+      field('batchSelector').addEventListener('change', async () => {
+        await loadRecordOptions();
+      });
+      field('recordSelector').addEventListener('change', () => {
+        syncSelectedRecord();
+      });
     }
 
     window.addEventListener('load', () => {
@@ -1623,8 +1738,31 @@
       if (!SUPABASE_ENABLED) {
         setStatus(`Editor is connected to ${DATA_SOURCE_LABEL}. Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in this shell to load hosted records.`, false, true);
       }
-      if (field('instituteInput').value && field('serialInput').value) {
-        loadCard();
+      if (field('instituteInput').value) {
+        loadBatchOptions().then(() => {
+          if (field('serialInput').value) {
+            const initialSerial = field('serialInput').value;
+            const batchOptions = Array.from(field('batchSelector').options).map((option) => option.value).filter(Boolean);
+            const tryNextBatch = async (index = 0) => {
+              if (index >= batchOptions.length) {
+                await loadCard();
+                return;
+              }
+              field('batchSelector').value = batchOptions[index];
+              await loadRecordOptions(initialSerial);
+              if (field('recordSelector').value !== '') {
+                await loadSelectedCard();
+                return;
+              }
+              await tryNextBatch(index + 1);
+            };
+            if (batchOptions.length) {
+              tryNextBatch();
+              return;
+            }
+            loadCard();
+          }
+        });
       }
     });
   </script>

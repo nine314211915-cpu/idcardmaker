@@ -3366,10 +3366,21 @@ def index():
 @admin_required
 def id_card_edit_page():
     supabase_enabled = is_supabase_enabled()
+    initial_institute = canonicalize_institute_name(request.args.get("institute")) or ""
+    known_institutes = []
+    seen_institutes = set()
+    for institute_name in DEFAULT_STUDIO_INSTITUTES + sorted(list_known_institutes_from_settings()):
+        normalized = canonicalize_institute_name(institute_name)
+        if normalized and normalized not in seen_institutes:
+            seen_institutes.add(normalized)
+            known_institutes.append(normalized)
+    if initial_institute and initial_institute not in seen_institutes:
+        known_institutes.append(initial_institute)
     return render_template(
         "id_card_edit.html",
-        initial_institute=canonicalize_institute_name(request.args.get("institute")) or "",
+        initial_institute=initial_institute,
         initial_serial=(request.args.get("serial_no") or "").strip(),
+        known_institutes=known_institutes,
         supabase_enabled=supabase_enabled,
         data_source_label="Supabase" if supabase_enabled else "Local JSON",
     )
