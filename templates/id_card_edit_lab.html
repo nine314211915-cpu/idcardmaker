@@ -1078,23 +1078,23 @@
     <div class="modal-card">
       <div class="inline-actions" style="justify-content:space-between;">
         <div>
-          <strong>Choose Template Style</strong>
-          <div class="mini-label">Apply a studio preset to the current batch editor</div>
+          <strong>Choose Graphic Template</strong>
+          <div class="mini-label">Load a full card composition with orientation, graphics, and mapped text zones.</div>
         </div>
         <button class="mini-btn" type="button" onclick="closeTemplateModal()">Close</button>
       </div>
       <div class="template-grid">
-        <div class="template-item" onclick="loadTemplateStyle('standard')">
-          <div class="template-preview" style="background:linear-gradient(135deg,#3498db 0%, #0f4c81 100%);"></div>
-          <strong>Standard</strong>
+        <div class="template-item" onclick="loadGraphicTemplate('official_graphic')">
+          <div class="template-preview" style="background:linear-gradient(135deg,#7d1111 0%, #d2a657 100%);"></div>
+          <strong>Official Graphic</strong>
         </div>
-        <div class="template-item" onclick="loadTemplateStyle('corporate')">
-          <div class="template-preview" style="background:linear-gradient(135deg,#2c3e50 0%, #34495e 100%);"></div>
-          <strong>Corporate</strong>
+        <div class="template-item" onclick="loadGraphicTemplate('student_portrait_graphic')">
+          <div class="template-preview" style="background:linear-gradient(180deg,#124f63 0%, #efc14a 100%);"></div>
+          <strong>Student Portrait Graphic</strong>
         </div>
-        <div class="template-item" onclick="loadTemplateStyle('colorful')">
-          <div class="template-preview" style="background:linear-gradient(135deg,#f093fb 0%, #f5576c 100%);"></div>
-          <strong>Colorful</strong>
+        <div class="template-item" onclick="loadGraphicTemplate('hospital_staff_graphic')">
+          <div class="template-preview" style="background:linear-gradient(135deg,#0f4c81 0%, #31a37c 100%);"></div>
+          <strong>Hospital Staff Graphic</strong>
         </div>
       </div>
     </div>
@@ -1117,6 +1117,8 @@
       availableRecords: [],
       currentRecordIndex: -1,
       currentTool: 'select',
+      activeTemplateId: '',
+      activeTemplateSpec: null,
       clipboard: null,
       canvas: null,
       staticObjects: {},
@@ -1337,6 +1339,43 @@
       if (state.canvas) {
         state.canvas.isDrawingMode = mode === 'draw';
       }
+    }
+
+    function getManagedObjectMap() {
+      return {
+        cardShell: state.staticObjects.card,
+        accentBar: state.staticObjects.accent,
+        headerBar: state.staticObjects.headerBar,
+        photoFrame: state.sides.front.photoFrame,
+        photoLabel: state.sides.front.photoLabel,
+        institute: state.sides.front.institute,
+        type: state.sides.front.type,
+        name: state.sides.front.name,
+        role: state.sides.front.role,
+        details: state.sides.front.details,
+        serial: state.sides.front.serial,
+        footer: state.sides.front.footer,
+        backTitle: state.sides.back.backTitle,
+        backSubtitle: state.sides.back.backSubtitle,
+        addressBlock: state.sides.back.addressBlock,
+        noteBlock: state.sides.back.noteBlock,
+        emergency: state.sides.back.emergency,
+        backFooter: state.sides.back.backFooter,
+      };
+    }
+
+    function createFabricObjectFromSpec(spec) {
+      if (!spec || !spec.type) return null;
+      const common = { ...spec };
+      delete common.type;
+      delete common.sideTag;
+      if (spec.type === 'rect') return new fabric.Rect(common);
+      if (spec.type === 'circle') return new fabric.Circle(common);
+      if (spec.type === 'line') return new fabric.Line(spec.points || [0, 0, 100, 0], common);
+      if (spec.type === 'triangle') return new fabric.Triangle(common);
+      if (spec.type === 'textbox') return new fabric.Textbox(spec.text || '', common);
+      if (spec.type === 'text') return new fabric.Text(spec.text || '', common);
+      return null;
     }
 
     function isManagedObject(obj) {
@@ -1682,7 +1721,7 @@
       pushHistoryState();
     }
 
-    function registerCanvasObject(obj, sideTag = state.currentSide) {
+    function addCanvasObject(obj, sideTag = state.currentSide, activate = true, trackHistory = true) {
       if (!state.canvas || !obj) return;
       obj.set({
         sideTag,
@@ -1692,11 +1731,21 @@
         obj.set('visible', sideTag === state.currentSide);
       }
       state.canvas.add(obj);
-      state.canvas.setActiveObject(obj);
+      if (activate) {
+        state.canvas.setActiveObject(obj);
+      }
       state.canvas.requestRenderAll();
-      syncObjectInspector(obj);
+      if (activate) {
+        syncObjectInspector(obj);
+      }
       refreshLayerList();
-      pushHistoryState();
+      if (trackHistory) {
+        pushHistoryState();
+      }
+    }
+
+    function registerCanvasObject(obj, sideTag = state.currentSide) {
+      addCanvasObject(obj, sideTag, true, true);
     }
 
     function buildCanvas() {
@@ -2222,6 +2271,69 @@
       setStatus('Reset to a fresh card layout.', true);
     }
 
+    async function loadGraphicTemplate(templateId) {
+      if (!templateId) return;
+      setStatus('Loading graphic template...');
+      try {
+        const res = await fetch(`/static/id_card_templates/${encodeURIComponent(templateId)}.json?t=${Date.now()}`);
+        const spec = await res.json();
+        if (!res.ok) throw new Error(spec.error || 'Unable to load template.');
+        applyGraphicTemplate(spec);
+      } catch (error) {
+        setStatus(error.message || 'Unable to load graphic template.', false, true);
+      }
+    }
+
+    function applyGraphicTemplate(spec) {
+      if (!spec) return;
+      clearSnapGuides();
+      state.activeTemplateId = spec.id || '';
+      state.activeTemplateSpec = spec;
+      state.view = {
+        ...state.view,
+        ...(spec.view || {}),
+        orientation: spec.orientation || state.view.orientation,
+      };
+      if (state.canvas) {
+        state.canvas.dispose();
+      }
+      state.backgroundImage = null;
+      state.photoImage = null;
+      state.activeTemplateId = '';
+      state.activeTemplateSpec = null;
+      state.pendingCustomObjects = [];
+      state.history.undoStack = [];
+      state.history.redoStack = [];
+      buildCanvas();
+
+      const managed = getManagedObjectMap();
+      Object.entries(spec.managed || {}).forEach(([key, patch]) => {
+        const target = managed[key];
+        if (!target || !patch) return;
+        target.set({ ...patch });
+        target.setCoords();
+      });
+
+      if (spec.static) {
+        if (spec.static.cardShell && managed.cardShell) managed.cardShell.set({ ...spec.static.cardShell });
+        if (spec.static.accentBar && managed.accentBar) managed.accentBar.set({ ...spec.static.accentBar });
+        if (spec.static.headerBar && managed.headerBar) managed.headerBar.set({ ...spec.static.headerBar });
+      }
+
+      (spec.customObjects || []).forEach((objectSpec) => {
+        const object = createFabricObjectFromSpec(objectSpec);
+        if (!object) return;
+        addCanvasObject(object, objectSpec.sideTag || 'shared', false, false);
+      });
+
+      renderRecordOnCanvas();
+      applyAppearanceControls();
+      state.canvas.requestRenderAll();
+      closeTemplateModal();
+      pushHistoryState(true);
+      setStatus(`${spec.label || 'Graphic template'} applied.`, true);
+    }
+
     function loadTemplateStyle(template) {
       resetCanvasLayout();
       if (template === 'standard') {
@@ -2532,6 +2644,13 @@
     function loadCanvasPhoto(url) {
       if (!state.canvas) return;
       const metrics = getLayoutMetrics();
+      const templatePhoto = state.activeTemplateSpec && state.activeTemplateSpec.photoPlacement
+        ? state.activeTemplateSpec.photoPlacement
+        : null;
+      const photoLeft = templatePhoto && typeof templatePhoto.left === 'number' ? templatePhoto.left : metrics.photoLeft;
+      const photoTop = templatePhoto && typeof templatePhoto.top === 'number' ? templatePhoto.top : metrics.photoTop;
+      const photoWidth = templatePhoto && typeof templatePhoto.width === 'number' ? templatePhoto.width : metrics.photoWidth;
+      const photoHeight = templatePhoto && typeof templatePhoto.height === 'number' ? templatePhoto.height : metrics.photoHeight;
       if (state.photoImage) {
         state.canvas.remove(state.photoImage);
         state.photoImage = null;
@@ -2545,15 +2664,15 @@
       fabric.Image.fromURL(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`, (img) => {
         if (!img) return;
         img.set({
-          left: metrics.photoLeft,
-          top: metrics.photoTop,
+          left: photoLeft,
+          top: photoTop,
           name: 'photo',
           visible: state.currentSide === 'front',
           selectable: true,
           evented: true,
         });
-        img.scaleToWidth(metrics.photoWidth);
-        img.scaleToHeight(metrics.photoHeight);
+        img.scaleToWidth(photoWidth);
+        img.scaleToHeight(photoHeight);
         state.photoImage = img;
         state.canvas.add(img);
         state.canvas.moveTo(img, 100);

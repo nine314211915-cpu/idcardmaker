@@ -1,0 +1,191 @@
+{
+  "id": "hospital_staff_graphic",
+  "label": "Hospital Staff Graphic",
+  "orientation": "landscape",
+  "view": {
+    "accent": "#0f4c81",
+    "textColor": "#143247",
+    "bgOpacity": 8,
+    "nameSize": 33,
+    "roleSize": 22,
+    "nameFont": "Georgia",
+    "bodyFont": "Verdana"
+  },
+  "static": {
+    "cardShell": {
+      "fill": "#fbfeff",
+      "stroke": "#c9dfea",
+      "strokeWidth": 2
+    },
+    "accentBar": {
+      "fill": "#0f4c81"
+    },
+    "headerBar": {
+      "fill": "#31a37c"
+    }
+  },
+  "managed": {
+    "photoFrame": {
+      "left": 72,
+      "top": 138,
+      "width": 176,
+      "height": 224,
+      "fill": "#edf8f5",
+      "stroke": "#31a37c"
+    },
+    "photoLabel": {
+      "left": 106,
+      "top": 238,
+      "width": 108,
+      "fill": "#4d9080"
+    },
+    "institute": {
+      "left": 274,
+      "top": 34,
+      "width": 458,
+      "fontSize": 27,
+      "fill": "#ffffff"
+    },
+    "type": {
+      "left": 274,
+      "top": 86,
+      "width": 340,
+      "fontSize": 15,
+      "fill": "#e2fff5"
+    },
+    "name": {
+      "left": 284,
+      "top": 156,
+      "width": 400,
+      "fontSize": 33
+    },
+    "role": {
+      "left": 284,
+      "top": 208,
+      "width": 360,
+      "fontSize": 22
+    },
+    "details": {
+      "left": 284,
+      "top": 250,
+      "width": 324,
+      "fontSize": 16
+    },
+    "serial": {
+      "left": 286,
+      "top": 420,
+      "width": 300,
+      "fontSize": 16
+    },
+    "footer": {
+      "left": 64,
+      "top": 466,
+      "width": 732,
+      "fontSize": 13,
+      "fill": "#4c6778"
+    },
+    "backTitle": {
+      "left": 64,
+      "top": 56,
+      "width": 520,
+      "fontSize": 28
+    },
+    "backSubtitle": {
+      "left": 64,
+      "top": 108,
+      "width": 620,
+      "fontSize": 17,
+      "fill": "#0f4c81"
+    },
+    "addressBlock": {
+      "left": 64,
+      "top": 170,
+      "width": 324,
+      "fontSize": 16
+    },
+    "noteBlock": {
+      "left": 436,
+      "top": 170,
+      "width": 320,
+      "fontSize": 15
+    },
+    "emergency": {
+      "left": 64,
+      "top": 406,
+      "width": 520,
+      "fontSize": 16
+    },
+    "backFooter": {
+      "left": 64,
+      "top": 458,
+      "width": 720,
+      "fontSize": 14
+    }
+  },
+  "photoPlacement": {
+    "left": 72,
+    "top": 138,
+    "width": 176,
+    "height": 224
+  },
+  "customObjects": [
+    {
+      "type": "rect",
+      "left": 640,
+      "top": 152,
+      "width": 148,
+      "height": 94,
+      "fill": "#eff9f7",
+      "stroke": "#31a37c",
+      "strokeWidth": 2,
+      "rx": 18,
+      "ry": 18,
+      "name": "Department Badge",
+      "sideTag": "front"
+    },
+    {
+      "type": "rect",
+      "left": 697,
+      "top": 164,
+      "width": 24,
+      "height": 56,
+      "fill": "#31a37c",
+      "name": "Medical Cross Vertical",
+      "sideTag": "front"
+    },
+    {
+      "type": "rect",
+      "left": 681,
+      "top": 180,
+      "width": 56,
+      "height": 24,
+      "fill": "#31a37c",
+      "name": "Medical Cross Horizontal",
+      "sideTag": "front"
+    },
+    {
+      "type": "textbox",
+      "text": "HOSPITAL STAFF",
+      "left": 626,
+      "top": 260,
+      "width": 180,
+      "fontSize": 15,
+      "fontWeight": "700",
+      "fill": "#0f4c81",
+      "textAlign": "center",
+      "name": "Staff Badge Label",
+      "sideTag": "front"
+    },
+    {
+      "type": "rect",
+      "left": 20,
+      "top": 432,
+      "width": 816,
+      "height": 58,
+      "fill": "#edf8f5",
+      "opacity": 0.92,
+      "name": "Back Footer Band",
+      "sideTag": "back"
+    }
+  ]
+}

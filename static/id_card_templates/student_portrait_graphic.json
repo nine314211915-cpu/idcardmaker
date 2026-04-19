@@ -1,0 +1,191 @@
+{
+  "id": "student_portrait_graphic",
+  "label": "Student Portrait Graphic",
+  "orientation": "portrait",
+  "view": {
+    "accent": "#124f63",
+    "textColor": "#193342",
+    "bgOpacity": 10,
+    "nameSize": 32,
+    "roleSize": 21,
+    "nameFont": "Trebuchet MS",
+    "bodyFont": "Segoe UI"
+  },
+  "static": {
+    "cardShell": {
+      "fill": "#fffef8",
+      "stroke": "#d8d4c2",
+      "strokeWidth": 2
+    },
+    "accentBar": {
+      "fill": "#124f63"
+    },
+    "headerBar": {
+      "fill": "#efc14a"
+    }
+  },
+  "managed": {
+    "photoFrame": {
+      "left": 154,
+      "top": 150,
+      "width": 230,
+      "height": 250,
+      "fill": "#eef6f8",
+      "stroke": "#124f63"
+    },
+    "photoLabel": {
+      "left": 212,
+      "top": 258,
+      "width": 120,
+      "fill": "#5f8393"
+    },
+    "institute": {
+      "left": 52,
+      "top": 42,
+      "width": 436,
+      "fontSize": 26,
+      "textAlign": "center",
+      "fill": "#ffffff"
+    },
+    "type": {
+      "left": 100,
+      "top": 96,
+      "width": 340,
+      "fontSize": 15,
+      "textAlign": "center",
+      "fill": "#fff8e0"
+    },
+    "name": {
+      "left": 54,
+      "top": 424,
+      "width": 432,
+      "fontSize": 32,
+      "textAlign": "center"
+    },
+    "role": {
+      "left": 78,
+      "top": 474,
+      "width": 384,
+      "fontSize": 20,
+      "textAlign": "center"
+    },
+    "details": {
+      "left": 76,
+      "top": 528,
+      "width": 388,
+      "fontSize": 16,
+      "textAlign": "center"
+    },
+    "serial": {
+      "left": 76,
+      "top": 726,
+      "width": 388,
+      "fontSize": 15,
+      "textAlign": "center"
+    },
+    "footer": {
+      "left": 54,
+      "top": 780,
+      "width": 432,
+      "fontSize": 13,
+      "textAlign": "center",
+      "fill": "#4d6272"
+    },
+    "backTitle": {
+      "left": 52,
+      "top": 60,
+      "width": 436,
+      "fontSize": 27,
+      "textAlign": "center"
+    },
+    "backSubtitle": {
+      "left": 54,
+      "top": 110,
+      "width": 432,
+      "fontSize": 17,
+      "textAlign": "center",
+      "fill": "#124f63"
+    },
+    "addressBlock": {
+      "left": 60,
+      "top": 188,
+      "width": 420,
+      "fontSize": 17
+    },
+    "noteBlock": {
+      "left": 60,
+      "top": 378,
+      "width": 420,
+      "fontSize": 15
+    },
+    "emergency": {
+      "left": 60,
+      "top": 692,
+      "width": 420,
+      "fontSize": 16,
+      "textAlign": "center"
+    },
+    "backFooter": {
+      "left": 60,
+      "top": 768,
+      "width": 420,
+      "fontSize": 14,
+      "textAlign": "center"
+    }
+  },
+  "photoPlacement": {
+    "left": 154,
+    "top": 150,
+    "width": 230,
+    "height": 250
+  },
+  "customObjects": [
+    {
+      "type": "triangle",
+      "left": 0,
+      "top": 0,
+      "width": 180,
+      "height": 180,
+      "fill": "#efc14a",
+      "angle": 45,
+      "opacity": 0.9,
+      "name": "Corner Accent",
+      "sideTag": "front"
+    },
+    {
+      "type": "rect",
+      "left": 438,
+      "top": 132,
+      "width": 50,
+      "height": 520,
+      "fill": "#efc14a",
+      "opacity": 0.85,
+      "name": "Side Ribbon",
+      "sideTag": "front"
+    },
+    {
+      "type": "textbox",
+      "text": "STUDENT",
+      "left": 430,
+      "top": 300,
+      "width": 68,
+      "fontSize": 18,
+      "fontWeight": "700",
+      "fill": "#124f63",
+      "angle": 90,
+      "textAlign": "center",
+      "name": "Student Ribbon",
+      "sideTag": "front"
+    },
+    {
+      "type": "circle",
+      "left": 194,
+      "top": 676,
+      "radius": 76,
+      "fill": "#efc14a",
+      "opacity": 0.18,
+      "name": "Badge Glow",
+      "sideTag": "back"
+    }
+  ]
+}
