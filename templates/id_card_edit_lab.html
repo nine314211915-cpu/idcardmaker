@@ -141,31 +141,7 @@
       min-height: 0;
     }
     .side-scroll-head {
-      padding: 10px 8px;
-      height: 76px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      display: grid;
-      gap: 8px;
-    }
-    .side-scroll-actions {
-      display: grid;
-      gap: 6px;
-    }
-    .side-scroll-actions.hidden,
-    .right-scroll-actions.hidden {
-      display: none;
-    }
-    .side-scroll-btn {
-      min-height: 34px;
-      border-radius: 8px;
-      border: 1px solid rgba(255,255,255,0.08);
-      background: #21303d;
-      color: #fff;
-      cursor: pointer;
-      font-size: 11px;
-    }
-    .side-scroll-btn:hover {
-      background: #2b4357;
+      height: 16px;
     }
     .left-rail-body,
     .right-panel-body {
@@ -178,7 +154,7 @@
       overscroll-behavior: contain;
     }
     .left-rail-body {
-      top: 76px;
+      top: 16px;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -263,20 +239,10 @@
       min-height: 0;
     }
     .right-scroll-head {
-      height: 56px;
-      padding: 10px 14px 8px;
-      border-bottom: 1px solid var(--line);
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      background: rgba(255,255,255,0.92);
-    }
-    .right-scroll-actions {
-      display: flex;
-      gap: 8px;
+      height: 12px;
     }
     .right-panel-body {
-      top: 56px;
+      top: 12px;
       display: block;
     }
     .status-box {
@@ -655,10 +621,6 @@
     <div class="workspace" id="editorWorkspace">
       <aside class="left-rail" id="leftRail">
         <div class="side-scroll-head" id="leftScrollHead">
-          <div class="side-scroll-actions" id="leftScrollActions">
-            <button class="side-scroll-btn" type="button" onclick="scrollPanelBy('leftRailBody', -220)">Up</button>
-            <button class="side-scroll-btn" type="button" onclick="scrollPanelBy('leftRailBody', 220)">Down</button>
-          </div>
         </div>
         <div class="left-rail-body" id="leftRailBody">
           <div class="rail-title">Tools</div>
@@ -719,10 +681,6 @@
 
       <aside class="right-panel" id="rightPanel">
         <div class="right-scroll-head" id="rightScrollHead">
-          <div class="right-scroll-actions" id="rightScrollActions">
-            <button class="mini-btn" type="button" onclick="scrollPanelBy('rightPanelBody', -260)">Up</button>
-            <button class="mini-btn" type="button" onclick="scrollPanelBy('rightPanelBody', 260)">Down</button>
-          </div>
         </div>
         <div class="right-panel-body" id="rightPanelBody">
         <div class="status-box{% if not supabase_enabled %} warn{% endif %}" id="statusBox">{% if supabase_enabled %}Editor ready. Select institute and batch to load cards.{% else %}Editor ready. This local run is using Local JSON data because Supabase is not configured in this shell.{% endif %}</div>
@@ -1186,12 +1144,6 @@
       box.className = warn ? 'status-box warn' : (ok ? 'status-box ok' : 'status-box');
     }
 
-    function scrollPanelBy(id, amount) {
-      const panel = field(id);
-      if (!panel) return;
-      panel.scrollTop += amount;
-    }
-
     function syncPanelHeights() {
       const leftRail = field('leftRail');
       const leftHead = field('leftScrollHead');
@@ -1213,16 +1165,6 @@
 
     function refreshPanelScrollControls() {
       syncPanelHeights();
-      const leftPanel = field('leftRailBody');
-      const rightPanel = field('rightPanelBody');
-      const leftActions = field('leftScrollActions');
-      const rightActions = field('rightScrollActions');
-      if (leftPanel && leftActions) {
-        leftActions.classList.toggle('hidden', leftPanel.scrollHeight <= leftPanel.clientHeight + 4);
-      }
-      if (rightPanel && rightActions) {
-        rightActions.classList.toggle('hidden', rightPanel.scrollHeight <= rightPanel.clientHeight + 4);
-      }
     }
 
     function currentBatchId() {
