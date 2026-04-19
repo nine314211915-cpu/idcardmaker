@@ -596,6 +596,12 @@
         <button class="tool-btn" id="backTab" type="button" onclick="switchSide('back')">Back Side</button>
       </div>
       <div class="top-group">
+        <select id="orientationSelect">
+          <option value="landscape">Landscape</option>
+          <option value="portrait">Portrait</option>
+        </select>
+      </div>
+      <div class="top-group">
         <button class="tool-btn" type="button" onclick="undoCanvas()">Undo</button>
         <button class="tool-btn" type="button" onclick="redoCanvas()">Redo</button>
       </div>
@@ -674,7 +680,7 @@
         </section>
         <section class="canvas-stage" id="canvasStage">
           <div class="canvas-shell" id="canvasShell">
-            <canvas id="cardCanvas" width="960" height="540"></canvas>
+            <canvas id="cardCanvas" width="856" height="540"></canvas>
           </div>
         </section>
       </main>
@@ -1090,8 +1096,10 @@
   <input id="genericImageInput" type="file" accept="image/*" class="hidden">
 
   <script>
-    const CANVAS_WIDTH = 960;
-    const CANVAS_HEIGHT = 540;
+    const CARD_SIZES = {
+      landscape: { width: 856, height: 540 },
+      portrait: { width: 540, height: 856 },
+    };
     const SNAP_MARGIN = 8;
     const SUPABASE_ENABLED = {{ 'true' if supabase_enabled else 'false' }};
     const DATA_SOURCE_LABEL = {{ data_source_label|tojson }};
@@ -1118,6 +1126,7 @@
         isApplying: false,
       },
       view: {
+        orientation: 'landscape',
         zoom: 100,
         fitScale: 1,
         bgOpacity: 24,
@@ -1169,6 +1178,18 @@
 
     function currentBatchId() {
       return escapeValue(field('batchSelector').value);
+    }
+
+    function getCanvasSize(orientation = state.view.orientation) {
+      return CARD_SIZES[orientation] || CARD_SIZES.landscape;
+    }
+
+    function getCanvasWidth() {
+      return getCanvasSize().width;
+    }
+
+    function getCanvasHeight() {
+      return getCanvasSize().height;
     }
 
     function currentPayload() {
@@ -1243,6 +1264,7 @@
       field('roleSizeRange').value = state.view.roleSize;
       field('nameFontFamilyInput').value = state.view.nameFont;
       field('bodyFontFamilyInput').value = state.view.bodyFont;
+      field('orientationSelect').value = state.view.orientation;
       updateSliderValue('zoomValue', state.view.zoom, '%');
       updateSliderValue('zoomRangeValue', state.view.zoom, '%');
       updateSliderValue('bgOpacityValue', state.view.bgOpacity, '%');
@@ -1253,14 +1275,18 @@
     function computeCanvasFitScale() {
       const stage = field('canvasStage');
       if (!stage) return 1;
+      const { width, height } = getCanvasSize();
       const availableWidth = Math.max(320, stage.clientWidth - 50);
       const availableHeight = Math.max(240, stage.clientHeight - 50);
-      return Math.min(1, availableWidth / CANVAS_WIDTH, availableHeight / CANVAS_HEIGHT);
+      return Math.min(1, availableWidth / width, availableHeight / height);
     }
 
     function applyCanvasScale() {
       const shell = field('canvasShell');
       if (!shell) return;
+      const { width, height } = getCanvasSize();
+      shell.style.width = `${width}px`;
+      shell.style.height = `${height}px`;
       state.view.fitScale = computeCanvasFitScale();
       const scale = state.view.fitScale * (state.view.zoom / 100);
       shell.style.transform = `scale(${scale})`;
@@ -1421,6 +1447,120 @@
       line.moveTo(1000);
     }
 
+    function getLayoutMetrics() {
+      const { width, height } = getCanvasSize();
+      const portrait = state.view.orientation === 'portrait';
+      return portrait
+        ? {
+            width,
+            height,
+            cardLeft: 20,
+            cardTop: 20,
+            cardWidth: width - 40,
+            cardHeight: height - 40,
+            headerHeight: 112,
+            headerStripTop: 92,
+            headerStripHeight: 30,
+            photoLeft: 168,
+            photoTop: 144,
+            photoWidth: 200,
+            photoHeight: 230,
+            titleLeft: 70,
+            titleTop: 40,
+            titleWidth: width - 140,
+            typeLeft: 120,
+            typeTop: 94,
+            typeWidth: width - 240,
+            nameLeft: 70,
+            nameTop: 402,
+            nameWidth: width - 140,
+            roleLeft: 90,
+            roleTop: 458,
+            roleWidth: width - 180,
+            detailsLeft: 78,
+            detailsTop: 510,
+            detailsWidth: width - 156,
+            serialLeft: 78,
+            serialTop: height - 120,
+            serialWidth: width - 156,
+            footerLeft: 60,
+            footerTop: height - 74,
+            footerWidth: width - 120,
+            backTitleLeft: 60,
+            backTitleTop: 56,
+            backTitleWidth: width - 120,
+            backSubtitleLeft: 60,
+            backSubtitleTop: 108,
+            backSubtitleWidth: width - 120,
+            addressLeft: 60,
+            addressTop: 178,
+            addressWidth: width - 120,
+            notesLeft: 60,
+            notesTop: 372,
+            notesWidth: width - 120,
+            emergencyLeft: 60,
+            emergencyTop: height - 148,
+            emergencyWidth: width - 120,
+            backFooterLeft: 60,
+            backFooterTop: height - 92,
+            backFooterWidth: width - 120,
+          }
+        : {
+            width,
+            height,
+            cardLeft: 20,
+            cardTop: 20,
+            cardWidth: width - 40,
+            cardHeight: height - 40,
+            headerHeight: 90,
+            headerStripTop: 82,
+            headerStripHeight: 30,
+            photoLeft: 62,
+            photoTop: 144,
+            photoWidth: 180,
+            photoHeight: 220,
+            titleLeft: 272,
+            titleTop: 36,
+            titleWidth: width - 340,
+            typeLeft: 272,
+            typeTop: 84,
+            typeWidth: 360,
+            nameLeft: 286,
+            nameTop: 154,
+            nameWidth: width - 316,
+            roleLeft: 286,
+            roleTop: 206,
+            roleWidth: width - 356,
+            detailsLeft: 286,
+            detailsTop: 256,
+            detailsWidth: width - 316,
+            serialLeft: 62,
+            serialTop: height - 136,
+            serialWidth: 280,
+            footerLeft: 62,
+            footerTop: height - 88,
+            footerWidth: width - 124,
+            backTitleLeft: 64,
+            backTitleTop: 56,
+            backTitleWidth: width - 296,
+            backSubtitleLeft: 64,
+            backSubtitleTop: 106,
+            backSubtitleWidth: width - 120,
+            addressLeft: 64,
+            addressTop: 168,
+            addressWidth: 330,
+            notesLeft: width - 330 - 64,
+            notesTop: 168,
+            notesWidth: 330,
+            emergencyLeft: 64,
+            emergencyTop: height - 128,
+            emergencyWidth: width - 220,
+            backFooterLeft: 64,
+            backFooterTop: height - 86,
+            backFooterWidth: width - 120,
+          };
+    }
+
     function clearSnapGuides() {
       if (!state.canvas) return;
       state.snapGuides.forEach((line) => state.canvas.remove(line));
@@ -1441,16 +1581,18 @@
       const targets = visibleSideObjects().filter((item) => item !== target);
       const centerX = getObjectCenterX(target);
       const centerY = getObjectCenterY(target);
-      const canvasCenterX = CANVAS_WIDTH / 2;
-      const canvasCenterY = CANVAS_HEIGHT / 2;
+      const canvasWidth = getCanvasWidth();
+      const canvasHeight = getCanvasHeight();
+      const canvasCenterX = canvasWidth / 2;
+      const canvasCenterY = canvasHeight / 2;
 
       if (Math.abs(centerX - canvasCenterX) <= SNAP_MARGIN) {
         target.set('left', canvasCenterX - target.getScaledWidth() / 2);
-        addGuideLine([canvasCenterX, 20, canvasCenterX, CANVAS_HEIGHT - 20]);
+        addGuideLine([canvasCenterX, 20, canvasCenterX, canvasHeight - 20]);
       }
       if (Math.abs(centerY - canvasCenterY) <= SNAP_MARGIN) {
         target.set('top', canvasCenterY - target.getScaledHeight() / 2);
-        addGuideLine([20, canvasCenterY, CANVAS_WIDTH - 20, canvasCenterY]);
+        addGuideLine([20, canvasCenterY, canvasWidth - 20, canvasCenterY]);
       }
 
       targets.forEach((item) => {
@@ -1463,19 +1605,19 @@
 
         if (Math.abs(centerX - itemCenterX) <= SNAP_MARGIN) {
           target.set('left', itemCenterX - target.getScaledWidth() / 2);
-          addGuideLine([itemCenterX, 20, itemCenterX, CANVAS_HEIGHT - 20]);
+          addGuideLine([itemCenterX, 20, itemCenterX, canvasHeight - 20]);
         }
         if (Math.abs(centerY - itemCenterY) <= SNAP_MARGIN) {
           target.set('top', itemCenterY - target.getScaledHeight() / 2);
-          addGuideLine([20, itemCenterY, CANVAS_WIDTH - 20, itemCenterY]);
+          addGuideLine([20, itemCenterY, canvasWidth - 20, itemCenterY]);
         }
         if (Math.abs(targetLeft - itemLeft) <= SNAP_MARGIN) {
           target.set('left', itemLeft);
-          addGuideLine([itemLeft, 20, itemLeft, CANVAS_HEIGHT - 20]);
+          addGuideLine([itemLeft, 20, itemLeft, canvasHeight - 20]);
         }
         if (Math.abs(targetRight - itemRight) <= SNAP_MARGIN) {
           target.set('left', itemRight - target.getScaledWidth());
-          addGuideLine([itemRight, 20, itemRight, CANVAS_HEIGHT - 20]);
+          addGuideLine([itemRight, 20, itemRight, canvasHeight - 20]);
         }
       });
     }
@@ -1551,12 +1693,18 @@
     }
 
     function buildCanvas() {
+      const metrics = getLayoutMetrics();
+      const canvasElement = field('cardCanvas');
+      canvasElement.width = metrics.width;
+      canvasElement.height = metrics.height;
       const canvas = new fabric.Canvas('cardCanvas', {
         backgroundColor: '#f7fafc',
         preserveObjectStacking: true,
         selection: true,
         fireRightClick: true,
         stopContextMenu: true,
+        width: metrics.width,
+        height: metrics.height,
       });
       state.canvas = canvas;
 
@@ -1604,15 +1752,15 @@
 
       const shared = {};
       shared.card = new fabric.Rect({
-        left: 20, top: 20, width: 920, height: 500, rx: 28, ry: 28,
+        left: metrics.cardLeft, top: metrics.cardTop, width: metrics.cardWidth, height: metrics.cardHeight, rx: 28, ry: 28,
         fill: '#ffffff', stroke: '#d8e1ea', strokeWidth: 2, selectable: true, evented: true, name: 'cardShell',
       });
       shared.accent = new fabric.Rect({
-        left: 20, top: 20, width: 920, height: 90, rx: 28, ry: 28,
+        left: metrics.cardLeft, top: metrics.cardTop, width: metrics.cardWidth, height: metrics.headerHeight, rx: 28, ry: 28,
         fill: state.view.accent, selectable: true, evented: true, name: 'accentBar',
       });
       shared.headerBar = new fabric.Rect({
-        left: 20, top: 82, width: 920, height: 30,
+        left: metrics.cardLeft, top: metrics.headerStripTop, width: metrics.cardWidth, height: metrics.headerStripHeight,
         fill: '#17324d', selectable: true, evented: true, name: 'headerBar',
       });
       canvas.add(shared.card, shared.accent, shared.headerBar);
@@ -1620,55 +1768,55 @@
 
       state.sides.front = {
         photoFrame: new fabric.Rect({
-          left: 62, top: 144, width: 180, height: 220, rx: 16, ry: 16,
+          left: metrics.photoLeft, top: metrics.photoTop, width: metrics.photoWidth, height: metrics.photoHeight, rx: 16, ry: 16,
           fill: '#eef3f8', stroke: '#d0dae5', strokeWidth: 2, selectable: true, name: 'photo',
         }),
         photoLabel: buildEditableTextbox('PHOTO', {
-          left: 104, top: 235, width: 98, fontSize: 22, fill: '#6b7c8f',
+          left: metrics.photoLeft + 42, top: metrics.photoTop + Math.round(metrics.photoHeight / 2) - 20, width: 110, fontSize: 22, fill: '#6b7c8f',
           fontWeight: '700', textAlign: 'center', name: 'photo',
         }),
         institute: buildEditableTextbox('Institute Name', {
-          left: 272, top: 36, width: 600, fontSize: 30, fill: '#ffffff', fontWeight: '700', name: 'institute',
+          left: metrics.titleLeft, top: metrics.titleTop, width: metrics.titleWidth, fontSize: 30, fill: '#ffffff', fontWeight: '700', name: 'institute',
         }),
         type: buildEditableTextbox('IDENTITY CARD', {
-          left: 272, top: 84, width: 360, fontSize: 16, fill: '#ffffff', fontWeight: '700',
+          left: metrics.typeLeft, top: metrics.typeTop, width: metrics.typeWidth, fontSize: 16, fill: '#ffffff', fontWeight: '700',
           charSpacing: 120, name: 'type',
         }),
         name: buildEditableTextbox('Full Name', {
-          left: 286, top: 154, width: 560, fontSize: 34, fill: '#17324d', fontWeight: '700', name: 'name',
+          left: metrics.nameLeft, top: metrics.nameTop, width: metrics.nameWidth, fontSize: 34, fill: '#17324d', fontWeight: '700', name: 'name',
         }),
         role: buildEditableTextbox('Course / Designation', {
-          left: 286, top: 206, width: 500, fontSize: 24, fill: '#8b0000', fontWeight: '700', name: 'role',
+          left: metrics.roleLeft, top: metrics.roleTop, width: metrics.roleWidth, fontSize: 24, fill: '#8b0000', fontWeight: '700', name: 'role',
         }),
         details: buildEditableTextbox('', {
-          left: 286, top: 256, width: 560, fontSize: 17, lineHeight: 1.45, fill: '#27435f', name: 'details',
+          left: metrics.detailsLeft, top: metrics.detailsTop, width: metrics.detailsWidth, fontSize: 17, lineHeight: 1.45, fill: '#27435f', name: 'details',
         }),
         serial: buildEditableTextbox('Serial: -', {
-          left: 62, top: 404, width: 280, fontSize: 18, fill: '#17324d', fontWeight: '700', name: 'serial',
+          left: metrics.serialLeft, top: metrics.serialTop, width: metrics.serialWidth, fontSize: 18, fill: '#17324d', fontWeight: '700', name: 'serial',
         }),
         footer: buildEditableTextbox('Medical ID Editor', {
-          left: 62, top: 452, width: 800, fontSize: 15, fill: '#59728c', name: 'footer',
+          left: metrics.footerLeft, top: metrics.footerTop, width: metrics.footerWidth, fontSize: 15, fill: '#59728c', name: 'footer',
         }),
       };
 
       state.sides.back = {
         backTitle: buildEditableTextbox('Important Information', {
-          left: 64, top: 56, width: 560, fontSize: 28, fontWeight: '700', fill: '#17324d', name: 'backTitle',
+          left: metrics.backTitleLeft, top: metrics.backTitleTop, width: metrics.backTitleWidth, fontSize: 28, fontWeight: '700', fill: '#17324d', name: 'backTitle',
         }),
         backSubtitle: buildEditableTextbox('Keep this card safely and carry it when required.', {
-          left: 64, top: 106, width: 760, fontSize: 18, fill: '#8b0000', fontWeight: '700', name: 'backSubtitle',
+          left: metrics.backSubtitleLeft, top: metrics.backSubtitleTop, width: metrics.backSubtitleWidth, fontSize: 18, fill: '#8b0000', fontWeight: '700', name: 'backSubtitle',
         }),
         addressBlock: buildEditableTextbox('', {
-          left: 64, top: 168, width: 400, fontSize: 18, lineHeight: 1.45, fill: '#17324d', name: 'addressBlock',
+          left: metrics.addressLeft, top: metrics.addressTop, width: metrics.addressWidth, fontSize: 18, lineHeight: 1.45, fill: '#17324d', name: 'addressBlock',
         }),
         noteBlock: buildEditableTextbox('', {
-          left: 500, top: 168, width: 360, fontSize: 16, lineHeight: 1.5, fill: '#27435f', name: 'noteBlock',
+          left: metrics.notesLeft, top: metrics.notesTop, width: metrics.notesWidth, fontSize: 16, lineHeight: 1.5, fill: '#27435f', name: 'noteBlock',
         }),
         emergency: buildEditableTextbox('If found, return to the issuing institute office.', {
-          left: 64, top: 412, width: 560, fontSize: 17, fontWeight: '700', fill: '#8b0000', name: 'emergency',
+          left: metrics.emergencyLeft, top: metrics.emergencyTop, width: metrics.emergencyWidth, fontSize: 17, fontWeight: '700', fill: '#8b0000', name: 'emergency',
         }),
         backFooter: buildEditableTextbox('This card is the property of the institute.', {
-          left: 64, top: 454, width: 760, fontSize: 15, fill: '#59728c', name: 'backFooter',
+          left: metrics.backFooterLeft, top: metrics.backFooterTop, width: metrics.backFooterWidth, fontSize: 15, fill: '#59728c', name: 'backFooter',
         }),
       };
 
@@ -2118,11 +2266,31 @@
       setStatus('Canvas layout reset to default.', true);
     }
 
+    function applyOrientation(nextOrientation) {
+      const orientation = ['landscape', 'portrait'].includes(nextOrientation) ? nextOrientation : 'landscape';
+      if (state.view.orientation === orientation) return;
+      state.view.orientation = orientation;
+      clearSnapGuides();
+      if (state.canvas) {
+        state.canvas.dispose();
+      }
+      state.backgroundImage = null;
+      state.photoImage = null;
+      state.history.undoStack = [];
+      state.history.redoStack = [];
+      buildCanvas();
+      if (state.record) renderRecordOnCanvas();
+      syncAppearanceControls();
+      applyCanvasScale();
+      refreshPanelScrollControls();
+      setStatus(`Switched to ${orientation} orientation.`, true);
+    }
+
     function alignActive(mode) {
       applyActiveObjectChanges((active) => {
         if (mode === 'left') active.set('left', 62);
-        if (mode === 'center') active.set('left', (CANVAS_WIDTH - active.getScaledWidth()) / 2);
-        if (mode === 'right') active.set('left', 898 - active.getScaledWidth());
+        if (mode === 'center') active.set('left', (getCanvasWidth() - active.getScaledWidth()) / 2);
+        if (mode === 'right') active.set('left', getCanvasWidth() - 42 - active.getScaledWidth());
       });
     }
 
@@ -2263,6 +2431,7 @@
     function loadCanvasBackground() {
       const url = state.settings && state.settings.background_url ? state.settings.background_url : '';
       if (!state.canvas) return;
+      const metrics = getLayoutMetrics();
       if (!url) {
         if (state.backgroundImage) {
           state.canvas.remove(state.backgroundImage);
@@ -2274,14 +2443,14 @@
       fabric.Image.fromURL(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`, (img) => {
         if (!img) return;
         img.set({
-          left: 20,
-          top: 20,
+          left: metrics.cardLeft,
+          top: metrics.cardTop,
           selectable: false,
           evented: false,
           opacity: state.view.bgOpacity / 100,
         });
-        img.scaleToWidth(920);
-        img.scaleToHeight(500);
+        img.scaleToWidth(metrics.cardWidth);
+        img.scaleToHeight(metrics.cardHeight);
         if (state.backgroundImage) {
           state.canvas.remove(state.backgroundImage);
         }
@@ -2293,6 +2462,7 @@
 
     function loadCanvasPhoto(url) {
       if (!state.canvas) return;
+      const metrics = getLayoutMetrics();
       if (state.photoImage) {
         state.canvas.remove(state.photoImage);
         state.photoImage = null;
@@ -2306,15 +2476,15 @@
       fabric.Image.fromURL(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`, (img) => {
         if (!img) return;
         img.set({
-          left: 62,
-          top: 144,
+          left: metrics.photoLeft,
+          top: metrics.photoTop,
           name: 'photo',
           visible: state.currentSide === 'front',
           selectable: true,
           evented: true,
         });
-        img.scaleToWidth(180);
-        img.scaleToHeight(220);
+        img.scaleToWidth(metrics.photoWidth);
+        img.scaleToHeight(metrics.photoHeight);
         state.photoImage = img;
         state.canvas.add(img);
         state.canvas.moveTo(img, 100);
@@ -2931,6 +3101,9 @@
         state.view.bodyFont = event.target.value;
         applyAppearanceControls();
         pushHistoryState();
+      });
+      field('orientationSelect').addEventListener('change', (event) => {
+        applyOrientation(event.target.value);
       });
       field('instituteInput').addEventListener('change', async () => {
         await loadBatchOptions();
