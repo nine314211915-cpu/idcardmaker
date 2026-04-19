@@ -28,8 +28,7 @@
     .shell {
       display: grid;
       grid-template-columns: 332px minmax(0, 1fr);
-      height: 100vh;
-      overflow: hidden;
+      min-height: 100vh;
     }
     .sidebar {
       background: var(--panel);
@@ -43,7 +42,6 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
-      overflow: hidden;
     }
     .hero, .panel {
       border: 1px solid var(--line);
@@ -84,7 +82,7 @@
       font-weight: 700;
     }
     .panel-body {
-      padding: 12px 14px;
+      padding: 10px 14px;
     }
     .summary-card {
       display: grid;
@@ -292,8 +290,7 @@
       font-weight: 700;
     }
     .canvas-wrap {
-      padding: 12px;
-      overflow: hidden;
+      padding: 4px 12px 12px;
     }
     .workspace-grid {
       display: grid;
@@ -321,7 +318,8 @@
       overflow: hidden;
       display: grid;
       grid-template-rows: auto auto 1fr;
-      max-height: calc(100vh - 190px);
+      max-height: calc(100vh - 130px);
+      align-self: start;
     }
     .layers-head {
       padding: 12px 14px;
