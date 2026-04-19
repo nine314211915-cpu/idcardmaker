@@ -28,7 +28,8 @@
     .shell {
       display: grid;
       grid-template-columns: 332px minmax(0, 1fr);
-      min-height: 100vh;
+      height: 100vh;
+      overflow: hidden;
     }
     .sidebar {
       background: var(--panel);
@@ -42,6 +43,7 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+      overflow: hidden;
     }
     .hero, .panel {
       border: 1px solid var(--line);
@@ -103,6 +105,24 @@
       color: var(--ink-soft);
       font-size: 12px;
       line-height: 1.45;
+    }
+    .menu-scrollbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .menu-scrollbar.compact {
+      padding: 10px 12px 0;
+      margin-bottom: 0;
+    }
+    .menu-scrollbar span {
+      color: var(--ink-soft);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
     }
     .compact-stack {
       display: grid;
@@ -273,11 +293,11 @@
     }
     .canvas-wrap {
       padding: 12px;
-      overflow: auto;
+      overflow: hidden;
     }
     .workspace-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 248px;
+      grid-template-columns: minmax(0, 1fr) minmax(220px, 248px);
       gap: 12px;
       align-items: start;
     }
@@ -291,6 +311,7 @@
         linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(241,246,250,0.92) 100%);
       border: 1px dashed #c9d6e3;
       padding: 12px;
+      overflow: hidden;
     }
     .layers-panel {
       border: 1px solid var(--line);
@@ -298,6 +319,9 @@
       background: rgba(255,255,255,0.92);
       box-shadow: 0 12px 30px rgba(23,50,77,0.08);
       overflow: hidden;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      max-height: calc(100vh - 190px);
     }
     .layers-head {
       padding: 12px 14px;
@@ -309,6 +333,7 @@
       padding: 12px;
       display: grid;
       gap: 12px;
+      overflow-y: auto;
     }
     .layer-group {
       display: grid;
@@ -330,9 +355,15 @@
       text-align: left;
     }
     .canvas-shell {
+      width: 960px;
+      height: 540px;
+      max-width: 100%;
       transform-origin: top center;
       transition: transform .15s ease;
       position: relative;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
     }
     .side-tabs {
       display: inline-flex;
@@ -372,7 +403,14 @@
 </head>
 <body>
   <div class="shell">
-    <aside class="sidebar">
+    <aside class="sidebar" id="leftSidebar">
+      <div class="menu-scrollbar">
+        <span>Left Menu</span>
+        <div class="toolbar">
+          <button class="btn tiny" type="button" onclick="scrollPanelBy('leftSidebar', -260)">Up</button>
+          <button class="btn tiny" type="button" onclick="scrollPanelBy('leftSidebar', 260)">Down</button>
+        </div>
+      </div>
       <div class="summary-card">
         <div class="toolbar">
           <a class="btn" href="/admin">Back to Admin</a>
@@ -656,14 +694,21 @@
         </div>
         <div class="canvas-wrap">
           <div class="workspace-grid">
-            <div class="canvas-stage">
+            <div class="canvas-stage" id="canvasStage">
               <div class="canvas-shell" id="canvasShell">
                 <canvas id="cardCanvas" width="960" height="540"></canvas>
               </div>
             </div>
             <aside class="layers-panel">
               <div class="layers-head">Layers</div>
-              <div class="layers-body">
+              <div class="menu-scrollbar compact">
+                <span>Right Menu</span>
+                <div class="toolbar">
+                  <button class="btn tiny" type="button" onclick="scrollPanelBy('layersBody', -220)">Up</button>
+                  <button class="btn tiny" type="button" onclick="scrollPanelBy('layersBody', 220)">Down</button>
+                </div>
+              </div>
+              <div class="layers-body" id="layersBody">
                 <div class="layer-group">
                   <h3>Global Layers</h3>
                   <div class="layer-buttons">
@@ -731,6 +776,7 @@
       },
       view: {
         zoom: 100,
+        fitScale: 1,
         bgOpacity: 24,
         nameSize: 34,
         roleSize: 24,
@@ -753,6 +799,12 @@
 
     function field(id) {
       return document.getElementById(id);
+    }
+
+    function scrollPanelBy(id, amount) {
+      const panel = field(id);
+      if (!panel) return;
+      panel.scrollBy({ top: amount, behavior: 'smooth' });
     }
 
     function currentBatchId() {
@@ -973,8 +1025,27 @@
 
     function setCanvasZoom(zoom) {
       state.view.zoom = Math.max(70, Math.min(140, Number(zoom) || 100));
-      field('canvasShell').style.transform = `scale(${state.view.zoom / 100})`;
+      applyCanvasScale();
       updateSliderValue('zoomValue', state.view.zoom, '%');
+    }
+
+    function computeCanvasFitScale() {
+      const stage = field('canvasStage');
+      if (!stage) return 1;
+      const style = window.getComputedStyle(stage);
+      const horizontalPadding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+      const verticalPadding = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0);
+      const availableWidth = Math.max(320, stage.clientWidth - horizontalPadding - 8);
+      const availableHeight = Math.max(220, stage.clientHeight - verticalPadding - 8);
+      return Math.min(1, availableWidth / CANVAS_WIDTH, availableHeight / CANVAS_HEIGHT);
+    }
+
+    function applyCanvasScale() {
+      const shell = field('canvasShell');
+      if (!shell) return;
+      state.view.fitScale = computeCanvasFitScale();
+      const scale = state.view.fitScale * (state.view.zoom / 100);
+      shell.style.transform = `scale(${scale})`;
     }
 
     function buildEditableTextbox(text, options = {}) {
@@ -1920,6 +1991,7 @@
       buildCanvas();
       bindFieldUpdates();
       syncAppearanceControls();
+      applyCanvasScale();
       renderRecordOnCanvas();
       if (!SUPABASE_ENABLED) {
         setStatus(`Editor is connected to ${DATA_SOURCE_LABEL}. Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in this shell to load hosted records.`, false, true);
@@ -1950,6 +2022,7 @@
         });
       }
     });
+    window.addEventListener('resize', () => applyCanvasScale());
   </script>
 </body>
 </html>
