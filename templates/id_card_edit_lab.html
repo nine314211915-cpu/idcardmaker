@@ -126,6 +126,7 @@
     }
     .left-rail {
       background: linear-gradient(180deg, #304253 0%, #243241 100%);
+      height: 100%;
       display: flex;
       flex-direction: column;
       border-right: 1px solid #1b2731;
@@ -142,6 +143,10 @@
       display: grid;
       gap: 6px;
     }
+    .side-scroll-actions.hidden,
+    .right-scroll-actions.hidden {
+      display: none;
+    }
     .side-scroll-btn {
       min-height: 34px;
       border-radius: 8px;
@@ -157,6 +162,7 @@
     .left-rail-body,
     .right-panel-body {
       flex: 1 1 auto;
+      max-height: 100%;
       height: 0;
       min-height: 0;
       overflow-y: auto;
@@ -164,6 +170,7 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
+      overscroll-behavior: contain;
     }
     .rail-title {
       font-size: 11px;
@@ -190,6 +197,7 @@
     .canvas-zone {
       min-width: 0;
       min-height: 0;
+      height: 100%;
       display: grid;
       grid-template-rows: auto 1fr;
       background: var(--canvas-bg);
@@ -240,6 +248,7 @@
     .right-panel {
       background: var(--panel);
       border-left: 1px solid var(--line);
+      height: 100%;
       min-height: 0;
       display: flex;
       flex-direction: column;
@@ -634,7 +643,7 @@
     <div class="workspace">
       <aside class="left-rail">
         <div class="side-scroll-head">
-          <div class="side-scroll-actions">
+          <div class="side-scroll-actions" id="leftScrollActions">
             <button class="side-scroll-btn" type="button" onclick="scrollPanelBy('leftRailBody', -220)">Up</button>
             <button class="side-scroll-btn" type="button" onclick="scrollPanelBy('leftRailBody', 220)">Down</button>
           </div>
@@ -698,7 +707,7 @@
 
       <aside class="right-panel">
         <div class="right-scroll-head">
-          <div class="right-scroll-actions">
+          <div class="right-scroll-actions" id="rightScrollActions">
             <button class="mini-btn" type="button" onclick="scrollPanelBy('rightPanelBody', -260)">Up</button>
             <button class="mini-btn" type="button" onclick="scrollPanelBy('rightPanelBody', 260)">Down</button>
           </div>
@@ -1168,7 +1177,20 @@
     function scrollPanelBy(id, amount) {
       const panel = field(id);
       if (!panel) return;
-      panel.scrollBy({ top: amount, behavior: 'smooth' });
+      panel.scrollTop += amount;
+    }
+
+    function refreshPanelScrollControls() {
+      const leftPanel = field('leftRailBody');
+      const rightPanel = field('rightPanelBody');
+      const leftActions = field('leftScrollActions');
+      const rightActions = field('rightScrollActions');
+      if (leftPanel && leftActions) {
+        leftActions.classList.toggle('hidden', leftPanel.scrollHeight <= leftPanel.clientHeight + 4);
+      }
+      if (rightPanel && rightActions) {
+        rightActions.classList.toggle('hidden', rightPanel.scrollHeight <= rightPanel.clientHeight + 4);
+      }
     }
 
     function currentBatchId() {
@@ -2955,6 +2977,7 @@
       renderRecordOnCanvas();
       syncObjectInspector(null);
       setToolMode('select');
+      window.setTimeout(refreshPanelScrollControls, 80);
       if (!SUPABASE_ENABLED) {
         setStatus(`Editor is connected to ${DATA_SOURCE_LABEL}. Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in this shell to load hosted records.`, false, true);
       }
@@ -2983,7 +3006,10 @@
       }
     });
 
-    window.addEventListener('resize', () => applyCanvasScale());
+    window.addEventListener('resize', () => {
+      applyCanvasScale();
+      refreshPanelScrollControls();
+    });
   </script>
 </body>
 </html>
