@@ -3363,9 +3363,7 @@ def index():
     return render_template("index.html")
 
 
-@app.route("/id-card-edit")
-@admin_required
-def id_card_edit_page():
+def build_id_card_edit_context():
     supabase_enabled = is_supabase_enabled()
     initial_institute = canonicalize_institute_name(request.args.get("institute")) or ""
     known_institutes = []
@@ -3377,14 +3375,25 @@ def id_card_edit_page():
             known_institutes.append(normalized)
     if initial_institute and initial_institute not in seen_institutes:
         known_institutes.append(initial_institute)
-    return render_template(
-        "id_card_edit.html",
-        initial_institute=initial_institute,
-        initial_serial=(request.args.get("serial_no") or "").strip(),
-        known_institutes=known_institutes,
-        supabase_enabled=supabase_enabled,
-        data_source_label="Supabase" if supabase_enabled else "Local JSON",
-    )
+    return {
+        "initial_institute": initial_institute,
+        "initial_serial": (request.args.get("serial_no") or "").strip(),
+        "known_institutes": known_institutes,
+        "supabase_enabled": supabase_enabled,
+        "data_source_label": "Supabase" if supabase_enabled else "Local JSON",
+    }
+
+
+@app.route("/id-card-edit")
+@admin_required
+def id_card_edit_page():
+    return render_template("id_card_edit.html", **build_id_card_edit_context())
+
+
+@app.route("/id-card-edit-lab")
+@admin_required
+def id_card_edit_lab_page():
+    return render_template("id_card_edit_lab.html", **build_id_card_edit_context())
 
 
 @app.route("/certificate")

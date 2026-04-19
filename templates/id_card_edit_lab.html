@@ -1,0 +1,2901 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ID Card Editor Lab</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+  <style>
+    :root {
+      --bg: #e9edf3;
+      --bg-dark: #243241;
+      --panel: #ffffff;
+      --panel-soft: #f6f8fb;
+      --line: #d8dfe8;
+      --text: #1e2c3b;
+      --muted: #66798d;
+      --accent: #8b0000;
+      --accent-strong: #b21f1f;
+      --accent-soft: #fbeaea;
+      --ok: #166534;
+      --warn: #9a6700;
+      --tool: #314456;
+      --tool-hover: #40627d;
+      --canvas-bg: #dfe5eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+    .app-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+    .topbar {
+      background: linear-gradient(180deg, #253546 0%, #1f2c39 100%);
+      color: #fff;
+      border-bottom: 1px solid #18232d;
+      padding: 10px 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .top-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      padding-right: 10px;
+      border-right: 1px solid rgba(255,255,255,0.16);
+    }
+    .top-group:last-child {
+      border-right: 0;
+      padding-right: 0;
+    }
+    .top-label {
+      font-size: 12px;
+      color: rgba(255,255,255,0.72);
+    }
+    .topbar select,
+    .topbar input {
+      min-height: 36px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      padding: 7px 10px;
+      min-width: 170px;
+    }
+    .topbar select option {
+      color: #111;
+    }
+    .tool-btn {
+      min-height: 36px;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: #fff;
+      background: var(--tool);
+      cursor: pointer;
+      transition: background .15s ease;
+    }
+    .tool-btn:hover {
+      background: var(--tool-hover);
+    }
+    .tool-btn.primary {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+      border-color: transparent;
+    }
+    .tool-btn.soft {
+      background: rgba(255,255,255,0.1);
+    }
+    .tool-btn.active {
+      background: #2f80c3;
+    }
+    .zoom-badge,
+    .status-chip {
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 12px;
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.9);
+      border: 1px solid rgba(255,255,255,0.1);
+      white-space: nowrap;
+    }
+    .workspace {
+      display: grid;
+      grid-template-columns: 74px minmax(0, 1fr) 336px;
+      min-height: 0;
+    }
+    .left-rail {
+      background: linear-gradient(180deg, #304253 0%, #243241 100%);
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border-right: 1px solid #1b2731;
+    }
+    .rail-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.62);
+      letter-spacing: .08em;
+      text-align: center;
+      margin: 4px 0 2px;
+    }
+    .rail-btn {
+      width: 100%;
+      min-height: 42px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: #21303d;
+      color: #fff;
+      cursor: pointer;
+      font-size: 12px;
+      padding: 8px 6px;
+    }
+    .rail-btn:hover {
+      background: #2b4357;
+    }
+    .canvas-zone {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      background: var(--canvas-bg);
+    }
+    .canvas-meta {
+      padding: 10px 14px;
+      border-bottom: 1px solid #ccd5df;
+      background: rgba(255,255,255,0.8);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .canvas-meta h1 {
+      margin: 0;
+      font-size: 18px;
+    }
+    .canvas-meta p {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .canvas-stage {
+      padding: 20px;
+      overflow: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        linear-gradient(45deg, rgba(0,0,0,0.04) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(0,0,0,0.04) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.04) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.04) 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+    }
+    .canvas-shell {
+      width: 960px;
+      height: 540px;
+      background: #fff;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.18);
+      border-radius: 14px;
+      overflow: hidden;
+      transform-origin: center center;
+      transition: transform .16s ease;
+    }
+    .right-panel {
+      background: var(--panel);
+      border-left: 1px solid var(--line);
+      overflow-y: auto;
+      padding: 14px;
+    }
+    .status-box {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #eef6ff;
+      border: 1px solid #d8e8ff;
+      color: var(--text);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    .status-box.ok {
+      background: #eaf8ef;
+      border-color: #caead7;
+      color: var(--ok);
+    }
+    .status-box.warn {
+      background: #fff6e5;
+      border-color: #f1ddae;
+      color: var(--warn);
+    }
+    .panel-section {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel-soft);
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    .panel-section summary,
+    .section-head {
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      background: rgba(255,255,255,0.88);
+      border-bottom: 1px solid var(--line);
+    }
+    .panel-section summary {
+      list-style: none;
+      cursor: pointer;
+    }
+    .panel-section summary::-webkit-details-marker {
+      display: none;
+    }
+    .section-body {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .field-grid {
+      display: grid;
+      gap: 10px;
+    }
+    .field-grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+    .field label,
+    .mini-label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      padding: 9px 10px;
+      color: var(--text);
+      min-height: 38px;
+    }
+    .field textarea {
+      min-height: 78px;
+      resize: vertical;
+    }
+    .prop-row {
+      display: grid;
+      grid-template-columns: 70px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+    }
+    .prop-type {
+      padding: 9px 10px;
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .inline-actions,
+    .mini-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .mini-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+      color: var(--text);
+      font-size: 12px;
+    }
+    .mini-btn:hover {
+      background: #f2f6fa;
+    }
+    .slider-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .slider-value {
+      min-width: 44px;
+      text-align: right;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .layer-list {
+      display: grid;
+      gap: 8px;
+    }
+    .layer-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      padding: 9px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .layer-item.active {
+      border-color: #7cb0db;
+      background: #ebf5ff;
+    }
+    .layer-meta {
+      display: grid;
+      gap: 2px;
+    }
+    .layer-name {
+      font-weight: 700;
+      color: var(--text);
+    }
+    .layer-side {
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .footer-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 14px;
+      background: #1f2c39;
+      color: rgba(255,255,255,0.88);
+      font-size: 12px;
+    }
+    .footer-meta {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    @media (max-width: 1320px) {
+      .workspace {
+        grid-template-columns: 74px minmax(0, 1fr) 300px;
+      }
+    }
+    @media (max-width: 1120px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+      .left-rail {
+        flex-direction: row;
+        flex-wrap: wrap;
+        border-right: 0;
+        border-bottom: 1px solid #1b2731;
+      }
+      .right-panel {
+        border-left: 0;
+        border-top: 1px solid var(--line);
+      }
+      .rail-title {
+        width: 100%;
+        text-align: left;
+      }
+    }
+    .hidden {
+      display: none !important;
+    }
+    .style-buttons {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .style-btn {
+      min-width: 34px;
+      min-height: 34px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #fff;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .style-btn:hover,
+    .style-btn.active {
+      background: #eaf3fb;
+      border-color: #8eb7da;
+    }
+    .context-menu {
+      position: fixed;
+      z-index: 2000;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: 0 14px 34px rgba(0,0,0,0.18);
+      padding: 6px 0;
+      min-width: 190px;
+      display: none;
+    }
+    .context-item {
+      padding: 8px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .context-item:hover {
+      background: #f4f7fa;
+    }
+    .context-item.delete {
+      color: #c0392b;
+    }
+    .context-divider {
+      height: 1px;
+      background: var(--line);
+      margin: 6px 0;
+    }
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(18,28,37,0.52);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1800;
+      padding: 20px;
+    }
+    .modal.open {
+      display: flex;
+    }
+    .modal-card {
+      width: min(720px, 100%);
+      background: #fff;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      padding: 18px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.24);
+      display: grid;
+      gap: 16px;
+    }
+    .template-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .template-item {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      cursor: pointer;
+      background: #f9fbfd;
+      display: grid;
+      gap: 10px;
+    }
+    .template-item:hover {
+      border-color: #8eb7da;
+      background: #eef5fb;
+    }
+    .template-preview {
+      height: 110px;
+      border-radius: 12px;
+      border: 1px solid rgba(0,0,0,0.06);
+    }
+    .template-item strong {
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="top-group">
+        <a class="tool-btn soft" href="/admin">Back to Admin</a>
+        <span class="top-label">Parallel editor lab</span>
+      </div>
+      <div class="top-group">
+        <select id="instituteInput">
+          <option value="">Select institute</option>
+          {% for institute in known_institutes %}
+          <option value="{{ institute }}" {% if institute == initial_institute %}selected{% endif %}>{{ institute }}</option>
+          {% endfor %}
+        </select>
+        <select id="batchSelector">
+          <option value="">Select batch</option>
+        </select>
+        <button class="tool-btn primary" type="button" onclick="saveBatchDesign()">Save Batch Design</button>
+      </div>
+      <div class="top-group">
+        <button class="tool-btn" type="button" onclick="openTemplateModal()">Templates</button>
+        <button class="tool-btn" type="button" onclick="newCard()">New</button>
+      </div>
+      <div class="top-group">
+        <button class="tool-btn" type="button" onclick="showPreviousRecord()">Previous</button>
+        <span class="status-chip" id="batchBrowserBadge">Card: -- / --</span>
+        <button class="tool-btn" type="button" onclick="showNextRecord()">Next</button>
+      </div>
+      <div class="top-group">
+        <button class="tool-btn active" id="frontTab" type="button" onclick="switchSide('front')">Front Side</button>
+        <button class="tool-btn" id="backTab" type="button" onclick="switchSide('back')">Back Side</button>
+      </div>
+      <div class="top-group">
+        <button class="tool-btn" type="button" onclick="undoCanvas()">Undo</button>
+        <button class="tool-btn" type="button" onclick="redoCanvas()">Redo</button>
+      </div>
+      <div class="top-group">
+        <button class="tool-btn" type="button" onclick="bringToFront()">Bring Front</button>
+        <button class="tool-btn" type="button" onclick="bringForward()">Forward</button>
+        <button class="tool-btn" type="button" onclick="sendBackwards()">Backward</button>
+        <button class="tool-btn" type="button" onclick="sendToBack()">Send Back</button>
+      </div>
+      <div class="top-group">
+        <button class="tool-btn" type="button" onclick="setCanvasZoom(state.view.zoom - 10)">-</button>
+        <span class="zoom-badge" id="zoomValue">100%</span>
+        <button class="tool-btn" type="button" onclick="setCanvasZoom(state.view.zoom + 10)">+</button>
+        <button class="tool-btn" type="button" onclick="fitCanvasToStage()">Fit</button>
+      </div>
+      <div class="top-group">
+        <button class="tool-btn" type="button" onclick="exportCard('png')">Export PNG</button>
+        <button class="tool-btn" type="button" onclick="exportCard('pdf')">Export PDF</button>
+      </div>
+      <input id="serialInput" value="{{ initial_serial }}" type="hidden">
+    </header>
+
+    <div class="workspace">
+      <aside class="left-rail">
+        <div class="rail-title">Tools</div>
+        <button class="rail-btn" type="button" onclick="setToolMode('select', this)">Select</button>
+        <button class="rail-btn" type="button" onclick="addText()">Text</button>
+        <button class="rail-btn" type="button" onclick="openGenericImagePicker()">Image</button>
+        <button class="rail-btn" type="button" onclick="addRect()">Rect</button>
+        <button class="rail-btn" type="button" onclick="addCircle()">Circle</button>
+        <button class="rail-btn" type="button" onclick="addLine()">Line</button>
+        <button class="rail-btn" type="button" onclick="addPhotoPlaceholder()">Photo</button>
+        <button class="rail-btn" type="button" onclick="addBarcode()">Barcode</button>
+        <button class="rail-btn" type="button" onclick="addQRCode()">QR</button>
+        <button class="rail-btn" type="button" onclick="toggleDrawing(this)">Draw</button>
+        <div class="rail-title">Edit</div>
+        <button class="rail-btn" type="button" onclick="copySelection()">Copy</button>
+        <button class="rail-btn" type="button" onclick="pasteSelection()">Paste</button>
+        <button class="rail-btn" type="button" onclick="duplicateSelection()">Duplicate</button>
+        <button class="rail-btn" type="button" onclick="deleteSelected()">Delete</button>
+        <button class="rail-btn" type="button" onclick="toggleLockSelected()">Lock</button>
+        <div class="rail-title">Move</div>
+        <button class="rail-btn" type="button" onclick="alignActive('left')">Left</button>
+        <button class="rail-btn" type="button" onclick="alignActive('center')">Center</button>
+        <button class="rail-btn" type="button" onclick="alignActive('right')">Right</button>
+        <button class="rail-btn" type="button" onclick="nudgeActive(0, -5)">Up</button>
+        <button class="rail-btn" type="button" onclick="nudgeActive(0, 5)">Down</button>
+        <div class="rail-title">Focus</div>
+        <button class="rail-btn" type="button" onclick="focusLayer('name')">Name</button>
+        <button class="rail-btn" type="button" onclick="focusLayer('role')">Role</button>
+        <button class="rail-btn" type="button" onclick="focusLayer('details')">Details</button>
+        <button class="rail-btn" type="button" onclick="focusLayer('photo')">Photo</button>
+        <button class="rail-btn" type="button" onclick="focusLayer('backTitle')">Back</button>
+        <div class="rail-title">Style</div>
+        <button class="rail-btn" type="button" onclick="applyPreset('official')">Official</button>
+        <button class="rail-btn" type="button" onclick="applyPreset('blue')">Blue</button>
+        <button class="rail-btn" type="button" onclick="applyPreset('clean')">Clean</button>
+        <button class="rail-btn" type="button" onclick="resetCanvasLayout()">Reset</button>
+      </aside>
+
+      <main class="canvas-zone">
+        <section class="canvas-meta">
+          <div>
+            <h1>ID Card Edit Lab</h1>
+            <p>Menu-style Fabric.js layout with the existing institute + batch data flow and batch-wide design saving.</p>
+          </div>
+          <div class="mini-tools">
+            <span class="status-chip" id="activeObjectBadge">Active: none</span>
+            <span class="status-chip" id="currentSideBadge">Side: front</span>
+            <span class="status-chip" id="sourceBadge">Source: {{ data_source_label }}</span>
+          </div>
+        </section>
+        <section class="canvas-stage" id="canvasStage">
+          <div class="canvas-shell" id="canvasShell">
+            <canvas id="cardCanvas" width="960" height="540"></canvas>
+          </div>
+        </section>
+      </main>
+
+      <aside class="right-panel">
+        <div class="status-box{% if not supabase_enabled %} warn{% endif %}" id="statusBox">{% if supabase_enabled %}Editor ready. Select institute and batch to load cards.{% else %}Editor ready. This local run is using Local JSON data because Supabase is not configured in this shell.{% endif %}</div>
+
+        <details class="panel-section" open>
+          <summary>
+            <span>Object Properties</span>
+            <span class="mini-label">Selected layer</span>
+          </summary>
+          <div class="section-body">
+            <div class="prop-row">
+              <span class="mini-label">Type</span>
+              <div class="prop-type" id="propType">None</div>
+            </div>
+            <div class="prop-row">
+              <label class="mini-label" for="propName">Name</label>
+              <input id="propName" type="text">
+            </div>
+            <div class="field-grid two">
+              <div class="field">
+                <label for="propX">X</label>
+                <input id="propX" type="number">
+              </div>
+              <div class="field">
+                <label for="propY">Y</label>
+                <input id="propY" type="number">
+              </div>
+            </div>
+            <div class="field-grid two">
+              <div class="field">
+                <label for="propWidth">Width</label>
+                <input id="propWidth" type="number">
+              </div>
+              <div class="field">
+                <label for="propHeight">Height</label>
+                <input id="propHeight" type="number">
+              </div>
+            </div>
+            <div class="field">
+              <label for="propAngle">Angle</label>
+              <div class="slider-row">
+                <input id="propAngle" type="range" min="0" max="360" value="0">
+                <span class="slider-value" id="propAngleValue">0</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="propOpacity">Opacity</label>
+              <div class="slider-row">
+                <input id="propOpacity" type="range" min="0" max="100" value="100">
+                <span class="slider-value" id="propOpacityValue">100%</span>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel-section" open>
+          <summary>
+            <span>Text Properties</span>
+            <span class="mini-label">For text layers</span>
+          </summary>
+          <div class="section-body">
+            <div class="field">
+              <label for="propText">Text</label>
+              <textarea id="propText"></textarea>
+            </div>
+            <div class="field-grid two">
+              <div class="field">
+                <label for="propFont">Font</label>
+                <select id="propFont">
+                  <option value="Segoe UI">Segoe UI</option>
+                  <option value="Georgia">Georgia</option>
+                  <option value="Trebuchet MS">Trebuchet MS</option>
+                  <option value="Times New Roman">Times New Roman</option>
+                  <option value="Verdana">Verdana</option>
+                  <option value="Arial">Arial</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="propFontSize">Size</label>
+                <input id="propFontSize" type="number" min="8" max="120">
+              </div>
+            </div>
+            <div class="field-grid two">
+              <div class="field">
+                <label for="propFill">Color</label>
+                <input id="propFill" type="color" value="#17324d">
+              </div>
+              <div class="field">
+                <label for="propAlign">Align</label>
+                <select id="propAlign">
+                  <option value="left">Left</option>
+                  <option value="center">Center</option>
+                  <option value="right">Right</option>
+                  <option value="justify">Justify</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label>Style</label>
+              <div class="style-buttons">
+                <button class="style-btn" id="textBoldBtn" type="button" onclick="toggleTextStyle('bold')">B</button>
+                <button class="style-btn" id="textItalicBtn" type="button" onclick="toggleTextStyle('italic')"><em>I</em></button>
+                <button class="style-btn" id="textUnderlineBtn" type="button" onclick="toggleTextStyle('underline')"><u>U</u></button>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel-section" id="shapePropertiesPanel">
+          <summary>
+            <span>Shape Properties</span>
+            <span class="mini-label">Fill and stroke</span>
+          </summary>
+          <div class="section-body">
+            <div class="field-grid two">
+              <div class="field">
+                <label for="shapeFill">Fill</label>
+                <input id="shapeFill" type="color" value="#3498db">
+              </div>
+              <div class="field">
+                <label for="shapeStroke">Stroke</label>
+                <input id="shapeStroke" type="color" value="#000000">
+              </div>
+            </div>
+            <div class="field">
+              <label for="shapeStrokeWidth">Stroke Width</label>
+              <div class="slider-row">
+                <input id="shapeStrokeWidth" type="range" min="0" max="12" value="2">
+                <span class="slider-value" id="shapeStrokeWidthValue">2</span>
+              </div>
+            </div>
+            <div class="inline-actions">
+              <button class="mini-btn" type="button" onclick="clearShapeFill()">No Fill</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel-section" open>
+          <summary>
+            <span>Shadow Effect</span>
+            <span class="mini-label">Selected layer</span>
+          </summary>
+          <div class="section-body">
+            <div class="field">
+              <label><input id="shadowEnable" type="checkbox"> Enable Shadow</label>
+            </div>
+            <div class="field-grid two">
+              <div class="field">
+                <label for="shadowColor">Shadow Color</label>
+                <input id="shadowColor" type="color" value="#000000">
+              </div>
+              <div class="field">
+                <label for="shadowBlur">Blur</label>
+                <input id="shadowBlur" type="number" min="0" max="50" value="10">
+              </div>
+            </div>
+            <div class="field-grid two">
+              <div class="field">
+                <label for="shadowX">Offset X</label>
+                <input id="shadowX" type="number" value="5">
+              </div>
+              <div class="field">
+                <label for="shadowY">Offset Y</label>
+                <input id="shadowY" type="number" value="5">
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel-section" open>
+          <summary>
+            <span>Appearance</span>
+            <span class="mini-label">Card-wide controls</span>
+          </summary>
+          <div class="section-body">
+            <div class="field-grid two">
+              <div class="field">
+                <label for="accentColorInput">Accent Color</label>
+                <input id="accentColorInput" type="color" value="#8b0000">
+              </div>
+              <div class="field">
+                <label for="textColorInput">Text Color</label>
+                <input id="textColorInput" type="color" value="#17324d">
+              </div>
+            </div>
+            <div class="field-grid two">
+              <div class="field">
+                <label for="nameFontFamilyInput">Name Font</label>
+                <select id="nameFontFamilyInput">
+                  <option value="Georgia">Georgia</option>
+                  <option value="Segoe UI">Segoe UI</option>
+                  <option value="Trebuchet MS">Trebuchet MS</option>
+                  <option value="Times New Roman">Times New Roman</option>
+                  <option value="Verdana">Verdana</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="bodyFontFamilyInput">Body Font</label>
+                <select id="bodyFontFamilyInput">
+                  <option value="Segoe UI">Segoe UI</option>
+                  <option value="Georgia">Georgia</option>
+                  <option value="Trebuchet MS">Trebuchet MS</option>
+                  <option value="Arial">Arial</option>
+                  <option value="Verdana">Verdana</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label for="zoomRange">Canvas Zoom</label>
+              <div class="slider-row">
+                <input id="zoomRange" type="range" min="60" max="150" value="100">
+                <span class="slider-value" id="zoomRangeValue">100%</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="bgOpacityRange">Background Opacity</label>
+              <div class="slider-row">
+                <input id="bgOpacityRange" type="range" min="0" max="60" value="24">
+                <span class="slider-value" id="bgOpacityValue">24%</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="nameSizeRange">Name Size</label>
+              <div class="slider-row">
+                <input id="nameSizeRange" type="range" min="24" max="48" value="34">
+                <span class="slider-value" id="nameSizeValue">34</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="roleSizeRange">Role Size</label>
+              <div class="slider-row">
+                <input id="roleSizeRange" type="range" min="18" max="34" value="24">
+                <span class="slider-value" id="roleSizeValue">24</span>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <section class="panel-section">
+          <div class="section-head">
+            <span>Layers</span>
+            <span class="mini-label">Click to focus</span>
+          </div>
+          <div class="section-body">
+            <div class="layer-list" id="layersList"></div>
+          </div>
+        </section>
+
+        <details class="panel-section">
+          <summary>
+            <span>Assets</span>
+            <span class="mini-label">Replace photo</span>
+          </summary>
+          <div class="section-body">
+            <div class="field">
+              <label for="photoInput">Photo File</label>
+              <input id="photoInput" type="file" accept="image/*">
+            </div>
+            <div class="inline-actions">
+              <button class="mini-btn" type="button" onclick="uploadPhoto()">Upload Photo</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="panel-section">
+          <summary>
+            <span>Record Data</span>
+            <span class="mini-label">Loaded card fields</span>
+          </summary>
+          <div class="section-body">
+            <div class="field-grid two">
+              <div class="field">
+                <label for="profileTypeInput">Profile Type</label>
+                <select id="profileTypeInput">
+                  <option value="student">Student</option>
+                  <option value="employee">Employee</option>
+                  <option value="lecturer">Lecturer</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="bloodGroupInput">Blood Group</label>
+                <input id="bloodGroupInput" placeholder="B+">
+              </div>
+            </div>
+            <div class="field">
+              <label for="nameInput">Full Name</label>
+              <input id="nameInput" placeholder="Full name">
+            </div>
+            <div class="field-grid two">
+              <div class="field">
+                <label for="courseInput">Course / Designation</label>
+                <input id="courseInput" placeholder="B.Sc. Nursing / Officer">
+              </div>
+              <div class="field">
+                <label for="employeeIdInput">Employee ID</label>
+                <input id="employeeIdInput" placeholder="EMP-01">
+              </div>
+            </div>
+            <div class="field-grid two">
+              <div class="field">
+                <label for="batchInput">Batch Session</label>
+                <input id="batchInput" placeholder="2025-26">
+              </div>
+              <div class="field">
+                <label for="yearInput">Training Year</label>
+                <input id="yearInput" placeholder="Year 2">
+              </div>
+            </div>
+            <div class="field-grid two">
+              <div class="field">
+                <label for="dobInput">Date of Birth</label>
+                <input id="dobInput" placeholder="14/08/2004">
+              </div>
+              <div class="field">
+                <label for="validUptoInput">Valid Upto</label>
+                <input id="validUptoInput" placeholder="31/03/2027">
+              </div>
+            </div>
+            <div class="field-grid two">
+              <div class="field">
+                <label for="contactInput">Contact</label>
+                <input id="contactInput" placeholder="9876543210">
+              </div>
+              <div class="field">
+                <label for="fatherNameInput">Father / Guardian</label>
+                <input id="fatherNameInput" placeholder="Guardian name">
+              </div>
+            </div>
+            <div class="field-grid two">
+              <div class="field">
+                <label for="facilityInput">Facility / Department</label>
+                <input id="facilityInput" placeholder="Department or facility">
+              </div>
+              <div class="field">
+                <label for="subFacilityInput">Sub Location</label>
+                <input id="subFacilityInput" placeholder="Village / town / unit">
+              </div>
+            </div>
+            <div class="field">
+              <label for="addressInput">Address</label>
+              <textarea id="addressInput" placeholder="Address"></textarea>
+            </div>
+          </div>
+        </details>
+      </aside>
+    </div>
+
+    <footer class="footer-bar">
+      <div class="footer-meta">
+        <span>Browser editing: Fabric.js</span>
+        <span>Server data flow: Flask JSON APIs</span>
+        <span>Batch save: active layout for whole batch</span>
+      </div>
+      <div class="footer-meta">
+        <span id="footerCoords">X: -, Y: -</span>
+      </div>
+    </footer>
+  </div>
+
+  <div class="context-menu" id="contextMenu">
+    <div class="context-item" onclick="contextCut()">Cut</div>
+    <div class="context-item" onclick="contextCopy()">Copy</div>
+    <div class="context-item" onclick="contextPaste()">Paste</div>
+    <div class="context-divider"></div>
+    <div class="context-item" onclick="bringToFront(); hideContextMenu();">Bring to Front</div>
+    <div class="context-item" onclick="bringForward(); hideContextMenu();">Bring Forward</div>
+    <div class="context-item" onclick="sendBackwards(); hideContextMenu();">Send Backward</div>
+    <div class="context-item" onclick="sendToBack(); hideContextMenu();">Send to Back</div>
+    <div class="context-divider"></div>
+    <div class="context-item" onclick="alignActive('left'); hideContextMenu();">Align Left</div>
+    <div class="context-item" onclick="alignActive('center'); hideContextMenu();">Align Center</div>
+    <div class="context-item" onclick="alignActive('right'); hideContextMenu();">Align Right</div>
+    <div class="context-divider"></div>
+    <div class="context-item" onclick="duplicateSelection(); hideContextMenu();">Duplicate</div>
+    <div class="context-item" onclick="toggleLockSelected(); hideContextMenu();">Lock/Unlock</div>
+    <div class="context-divider"></div>
+    <div class="context-item delete" onclick="deleteSelected(); hideContextMenu();">Delete</div>
+  </div>
+
+  <div class="modal" id="templateModal">
+    <div class="modal-card">
+      <div class="inline-actions" style="justify-content:space-between;">
+        <div>
+          <strong>Choose Template Style</strong>
+          <div class="mini-label">Apply a studio preset to the current batch editor</div>
+        </div>
+        <button class="mini-btn" type="button" onclick="closeTemplateModal()">Close</button>
+      </div>
+      <div class="template-grid">
+        <div class="template-item" onclick="loadTemplateStyle('standard')">
+          <div class="template-preview" style="background:linear-gradient(135deg,#3498db 0%, #0f4c81 100%);"></div>
+          <strong>Standard</strong>
+        </div>
+        <div class="template-item" onclick="loadTemplateStyle('corporate')">
+          <div class="template-preview" style="background:linear-gradient(135deg,#2c3e50 0%, #34495e 100%);"></div>
+          <strong>Corporate</strong>
+        </div>
+        <div class="template-item" onclick="loadTemplateStyle('colorful')">
+          <div class="template-preview" style="background:linear-gradient(135deg,#f093fb 0%, #f5576c 100%);"></div>
+          <strong>Colorful</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <input id="genericImageInput" type="file" accept="image/*" class="hidden">
+
+  <script>
+    const CANVAS_WIDTH = 960;
+    const CANVAS_HEIGHT = 540;
+    const SNAP_MARGIN = 8;
+    const SUPABASE_ENABLED = {{ 'true' if supabase_enabled else 'false' }};
+    const DATA_SOURCE_LABEL = {{ data_source_label|tojson }};
+
+    const state = {
+      record: null,
+      settings: null,
+      availableRecords: [],
+      currentRecordIndex: -1,
+      currentTool: 'select',
+      clipboard: null,
+      canvas: null,
+      staticObjects: {},
+      sides: { front: {}, back: {} },
+      backgroundImage: null,
+      photoImage: null,
+      pendingCustomObjects: [],
+      pendingPhotoSnapshot: null,
+      currentSide: 'front',
+      snapGuides: [],
+      history: {
+        undoStack: [],
+        redoStack: [],
+        isApplying: false,
+      },
+      view: {
+        zoom: 100,
+        fitScale: 1,
+        bgOpacity: 24,
+        nameSize: 34,
+        roleSize: 24,
+        accent: '#8b0000',
+        textColor: '#17324d',
+        nameFont: 'Georgia',
+        bodyFont: 'Segoe UI',
+      },
+    };
+
+    function field(id) {
+      return document.getElementById(id);
+    }
+
+    function escapeValue(value) {
+      return String(value || '').trim();
+    }
+
+    function setStatus(message, ok = false, warn = false) {
+      const box = field('statusBox');
+      box.textContent = message;
+      box.className = warn ? 'status-box warn' : (ok ? 'status-box ok' : 'status-box');
+    }
+
+    function currentBatchId() {
+      return escapeValue(field('batchSelector').value);
+    }
+
+    function currentPayload() {
+      const profileType = field('profileTypeInput').value || 'student';
+      return {
+        ...(state.record || {}),
+        institute_name: escapeValue(field('instituteInput').value),
+        serial_no: escapeValue((state.record || {}).serial_no || field('serialInput').value),
+        profile_type: profileType,
+        name: escapeValue(field('nameInput').value),
+        blood_group: escapeValue(field('bloodGroupInput').value),
+        employee_id: escapeValue(field('employeeIdInput').value),
+        batch_session: escapeValue(field('batchInput').value),
+        training_year: escapeValue(field('yearInput').value),
+        dob: escapeValue(field('dobInput').value),
+        valid_upto: escapeValue(field('validUptoInput').value),
+        contact: escapeValue(field('contactInput').value),
+        father_name: escapeValue(field('fatherNameInput').value),
+        address: escapeValue(field('addressInput').value),
+        facility_location: escapeValue(field('facilityInput').value),
+        facility_sub_location: escapeValue(field('subFacilityInput').value),
+        department: escapeValue(field('facilityInput').value),
+        course: profileType === 'student' ? escapeValue(field('courseInput').value) : '',
+        designation: profileType === 'student' ? '' : escapeValue(field('courseInput').value),
+      };
+    }
+
+    function applyRecordToFields(record) {
+      field('serialInput').value = record.serial_no || '';
+      field('profileTypeInput').value = record.profile_type || 'student';
+      field('nameInput').value = record.name || '';
+      field('bloodGroupInput').value = record.blood_group || '';
+      field('employeeIdInput').value = record.employee_id || '';
+      field('batchInput').value = record.batch_session || '';
+      field('yearInput').value = record.training_year || '';
+      field('dobInput').value = record.dob || '';
+      field('validUptoInput').value = record.valid_upto || '';
+      field('contactInput').value = record.contact || '';
+      field('fatherNameInput').value = record.father_name || '';
+      field('addressInput').value = record.address || '';
+      field('facilityInput').value = record.facility_location || record.department || '';
+      field('subFacilityInput').value = record.facility_sub_location || '';
+      field('courseInput').value = record.course || record.designation || '';
+    }
+
+    function updateBatchBrowserBadge() {
+      const total = state.availableRecords.length;
+      const current = total && state.currentRecordIndex >= 0 ? state.currentRecordIndex + 1 : '--';
+      field('batchBrowserBadge').textContent = `Card: ${current} / ${total || '--'}`;
+    }
+
+    function updateActiveObjectBadge(name) {
+      field('activeObjectBadge').textContent = `Active: ${name || 'none'}`;
+    }
+
+    function updateSideBadge() {
+      field('currentSideBadge').textContent = `Side: ${state.currentSide}`;
+      field('frontTab').classList.toggle('active', state.currentSide === 'front');
+      field('backTab').classList.toggle('active', state.currentSide === 'back');
+    }
+
+    function updateSliderValue(id, value, suffix = '') {
+      field(id).textContent = `${value}${suffix}`;
+    }
+
+    function syncAppearanceControls() {
+      field('zoomRange').value = state.view.zoom;
+      field('accentColorInput').value = state.view.accent;
+      field('textColorInput').value = state.view.textColor;
+      field('bgOpacityRange').value = state.view.bgOpacity;
+      field('nameSizeRange').value = state.view.nameSize;
+      field('roleSizeRange').value = state.view.roleSize;
+      field('nameFontFamilyInput').value = state.view.nameFont;
+      field('bodyFontFamilyInput').value = state.view.bodyFont;
+      updateSliderValue('zoomValue', state.view.zoom, '%');
+      updateSliderValue('zoomRangeValue', state.view.zoom, '%');
+      updateSliderValue('bgOpacityValue', state.view.bgOpacity, '%');
+      updateSliderValue('nameSizeValue', state.view.nameSize);
+      updateSliderValue('roleSizeValue', state.view.roleSize);
+    }
+
+    function computeCanvasFitScale() {
+      const stage = field('canvasStage');
+      if (!stage) return 1;
+      const availableWidth = Math.max(320, stage.clientWidth - 50);
+      const availableHeight = Math.max(240, stage.clientHeight - 50);
+      return Math.min(1, availableWidth / CANVAS_WIDTH, availableHeight / CANVAS_HEIGHT);
+    }
+
+    function applyCanvasScale() {
+      const shell = field('canvasShell');
+      if (!shell) return;
+      state.view.fitScale = computeCanvasFitScale();
+      const scale = state.view.fitScale * (state.view.zoom / 100);
+      shell.style.transform = `scale(${scale})`;
+    }
+
+    function setCanvasZoom(zoom) {
+      state.view.zoom = Math.max(60, Math.min(150, Number(zoom) || 100));
+      syncAppearanceControls();
+      applyCanvasScale();
+    }
+
+    function fitCanvasToStage() {
+      state.view.zoom = 100;
+      syncAppearanceControls();
+      applyCanvasScale();
+      setStatus('Canvas fit refreshed.', true);
+    }
+
+    function buildEditableTextbox(text, options = {}) {
+      return new fabric.Textbox(text, {
+        selectable: true,
+        editable: true,
+        transparentCorners: false,
+        borderColor: '#0f4c81',
+        cornerColor: '#0f4c81',
+        cornerStyle: 'circle',
+        ...options,
+      });
+    }
+
+    function setToolMode(mode, button) {
+      state.currentTool = mode;
+      document.querySelectorAll('.left-rail .rail-btn').forEach((node) => {
+        if (['Select', 'Draw'].includes((node.textContent || '').trim())) {
+          node.classList.remove('active');
+        }
+      });
+      if (button) {
+        button.classList.add('active');
+      }
+      if (state.canvas) {
+        state.canvas.isDrawingMode = mode === 'draw';
+      }
+    }
+
+    function isManagedObject(obj) {
+      if (!obj) return false;
+      if (obj === state.backgroundImage || obj === state.photoImage) return true;
+      if (state.snapGuides.includes(obj)) return true;
+      if (Object.values(state.staticObjects || {}).includes(obj)) return true;
+      if (Object.values(state.sides.front || {}).includes(obj)) return true;
+      if (Object.values(state.sides.back || {}).includes(obj)) return true;
+      return false;
+    }
+
+    function getCustomObjects() {
+      if (!state.canvas) return [];
+      return state.canvas.getObjects().filter((obj) => !isManagedObject(obj) && !obj.excludeFromExport);
+    }
+
+    function visibleSideObjects() {
+      return [
+        ...Object.values(state.sides[state.currentSide] || {}).filter(Boolean),
+        ...getCustomObjects().filter((obj) => {
+          const sideTag = obj.sideTag || 'shared';
+          return sideTag === 'shared' || sideTag === state.currentSide;
+        }),
+      ];
+    }
+
+    function allEditableObjects() {
+      return [
+        ...Object.values(state.sides.front || {}),
+        ...Object.values(state.sides.back || {}),
+      ].filter(Boolean);
+    }
+
+    function getAllLayerObjects() {
+      const layers = [];
+      Object.entries(state.staticObjects || {}).forEach(([key, obj]) => {
+        if (obj) layers.push({ key, obj, side: 'shared' });
+      });
+      Object.entries(state.sides.front || {}).forEach(([key, obj]) => {
+        if (obj) layers.push({ key, obj, side: 'front' });
+      });
+      Object.entries(state.sides.back || {}).forEach(([key, obj]) => {
+        if (obj) layers.push({ key, obj, side: 'back' });
+      });
+      if (state.photoImage) {
+        layers.push({ key: 'photoImage', obj: state.photoImage, side: 'front' });
+      }
+      getCustomObjects().slice().reverse().forEach((obj, index) => {
+        layers.push({
+          key: `custom-${index}`,
+          obj,
+          side: obj.sideTag || 'shared',
+        });
+      });
+      return layers;
+    }
+
+    function humanizeLayerName(value) {
+      return String(value || '')
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, (char) => char.toUpperCase())
+        .trim();
+    }
+
+    function refreshLayerList() {
+      const list = field('layersList');
+      if (!list) return;
+      const active = state.canvas ? state.canvas.getActiveObject() : null;
+      const items = getAllLayerObjects().map(({ key, obj, side }, index) => {
+        const isActive = active === obj ? 'active' : '';
+        const label = obj.name || key;
+        return `
+          <div class="layer-item ${isActive}" data-layer-index="${index}">
+            <div class="layer-meta">
+              <span class="layer-name">${humanizeLayerName(label)}</span>
+              <span class="layer-side">${side}</span>
+            </div>
+            <span class="layer-side">${obj.visible === false ? 'hidden' : 'visible'}</span>
+          </div>
+        `;
+      }).join('');
+      list.innerHTML = items || '<div class="prop-type">No layers yet.</div>';
+      list.querySelectorAll('[data-layer-index]').forEach((node) => {
+        node.addEventListener('click', () => {
+          const { obj } = getAllLayerObjects()[Number(node.dataset.layerIndex)] || {};
+          if (!obj || !state.canvas) return;
+          if (obj === state.photoImage && state.currentSide !== 'front') {
+            setSideVisibility('front');
+          }
+          if (Object.values(state.sides.back).includes(obj) && state.currentSide !== 'back') {
+            setSideVisibility('back');
+          }
+          if (Object.values(state.sides.front).includes(obj) && state.currentSide !== 'front') {
+            setSideVisibility('front');
+          }
+          state.canvas.setActiveObject(obj);
+          state.canvas.requestRenderAll();
+          syncObjectInspector(obj);
+          refreshLayerList();
+        });
+      });
+    }
+
+    function addGuideLine(coords) {
+      const line = new fabric.Line(coords, {
+        stroke: '#0f4c81',
+        strokeWidth: 1,
+        selectable: false,
+        evented: false,
+        excludeFromExport: true,
+      });
+      state.snapGuides.push(line);
+      state.canvas.add(line);
+      line.moveTo(1000);
+    }
+
+    function clearSnapGuides() {
+      if (!state.canvas) return;
+      state.snapGuides.forEach((line) => state.canvas.remove(line));
+      state.snapGuides = [];
+    }
+
+    function getObjectCenterX(obj) {
+      return (obj.left || 0) + obj.getScaledWidth() / 2;
+    }
+
+    function getObjectCenterY(obj) {
+      return (obj.top || 0) + obj.getScaledHeight() / 2;
+    }
+
+    function applySnapGuides(target) {
+      if (!state.canvas || !target) return;
+      clearSnapGuides();
+      const targets = visibleSideObjects().filter((item) => item !== target);
+      const centerX = getObjectCenterX(target);
+      const centerY = getObjectCenterY(target);
+      const canvasCenterX = CANVAS_WIDTH / 2;
+      const canvasCenterY = CANVAS_HEIGHT / 2;
+
+      if (Math.abs(centerX - canvasCenterX) <= SNAP_MARGIN) {
+        target.set('left', canvasCenterX - target.getScaledWidth() / 2);
+        addGuideLine([canvasCenterX, 20, canvasCenterX, CANVAS_HEIGHT - 20]);
+      }
+      if (Math.abs(centerY - canvasCenterY) <= SNAP_MARGIN) {
+        target.set('top', canvasCenterY - target.getScaledHeight() / 2);
+        addGuideLine([20, canvasCenterY, CANVAS_WIDTH - 20, canvasCenterY]);
+      }
+
+      targets.forEach((item) => {
+        const itemCenterX = getObjectCenterX(item);
+        const itemCenterY = getObjectCenterY(item);
+        const itemLeft = item.left || 0;
+        const itemRight = itemLeft + item.getScaledWidth();
+        const targetLeft = target.left || 0;
+        const targetRight = targetLeft + target.getScaledWidth();
+
+        if (Math.abs(centerX - itemCenterX) <= SNAP_MARGIN) {
+          target.set('left', itemCenterX - target.getScaledWidth() / 2);
+          addGuideLine([itemCenterX, 20, itemCenterX, CANVAS_HEIGHT - 20]);
+        }
+        if (Math.abs(centerY - itemCenterY) <= SNAP_MARGIN) {
+          target.set('top', itemCenterY - target.getScaledHeight() / 2);
+          addGuideLine([20, itemCenterY, CANVAS_WIDTH - 20, itemCenterY]);
+        }
+        if (Math.abs(targetLeft - itemLeft) <= SNAP_MARGIN) {
+          target.set('left', itemLeft);
+          addGuideLine([itemLeft, 20, itemLeft, CANVAS_HEIGHT - 20]);
+        }
+        if (Math.abs(targetRight - itemRight) <= SNAP_MARGIN) {
+          target.set('left', itemRight - target.getScaledWidth());
+          addGuideLine([itemRight, 20, itemRight, CANVAS_HEIGHT - 20]);
+        }
+      });
+    }
+
+    function syncObjectInspector(obj) {
+      field('propType').textContent = obj ? (obj.type || 'object') : 'None';
+      field('propName').value = obj ? (obj.name || '') : '';
+      field('propX').value = obj ? Math.round(obj.left || 0) : '';
+      field('propY').value = obj ? Math.round(obj.top || 0) : '';
+      field('propWidth').value = obj ? Math.round(obj.getScaledWidth() || 0) : '';
+      field('propHeight').value = obj ? Math.round(obj.getScaledHeight() || 0) : '';
+      field('propAngle').value = obj ? Math.round(obj.angle || 0) : 0;
+      field('propAngleValue').textContent = obj ? Math.round(obj.angle || 0) : 0;
+      field('propOpacity').value = obj ? Math.round((obj.opacity == null ? 1 : obj.opacity) * 100) : 100;
+      field('propOpacityValue').textContent = `${obj ? Math.round((obj.opacity == null ? 1 : obj.opacity) * 100) : 100}%`;
+      field('propText').value = obj && typeof obj.text === 'string' ? obj.text : '';
+      field('propFont').value = obj && obj.fontFamily ? obj.fontFamily : 'Segoe UI';
+      field('propFontSize').value = obj && obj.fontSize ? Math.round(obj.fontSize) : '';
+      field('propFill').value = obj && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(obj.fill || '') ? obj.fill : '#17324d';
+      field('propAlign').value = obj && obj.textAlign ? obj.textAlign : 'left';
+      field('shapeFill').value = obj && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(obj.fill || '') ? obj.fill : '#3498db';
+      field('shapeStroke').value = obj && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(obj.stroke || '') ? obj.stroke : '#000000';
+      field('shapeStrokeWidth').value = obj && obj.strokeWidth != null ? obj.strokeWidth : 2;
+      field('shapeStrokeWidthValue').textContent = obj && obj.strokeWidth != null ? obj.strokeWidth : 2;
+      const isText = !!(obj && typeof obj.text === 'string');
+      const isShape = !!(obj && ['rect', 'circle', 'line', 'path', 'polygon', 'triangle'].includes(obj.type));
+      field('textBoldBtn').classList.toggle('active', !!(obj && obj.fontWeight === 'bold'));
+      field('textItalicBtn').classList.toggle('active', !!(obj && obj.fontStyle === 'italic'));
+      field('textUnderlineBtn').classList.toggle('active', !!(obj && obj.underline));
+      field('shapePropertiesPanel').classList.toggle('hidden', !isShape);
+      field('shadowEnable').checked = !!(obj && obj.shadow);
+      if (obj && obj.shadow) {
+        field('shadowColor').value = obj.shadow.color || '#000000';
+        field('shadowBlur').value = obj.shadow.blur || 10;
+        field('shadowX').value = obj.shadow.offsetX || 5;
+        field('shadowY').value = obj.shadow.offsetY || 5;
+      }
+    }
+
+    function getActiveObject() {
+      return state.canvas ? state.canvas.getActiveObject() : null;
+    }
+
+    function applyActiveObjectChanges(callback) {
+      const active = getActiveObject();
+      if (!active) {
+        setStatus('Select a layer first.', false, true);
+        return;
+      }
+      callback(active);
+      active.setCoords();
+      state.canvas.requestRenderAll();
+      syncObjectInspector(active);
+      refreshLayerList();
+      pushHistoryState();
+    }
+
+    function registerCanvasObject(obj, sideTag = state.currentSide) {
+      if (!state.canvas || !obj) return;
+      obj.set({
+        sideTag,
+        name: obj.name || humanizeLayerName(obj.type || 'Object'),
+      });
+      if (sideTag !== 'shared') {
+        obj.set('visible', sideTag === state.currentSide);
+      }
+      state.canvas.add(obj);
+      state.canvas.setActiveObject(obj);
+      state.canvas.requestRenderAll();
+      syncObjectInspector(obj);
+      refreshLayerList();
+      pushHistoryState();
+    }
+
+    function buildCanvas() {
+      const canvas = new fabric.Canvas('cardCanvas', {
+        backgroundColor: '#f7fafc',
+        preserveObjectStacking: true,
+        selection: true,
+        fireRightClick: true,
+        stopContextMenu: true,
+      });
+      state.canvas = canvas;
+
+      canvas.on('selection:created', () => {
+        const active = canvas.getActiveObject();
+        updateActiveObjectBadge(active && active.name ? active.name : 'custom');
+        syncObjectInspector(active);
+        refreshLayerList();
+      });
+      canvas.on('selection:updated', () => {
+        const active = canvas.getActiveObject();
+        updateActiveObjectBadge(active && active.name ? active.name : 'custom');
+        syncObjectInspector(active);
+        refreshLayerList();
+      });
+      canvas.on('selection:cleared', () => {
+        updateActiveObjectBadge('none');
+        syncObjectInspector(null);
+        refreshLayerList();
+      });
+      canvas.on('object:moving', (event) => {
+        if (!event.target) return;
+        applySnapGuides(event.target);
+        canvas.requestRenderAll();
+        syncObjectInspector(event.target);
+      });
+      canvas.on('mouse:up', () => clearSnapGuides());
+      canvas.on('object:modified', (event) => {
+        pushHistoryState();
+        syncObjectInspector(event.target || canvas.getActiveObject());
+        refreshLayerList();
+      });
+      canvas.on('object:added', () => refreshLayerList());
+      canvas.on('mouse:move', (event) => {
+        const pointer = canvas.getPointer(event.e);
+        field('footerCoords').textContent = `X: ${Math.round(pointer.x)}, Y: ${Math.round(pointer.y)}`;
+      });
+      canvas.on('mouse:down', (event) => {
+        if (event.button === 3) {
+          showContextMenu(event.e);
+        } else {
+          hideContextMenu();
+        }
+      });
+
+      const shared = {};
+      shared.card = new fabric.Rect({
+        left: 20, top: 20, width: 920, height: 500, rx: 28, ry: 28,
+        fill: '#ffffff', stroke: '#d8e1ea', strokeWidth: 2, selectable: true, evented: true, name: 'cardShell',
+      });
+      shared.accent = new fabric.Rect({
+        left: 20, top: 20, width: 920, height: 90, rx: 28, ry: 28,
+        fill: state.view.accent, selectable: true, evented: true, name: 'accentBar',
+      });
+      shared.headerBar = new fabric.Rect({
+        left: 20, top: 82, width: 920, height: 30,
+        fill: '#17324d', selectable: true, evented: true, name: 'headerBar',
+      });
+      canvas.add(shared.card, shared.accent, shared.headerBar);
+      state.staticObjects = shared;
+
+      state.sides.front = {
+        photoFrame: new fabric.Rect({
+          left: 62, top: 144, width: 180, height: 220, rx: 16, ry: 16,
+          fill: '#eef3f8', stroke: '#d0dae5', strokeWidth: 2, selectable: true, name: 'photo',
+        }),
+        photoLabel: buildEditableTextbox('PHOTO', {
+          left: 104, top: 235, width: 98, fontSize: 22, fill: '#6b7c8f',
+          fontWeight: '700', textAlign: 'center', name: 'photo',
+        }),
+        institute: buildEditableTextbox('Institute Name', {
+          left: 272, top: 36, width: 600, fontSize: 30, fill: '#ffffff', fontWeight: '700', name: 'institute',
+        }),
+        type: buildEditableTextbox('IDENTITY CARD', {
+          left: 272, top: 84, width: 360, fontSize: 16, fill: '#ffffff', fontWeight: '700',
+          charSpacing: 120, name: 'type',
+        }),
+        name: buildEditableTextbox('Full Name', {
+          left: 286, top: 154, width: 560, fontSize: 34, fill: '#17324d', fontWeight: '700', name: 'name',
+        }),
+        role: buildEditableTextbox('Course / Designation', {
+          left: 286, top: 206, width: 500, fontSize: 24, fill: '#8b0000', fontWeight: '700', name: 'role',
+        }),
+        details: buildEditableTextbox('', {
+          left: 286, top: 256, width: 560, fontSize: 17, lineHeight: 1.45, fill: '#27435f', name: 'details',
+        }),
+        serial: buildEditableTextbox('Serial: -', {
+          left: 62, top: 404, width: 280, fontSize: 18, fill: '#17324d', fontWeight: '700', name: 'serial',
+        }),
+        footer: buildEditableTextbox('Medical ID Editor', {
+          left: 62, top: 452, width: 800, fontSize: 15, fill: '#59728c', name: 'footer',
+        }),
+      };
+
+      state.sides.back = {
+        backTitle: buildEditableTextbox('Important Information', {
+          left: 64, top: 56, width: 560, fontSize: 28, fontWeight: '700', fill: '#17324d', name: 'backTitle',
+        }),
+        backSubtitle: buildEditableTextbox('Keep this card safely and carry it when required.', {
+          left: 64, top: 106, width: 760, fontSize: 18, fill: '#8b0000', fontWeight: '700', name: 'backSubtitle',
+        }),
+        addressBlock: buildEditableTextbox('', {
+          left: 64, top: 168, width: 400, fontSize: 18, lineHeight: 1.45, fill: '#17324d', name: 'addressBlock',
+        }),
+        noteBlock: buildEditableTextbox('', {
+          left: 500, top: 168, width: 360, fontSize: 16, lineHeight: 1.5, fill: '#27435f', name: 'noteBlock',
+        }),
+        emergency: buildEditableTextbox('If found, return to the issuing institute office.', {
+          left: 64, top: 412, width: 560, fontSize: 17, fontWeight: '700', fill: '#8b0000', name: 'emergency',
+        }),
+        backFooter: buildEditableTextbox('This card is the property of the institute.', {
+          left: 64, top: 454, width: 760, fontSize: 15, fill: '#59728c', name: 'backFooter',
+        }),
+      };
+
+      allEditableObjects().forEach((obj) => canvas.add(obj));
+      setSideVisibility('front');
+      syncAppearanceControls();
+      setCanvasZoom(state.view.zoom);
+      applyAppearanceControls();
+      updateSideBadge();
+      refreshLayerList();
+      canvas.renderAll();
+      pushHistoryState(true);
+    }
+
+    function openGenericImagePicker() {
+      field('genericImageInput').click();
+    }
+
+    function addText(text = 'Double click to edit') {
+      const textObj = new fabric.IText(text, {
+        left: 120,
+        top: 120,
+        fontFamily: state.view.bodyFont,
+        fontSize: 22,
+        fill: state.view.textColor,
+        name: `Text ${getCustomObjects().length + 1}`,
+      });
+      registerCanvasObject(textObj);
+    }
+
+    function addRect() {
+      registerCanvasObject(new fabric.Rect({
+        left: 120,
+        top: 140,
+        width: 140,
+        height: 90,
+        fill: '#3498db',
+        stroke: '#1f5f8b',
+        strokeWidth: 2,
+        name: 'Rectangle',
+      }));
+    }
+
+    function addCircle() {
+      registerCanvasObject(new fabric.Circle({
+        left: 140,
+        top: 150,
+        radius: 48,
+        fill: '#e74c3c',
+        stroke: '#b03a2e',
+        strokeWidth: 2,
+        name: 'Circle',
+      }));
+    }
+
+    function addLine() {
+      registerCanvasObject(new fabric.Line([0, 0, 180, 0], {
+        left: 140,
+        top: 180,
+        stroke: '#2c3e50',
+        strokeWidth: 3,
+        name: 'Line',
+      }));
+    }
+
+    function addPhotoPlaceholder() {
+      const group = new fabric.Group([
+        new fabric.Rect({
+          width: 110,
+          height: 132,
+          fill: '#ecf0f1',
+          stroke: '#bdc3c7',
+          rx: 8,
+          ry: 8,
+        }),
+        new fabric.Text('PHOTO', {
+          fontSize: 16,
+          fontWeight: '700',
+          originX: 'center',
+          originY: 'center',
+          left: 55,
+          top: 66,
+        }),
+      ], {
+        left: 120,
+        top: 140,
+        name: 'Photo Placeholder',
+      });
+      registerCanvasObject(group);
+    }
+
+    function addBarcode() {
+      const bars = [];
+      let x = 0;
+      for (let i = 0; i < 22; i += 1) {
+        const width = i % 3 === 0 ? 3 : 1;
+        bars.push(new fabric.Rect({
+          left: x,
+          top: 0,
+          width,
+          height: 44,
+          fill: '#000000',
+        }));
+        x += width + 2;
+      }
+      bars.push(new fabric.Text('1234567890', {
+        top: 48,
+        left: x / 2,
+        fontSize: 10,
+        originX: 'center',
+        fontFamily: 'Courier New',
+      }));
+      registerCanvasObject(new fabric.Group(bars, {
+        left: 130,
+        top: 330,
+        name: 'Barcode',
+      }));
+    }
+
+    function addQRCode() {
+      registerCanvasObject(new fabric.Group([
+        new fabric.Rect({
+          left: 0,
+          top: 0,
+          width: 96,
+          height: 96,
+          fill: '#ffffff',
+          stroke: '#000000',
+          strokeWidth: 1,
+        }),
+        new fabric.Text('QR', {
+          left: 48,
+          top: 48,
+          originX: 'center',
+          originY: 'center',
+          fontWeight: '700',
+          fontSize: 24,
+        }),
+      ], {
+        left: 140,
+        top: 320,
+        name: 'QR Code',
+      }));
+    }
+
+    function handleGenericImageUpload(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (loadEvent) => {
+        fabric.Image.fromURL(loadEvent.target.result, (img) => {
+          if (!img) return;
+          img.scaleToWidth(180);
+          img.set({
+            left: 140,
+            top: 140,
+            name: 'Image',
+          });
+          registerCanvasObject(img);
+        });
+      };
+      reader.readAsDataURL(file);
+      event.target.value = '';
+    }
+
+    function toggleDrawing(button) {
+      const next = !state.canvas.isDrawingMode;
+      setToolMode(next ? 'draw' : 'select', next ? button : null);
+      state.canvas.isDrawingMode = next;
+      if (next) {
+        state.canvas.freeDrawingBrush = new fabric.PencilBrush(state.canvas);
+        state.canvas.freeDrawingBrush.width = 2;
+        state.canvas.freeDrawingBrush.color = state.view.textColor;
+        button.classList.add('active');
+      } else if (button) {
+        button.classList.remove('active');
+      }
+      setStatus(next ? 'Drawing mode enabled.' : 'Drawing mode disabled.', true);
+    }
+
+    function deleteSelected() {
+      const active = getActiveObject();
+      if (!active) {
+        setStatus('Select a layer first.', false, true);
+        return;
+      }
+      if (isManagedObject(active)) {
+        setStatus('Core card layers cannot be deleted. Move or restyle them instead.', false, true);
+        return;
+      }
+      state.canvas.remove(active);
+      state.canvas.discardActiveObject();
+      state.canvas.requestRenderAll();
+      refreshLayerList();
+      pushHistoryState();
+    }
+
+    function copySelection() {
+      const active = getActiveObject();
+      if (!active) {
+        setStatus('Select a layer first.', false, true);
+        return;
+      }
+      active.clone((cloned) => {
+        state.clipboard = cloned;
+        setStatus('Selection copied.', true);
+      }, ['name', 'sideTag']);
+    }
+
+    function pasteSelection() {
+      if (!state.clipboard) {
+        setStatus('Nothing copied yet.', false, true);
+        return;
+      }
+      state.clipboard.clone((cloned) => {
+        cloned.set({
+          left: (cloned.left || 0) + 20,
+          top: (cloned.top || 0) + 20,
+          name: `${cloned.name || 'Object'} Copy`,
+        });
+        registerCanvasObject(cloned, cloned.sideTag || state.currentSide);
+      }, ['name', 'sideTag']);
+    }
+
+    function duplicateSelection() {
+      copySelection();
+      window.setTimeout(() => pasteSelection(), 60);
+    }
+
+    function toggleLockSelected() {
+      applyActiveObjectChanges((active) => {
+        const locked = !active.selectable;
+        active.set({
+          selectable: locked,
+          evented: locked,
+          hasControls: locked,
+          lockMovementX: !locked,
+          lockMovementY: !locked,
+        });
+      });
+    }
+
+    function bringToFront() {
+      applyActiveObjectChanges((active) => active.bringToFront());
+    }
+
+    function sendToBack() {
+      applyActiveObjectChanges((active) => {
+        active.sendToBack();
+        if (!isManagedObject(active) && state.staticObjects.card) {
+          active.bringForward();
+        }
+      });
+    }
+
+    function bringForward() {
+      applyActiveObjectChanges((active) => active.bringForward());
+    }
+
+    function sendBackwards() {
+      applyActiveObjectChanges((active) => active.sendBackwards());
+    }
+
+    function showContextMenu(event) {
+      const menu = field('contextMenu');
+      menu.style.left = `${event.clientX}px`;
+      menu.style.top = `${event.clientY}px`;
+      menu.style.display = 'block';
+    }
+
+    function hideContextMenu() {
+      field('contextMenu').style.display = 'none';
+    }
+
+    function contextCopy() {
+      copySelection();
+      hideContextMenu();
+    }
+
+    function contextCut() {
+      copySelection();
+      deleteSelected();
+      hideContextMenu();
+    }
+
+    function contextPaste() {
+      pasteSelection();
+      hideContextMenu();
+    }
+
+    function toggleTextStyle(style) {
+      applyActiveObjectChanges((active) => {
+        if (typeof active.text !== 'string') return;
+        if (style === 'bold') {
+          active.set('fontWeight', active.fontWeight === 'bold' ? 'normal' : 'bold');
+        } else if (style === 'italic') {
+          active.set('fontStyle', active.fontStyle === 'italic' ? 'normal' : 'italic');
+        } else if (style === 'underline') {
+          active.set('underline', !active.underline);
+        }
+      });
+    }
+
+    function clearShapeFill() {
+      applyActiveObjectChanges((active) => active.set('fill', 'transparent'));
+    }
+
+    function updateShadowControls() {
+      applyActiveObjectChanges((active) => {
+        if (!field('shadowEnable').checked) {
+          active.set('shadow', null);
+          return;
+        }
+        active.set('shadow', {
+          color: field('shadowColor').value,
+          blur: Number(field('shadowBlur').value) || 0,
+          offsetX: Number(field('shadowX').value) || 0,
+          offsetY: Number(field('shadowY').value) || 0,
+        });
+      });
+    }
+
+    function openTemplateModal() {
+      field('templateModal').classList.add('open');
+    }
+
+    function closeTemplateModal() {
+      field('templateModal').classList.remove('open');
+    }
+
+    function newCard() {
+      resetCanvasLayout();
+      closeTemplateModal();
+      setStatus('Reset to a fresh card layout.', true);
+    }
+
+    function loadTemplateStyle(template) {
+      resetCanvasLayout();
+      if (template === 'standard') {
+        applyPreset('blue');
+      } else if (template === 'corporate') {
+        state.view.accent = '#2c3e50';
+        state.view.textColor = '#1e2c3b';
+        state.view.bgOpacity = 8;
+        syncAppearanceControls();
+        applyAppearanceControls();
+      } else if (template === 'colorful') {
+        applyPreset('clean');
+        registerCanvasObject(new fabric.Circle({
+          left: 760,
+          top: 340,
+          radius: 54,
+          fill: '#f093fb',
+          opacity: 0.24,
+          name: 'Decoration',
+        }), 'shared');
+        registerCanvasObject(new fabric.Circle({
+          left: 700,
+          top: 385,
+          radius: 38,
+          fill: '#f5576c',
+          opacity: 0.24,
+          name: 'Decoration',
+        }), 'shared');
+      }
+      renderRecordOnCanvas();
+      closeTemplateModal();
+      pushHistoryState(true);
+      setStatus(`${humanizeLayerName(template)} template applied.`, true);
+    }
+
+    function setSideVisibility(side) {
+      Object.values(state.sides.front).forEach((obj) => obj.set('visible', side === 'front'));
+      Object.values(state.sides.back).forEach((obj) => obj.set('visible', side === 'back'));
+      getCustomObjects().forEach((obj) => {
+        const sideTag = obj.sideTag || 'shared';
+        obj.set('visible', sideTag === 'shared' || sideTag === side);
+      });
+      if (state.photoImage) {
+        state.photoImage.set('visible', side === 'front');
+      }
+      state.currentSide = side;
+      updateSideBadge();
+      if (state.canvas) {
+        state.canvas.discardActiveObject();
+        state.canvas.requestRenderAll();
+      }
+      refreshLayerList();
+    }
+
+    function switchSide(side) {
+      if (!state.canvas || !['front', 'back'].includes(side) || state.currentSide === side) return;
+      setSideVisibility(side);
+      pushHistoryState();
+      setStatus(`Switched to ${side} side.`, true);
+    }
+
+    function focusObject(name) {
+      const object = allEditableObjects().find((item) => item && item.name === name);
+      if (!object || !state.canvas) return;
+      if (!object.visible) {
+        if (Object.values(state.sides.back).includes(object)) {
+          setSideVisibility('back');
+        } else {
+          setSideVisibility('front');
+        }
+      }
+      state.canvas.setActiveObject(object);
+      state.canvas.requestRenderAll();
+      syncObjectInspector(object);
+      refreshLayerList();
+    }
+
+    function focusLayer(name) {
+      if (!state.canvas) return;
+      if (name === 'photo' && state.photoImage) {
+        if (state.currentSide !== 'front') setSideVisibility('front');
+        state.canvas.setActiveObject(state.photoImage);
+        state.canvas.requestRenderAll();
+        updateActiveObjectBadge('photo');
+        syncObjectInspector(state.photoImage);
+        refreshLayerList();
+        return;
+      }
+      if (state.staticObjects && state.staticObjects[name]) {
+        state.canvas.setActiveObject(state.staticObjects[name]);
+        state.canvas.requestRenderAll();
+        updateActiveObjectBadge(name);
+        syncObjectInspector(state.staticObjects[name]);
+        refreshLayerList();
+        return;
+      }
+      focusObject(name);
+    }
+
+    function resetCanvasLayout() {
+      if (!state.canvas) return;
+      clearSnapGuides();
+      state.canvas.dispose();
+      state.backgroundImage = null;
+      state.photoImage = null;
+      state.pendingCustomObjects = [];
+      state.history.undoStack = [];
+      state.history.redoStack = [];
+      buildCanvas();
+      if (state.record) renderRecordOnCanvas();
+      setStatus('Canvas layout reset to default.', true);
+    }
+
+    function alignActive(mode) {
+      applyActiveObjectChanges((active) => {
+        if (mode === 'left') active.set('left', 62);
+        if (mode === 'center') active.set('left', (CANVAS_WIDTH - active.getScaledWidth()) / 2);
+        if (mode === 'right') active.set('left', 898 - active.getScaledWidth());
+      });
+    }
+
+    function nudgeActive(dx, dy) {
+      applyActiveObjectChanges((active) => {
+        active.set({
+          left: (active.left || 0) + dx,
+          top: (active.top || 0) + dy,
+        });
+      });
+    }
+
+    function applyPreset(mode) {
+      if (mode === 'official') {
+        state.view.accent = '#8b0000';
+        state.view.textColor = '#17324d';
+        state.view.bgOpacity = 24;
+        state.view.nameSize = 34;
+        state.view.roleSize = 24;
+        state.view.nameFont = 'Georgia';
+        state.view.bodyFont = 'Segoe UI';
+      } else if (mode === 'blue') {
+        state.view.accent = '#0f4c81';
+        state.view.textColor = '#16324a';
+        state.view.bgOpacity = 18;
+        state.view.nameSize = 33;
+        state.view.roleSize = 23;
+        state.view.nameFont = 'Trebuchet MS';
+        state.view.bodyFont = 'Verdana';
+      } else {
+        state.view.accent = '#7c3b00';
+        state.view.textColor = '#22313f';
+        state.view.bgOpacity = 10;
+        state.view.nameSize = 32;
+        state.view.roleSize = 22;
+        state.view.nameFont = 'Times New Roman';
+        state.view.bodyFont = 'Arial';
+      }
+      syncAppearanceControls();
+      applyAppearanceControls();
+      pushHistoryState();
+      setStatus(`Applied ${mode} preset.`, true);
+    }
+
+    function applyAppearanceControls() {
+      if (!state.canvas) return;
+      state.staticObjects.accent.set('fill', state.view.accent);
+      state.sides.front.name.set({
+        fill: state.view.textColor,
+        fontSize: state.view.nameSize,
+        fontFamily: state.view.nameFont,
+      });
+      state.sides.front.role.set({
+        fill: state.view.accent,
+        fontSize: state.view.roleSize,
+        fontFamily: state.view.bodyFont,
+      });
+      [
+        state.sides.front.details,
+        state.sides.front.serial,
+        state.sides.front.footer,
+        state.sides.front.institute,
+        state.sides.front.type,
+        state.sides.back.backTitle,
+        state.sides.back.backSubtitle,
+        state.sides.back.addressBlock,
+        state.sides.back.noteBlock,
+        state.sides.back.emergency,
+        state.sides.back.backFooter,
+      ].forEach((obj) => {
+        if (!obj) return;
+        obj.set({
+          fontFamily: obj.name === 'backTitle' ? state.view.nameFont : state.view.bodyFont,
+        });
+      });
+      state.sides.front.serial.set('fill', state.view.textColor);
+      state.sides.front.details.set('fill', state.view.textColor);
+      state.sides.back.backTitle.set('fill', state.view.textColor);
+      state.sides.back.addressBlock.set('fill', state.view.textColor);
+      state.sides.back.backSubtitle.set('fill', state.view.accent);
+      state.sides.back.emergency.set('fill', state.view.accent);
+      if (state.backgroundImage) {
+        state.backgroundImage.set('opacity', state.view.bgOpacity / 100);
+      }
+      state.canvas.requestRenderAll();
+      refreshLayerList();
+    }
+
+    function renderRecordOnCanvas() {
+      if (!state.canvas) return;
+      const payload = currentPayload();
+      const courseOrDesignation = payload.profile_type === 'student'
+        ? (payload.training_year || payload.course || 'Student')
+        : (payload.designation || payload.facility_location || 'Employee');
+      const frontDetails = [
+        `DOB: ${payload.dob || '-'}`,
+        `Blood Group: ${payload.blood_group || '-'}`,
+        `Contact: ${payload.contact || '-'}`,
+        `Batch: ${payload.batch_session || '-'}`,
+        `Valid Upto: ${payload.valid_upto || '-'}`,
+        `Guardian: ${payload.father_name || '-'}`,
+      ].join('\n');
+      const backAddress = [
+        `Institute: ${payload.institute_name || '-'}`,
+        `Address: ${payload.address || '-'}`,
+        `Contact: ${payload.contact || '-'}`,
+      ].join('\n');
+      const backNotes = [
+        `Serial No: ${payload.serial_no || '-'}`,
+        `Profile: ${payload.profile_type || '-'}`,
+        `Course/Role: ${courseOrDesignation}`,
+        `Facility: ${payload.facility_location || payload.department || '-'}`,
+        `Sub Location: ${payload.facility_sub_location || '-'}`,
+      ].join('\n');
+
+      state.sides.front.institute.set('text', payload.institute_name || 'Institute Name');
+      state.sides.front.type.set('text', `${(payload.profile_type || 'student').toUpperCase()} ID CARD`);
+      state.sides.front.name.set('text', payload.name || 'Full Name');
+      state.sides.front.role.set('text', courseOrDesignation);
+      state.sides.front.details.set('text', frontDetails);
+      state.sides.front.serial.set('text', `Serial: ${payload.serial_no || '-'}`);
+      state.sides.front.footer.set('text', payload.address || 'Address will appear here');
+
+      state.sides.back.backTitle.set('text', payload.institute_name || 'Institute Information');
+      state.sides.back.backSubtitle.set('text', 'Please carry this card and follow institute rules.');
+      state.sides.back.addressBlock.set('text', backAddress);
+      state.sides.back.noteBlock.set('text', backNotes);
+      state.sides.back.emergency.set('text', 'If found, please return this card to the institute office.');
+      state.sides.back.backFooter.set('text', `Issued for ${payload.name || 'card holder'} | Validity: ${payload.valid_upto || '-'}`);
+
+      loadCanvasBackground();
+      loadCanvasPhoto(payload.photo_url || '');
+      applyAppearanceControls();
+      state.canvas.requestRenderAll();
+      refreshLayerList();
+    }
+
+    function loadCanvasBackground() {
+      const url = state.settings && state.settings.background_url ? state.settings.background_url : '';
+      if (!state.canvas) return;
+      if (!url) {
+        if (state.backgroundImage) {
+          state.canvas.remove(state.backgroundImage);
+          state.backgroundImage = null;
+          state.canvas.requestRenderAll();
+        }
+        return;
+      }
+      fabric.Image.fromURL(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`, (img) => {
+        if (!img) return;
+        img.set({
+          left: 20,
+          top: 20,
+          selectable: false,
+          evented: false,
+          opacity: state.view.bgOpacity / 100,
+        });
+        img.scaleToWidth(920);
+        img.scaleToHeight(500);
+        if (state.backgroundImage) {
+          state.canvas.remove(state.backgroundImage);
+        }
+        state.backgroundImage = img;
+        state.canvas.insertAt(img, 1);
+        state.canvas.requestRenderAll();
+      }, { crossOrigin: 'anonymous' });
+    }
+
+    function loadCanvasPhoto(url) {
+      if (!state.canvas) return;
+      if (state.photoImage) {
+        state.canvas.remove(state.photoImage);
+        state.photoImage = null;
+      }
+      state.sides.front.photoLabel.set('visible', !url);
+      if (!url) {
+        state.canvas.requestRenderAll();
+        refreshLayerList();
+        return;
+      }
+      fabric.Image.fromURL(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`, (img) => {
+        if (!img) return;
+        img.set({
+          left: 62,
+          top: 144,
+          name: 'photo',
+          visible: state.currentSide === 'front',
+          selectable: true,
+          evented: true,
+        });
+        img.scaleToWidth(180);
+        img.scaleToHeight(220);
+        state.photoImage = img;
+        state.canvas.add(img);
+        state.canvas.moveTo(img, 100);
+        if (state.pendingPhotoSnapshot) {
+          applySerializedObject(state.photoImage, state.pendingPhotoSnapshot, false);
+          state.pendingPhotoSnapshot = null;
+        }
+        state.canvas.requestRenderAll();
+        refreshLayerList();
+      }, { crossOrigin: 'anonymous' });
+    }
+
+    async function loadSettingsForInstitute(institute) {
+      if (!institute) {
+        state.settings = null;
+        return;
+      }
+      try {
+        const res = await fetch(`/api/settings?institute=${encodeURIComponent(institute)}`);
+        state.settings = await res.json();
+      } catch (error) {
+        state.settings = null;
+      }
+    }
+
+    function resetBatchRecords() {
+      state.availableRecords = [];
+      state.currentRecordIndex = -1;
+      state.record = null;
+      field('serialInput').value = '';
+      updateBatchBrowserBadge();
+    }
+
+    async function loadBatchOptions() {
+      const institute = escapeValue(field('instituteInput').value);
+      const batchSelector = field('batchSelector');
+      batchSelector.innerHTML = '<option value="">Select batch</option>';
+      resetBatchRecords();
+      if (!institute) return;
+      try {
+        const res = await fetch(`/api/batches?institute=${encodeURIComponent(institute)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to load batches.');
+        const batches = Array.isArray(data.batches) ? data.batches : [];
+        batchSelector.innerHTML = '<option value="">Select batch</option>' + batches.map((batch) => {
+          const id = batch && batch.id ? String(batch.id) : '';
+          const label = `${batch.batch_name || id || 'Unnamed batch'} | ${batch.submitted_at || batch.created_at || '-'}`;
+          return `<option value="${id}">${label}</option>`;
+        }).join('');
+      } catch (error) {
+        setStatus(error.message || 'Unable to load batches.', false, true);
+      }
+    }
+
+    function syncCurrentRecord() {
+      const record = state.currentRecordIndex >= 0 ? state.availableRecords[state.currentRecordIndex] : null;
+      field('serialInput').value = record && record.serial_no ? record.serial_no : '';
+      if (!record) {
+        state.record = null;
+        updateBatchBrowserBadge();
+        return null;
+      }
+      state.record = { ...record };
+      applyRecordToFields(state.record);
+      renderRecordOnCanvas();
+      updateBatchBrowserBadge();
+      return state.record;
+    }
+
+    function showRecordAt(index) {
+      if (!state.availableRecords.length) {
+        setStatus('No cards loaded for this batch.', false, true);
+        return;
+      }
+      const nextIndex = Math.max(0, Math.min(state.availableRecords.length - 1, Number(index) || 0));
+      state.currentRecordIndex = nextIndex;
+      const record = syncCurrentRecord();
+      if (record) {
+        setStatus(`Showing ${record.name || record.serial_no || 'card'} (${nextIndex + 1}/${state.availableRecords.length}).`, true);
+      }
+    }
+
+    function showPreviousRecord() {
+      if (!state.availableRecords.length) {
+        setStatus('Select a batch first to browse cards.', false, true);
+        return;
+      }
+      const nextIndex = state.currentRecordIndex <= 0 ? state.availableRecords.length - 1 : state.currentRecordIndex - 1;
+      showRecordAt(nextIndex);
+    }
+
+    function showNextRecord() {
+      if (!state.availableRecords.length) {
+        setStatus('Select a batch first to browse cards.', false, true);
+        return;
+      }
+      const nextIndex = state.currentRecordIndex >= state.availableRecords.length - 1 ? 0 : state.currentRecordIndex + 1;
+      showRecordAt(nextIndex);
+    }
+
+    async function loadBatchRecords(preferredSerial = '') {
+      const institute = escapeValue(field('instituteInput').value);
+      const batchId = escapeValue(field('batchSelector').value);
+      resetBatchRecords();
+      if (!institute || !batchId) return;
+      try {
+        const [, recordsRes, designRes] = await Promise.all([
+          loadSettingsForInstitute(institute),
+          fetch(`/api/records?institute=${encodeURIComponent(institute)}&batch_id=${encodeURIComponent(batchId)}`),
+          fetch(`/api/id-card-edit/batch-design?institute=${encodeURIComponent(institute)}&batch_id=${encodeURIComponent(batchId)}`),
+        ]);
+        const recordsData = await recordsRes.json();
+        const designData = await designRes.json();
+        if (!recordsRes.ok) throw new Error(recordsData.error || 'Unable to load batch records.');
+        if (!designRes.ok) throw new Error(designData.error || 'Unable to load batch design.');
+        state.availableRecords = Array.isArray(recordsData.records) ? recordsData.records : [];
+        if (!state.availableRecords.length) {
+          updateBatchBrowserBadge();
+          setStatus('No cards were found in this batch.', false, true);
+          return;
+        }
+        const foundIndex = preferredSerial
+          ? state.availableRecords.findIndex((record) => (record.serial_no || '') === preferredSerial)
+          : -1;
+        state.currentRecordIndex = foundIndex >= 0 ? foundIndex : 0;
+        syncCurrentRecord();
+        if (designData && designData.design) {
+          state.pendingPhotoSnapshot = designData.design.photo || null;
+          applyBatchDesignSnapshot(designData.design);
+          renderRecordOnCanvas();
+        } else {
+          state.pendingPhotoSnapshot = null;
+          pushHistoryState(true);
+        }
+        setStatus(`Loaded ${state.availableRecords.length} cards for this batch.`, true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to load records for this batch.', false, true);
+      }
+    }
+
+    async function loadCard() {
+      const institute = escapeValue(field('instituteInput').value);
+      const serial = escapeValue(field('serialInput').value);
+      if (!institute || !serial) {
+        setStatus('Institute and serial number are required before loading.', false, true);
+        return;
+      }
+      setStatus('Loading card...');
+      try {
+        const [, recordPromise] = await Promise.all([
+          loadSettingsForInstitute(institute),
+          fetch(`/api/id-card-edit/load?institute=${encodeURIComponent(institute)}&serial_no=${encodeURIComponent(serial)}`),
+        ]);
+        const data = await recordPromise.json();
+        if (!recordPromise.ok) throw new Error(data.error || 'Unable to load card.');
+        state.record = data.record || {};
+        applyRecordToFields(state.record);
+        renderRecordOnCanvas();
+        pushHistoryState(true);
+        setStatus(`Loaded ${state.record.serial_no || serial} for editing.`, true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to load card.', false, true);
+      }
+    }
+
+    async function saveBatchDesign() {
+      const institute = escapeValue(field('instituteInput').value);
+      const batchId = currentBatchId();
+      if (!institute || !batchId) {
+        setStatus('Select an institute and batch before saving the design.', false, true);
+        return;
+      }
+      setStatus('Saving batch design...');
+      try {
+        const res = await fetch('/api/id-card-edit/batch-design', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            institute,
+            batch_id: batchId,
+            design: captureBatchDesignState(),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to save batch design.');
+        setStatus(`Saved design for batch ${batchId}.`, true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to save batch design.', false, true);
+      }
+    }
+
+    async function uploadPhoto() {
+      const institute = escapeValue(field('instituteInput').value);
+      const serial = escapeValue(field('serialInput').value);
+      const input = field('photoInput');
+      if (!institute || !serial) {
+        setStatus('Load a card first so the photo can be attached to the right record.', false, true);
+        return;
+      }
+      if (!input.files || !input.files.length) {
+        setStatus('Choose a photo file first.', false, true);
+        return;
+      }
+      const formData = new FormData();
+      formData.append('photo', input.files[0]);
+      formData.append('serial_no', serial);
+      formData.append('institute_name', institute);
+      setStatus('Uploading photo...');
+      try {
+        const res = await fetch('/api/admin-attach-photo', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to upload photo.');
+        state.record = { ...(state.record || {}), photo_url: data.photo_url || '', photo_drive_id: data.photo_drive_id || '' };
+        renderRecordOnCanvas();
+        input.value = '';
+        setStatus('Photo uploaded and attached to the card.', true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to upload photo.', false, true);
+      }
+    }
+
+    async function exportCard(format) {
+      if (!state.canvas) return;
+      const payload = currentPayload();
+      if (!payload.serial_no) {
+        setStatus('Load a card before exporting.', false, true);
+        return;
+      }
+      setStatus(`Preparing ${format.toUpperCase()} export...`);
+      try {
+        const imageData = state.canvas.toDataURL({ format: 'png', quality: 1 });
+        const res = await fetch('/api/id-card-edit/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            format,
+            serial_no: payload.serial_no,
+            image_data: imageData,
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Unable to export card.');
+        }
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `${payload.serial_no}.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(blobUrl);
+        setStatus(`${format.toUpperCase()} export is ready.`, true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to export card.', false, true);
+      }
+    }
+
+    function captureCanvasState() {
+      return {
+        currentSide: state.currentSide,
+        view: { ...state.view },
+        static: serializeObjectMap(state.staticObjects, false),
+        photo: serializeCanvasObject(state.photoImage, false),
+        front: serializeObjectMap(state.sides.front, true),
+        back: serializeObjectMap(state.sides.back, true),
+        custom: serializeCustomObjects(),
+      };
+    }
+
+    function captureBatchDesignState() {
+      return {
+        currentSide: state.currentSide,
+        view: { ...state.view },
+        static: serializeObjectMap(state.staticObjects, false),
+        photo: serializeCanvasObject(state.photoImage, false),
+        front: serializeObjectMap(state.sides.front, false),
+        back: serializeObjectMap(state.sides.back, false),
+        custom: serializeCustomObjects(),
+      };
+    }
+
+    function serializeCustomObjects() {
+      return getCustomObjects().map((obj) => obj.toObject([
+        'name', 'sideTag', 'fontWeight', 'fontStyle', 'underline', 'charSpacing',
+      ]));
+    }
+
+    function serializeCanvasObject(obj, includeText) {
+      if (!obj) return null;
+      const serialized = {
+        left: obj.left || 0,
+        top: obj.top || 0,
+        width: obj.width || 0,
+        height: obj.height || 0,
+        scaleX: obj.scaleX || 1,
+        scaleY: obj.scaleY || 1,
+        fontSize: obj.fontSize || 16,
+        fontFamily: obj.fontFamily || 'Segoe UI',
+        fill: obj.fill || '#17324d',
+        visible: !!obj.visible,
+        textAlign: obj.textAlign || 'left',
+        charSpacing: obj.charSpacing || 0,
+        angle: obj.angle || 0,
+        opacity: obj.opacity == null ? 1 : obj.opacity,
+      };
+      if (includeText) serialized.text = obj.text || '';
+      return serialized;
+    }
+
+    function serializeObjectMap(map, includeText) {
+      const output = {};
+      Object.entries(map || {}).forEach(([key, obj]) => {
+        output[key] = serializeCanvasObject(obj, includeText);
+      });
+      return output;
+    }
+
+    function applySerializedObject(obj, value, includeText) {
+      if (!obj || !value) return;
+      const nextState = {
+        left: value.left,
+        top: value.top,
+        width: value.width,
+        height: value.height,
+        scaleX: value.scaleX,
+        scaleY: value.scaleY,
+        fontSize: value.fontSize,
+        fontFamily: value.fontFamily,
+        fill: value.fill,
+        visible: value.visible,
+        textAlign: value.textAlign,
+        charSpacing: value.charSpacing,
+        angle: value.angle,
+        opacity: value.opacity,
+      };
+      if (includeText && Object.prototype.hasOwnProperty.call(value, 'text')) {
+        nextState.text = value.text;
+      }
+      obj.set(nextState);
+      obj.setCoords();
+    }
+
+    function applySerializedState(targetMap, serializedMap, includeText) {
+      Object.entries(serializedMap || {}).forEach(([key, value]) => {
+        applySerializedObject(targetMap[key], value, includeText);
+      });
+    }
+
+    function removeCustomObjects() {
+      getCustomObjects().forEach((obj) => state.canvas.remove(obj));
+    }
+
+    function restoreCustomObjects(serializedObjects, desiredSide, callback) {
+      removeCustomObjects();
+      if (!serializedObjects || !serializedObjects.length) {
+        setSideVisibility(desiredSide || state.currentSide);
+        if (callback) callback();
+        refreshLayerList();
+        return;
+      }
+      fabric.util.enlivenObjects(serializedObjects, (objects) => {
+        objects.forEach((obj) => {
+          if (!obj) return;
+          obj.set({
+            sideTag: obj.sideTag || 'shared',
+            visible: (obj.sideTag || 'shared') === 'shared' || (obj.sideTag || 'shared') === (desiredSide || state.currentSide),
+          });
+          state.canvas.add(obj);
+        });
+        setSideVisibility(desiredSide || state.currentSide);
+        if (callback) callback();
+        refreshLayerList();
+        state.canvas.requestRenderAll();
+      });
+    }
+
+    function pushHistoryState(resetRedo = true) {
+      if (!state.canvas || state.history.isApplying) return;
+      const snapshot = captureCanvasState();
+      const previous = state.history.undoStack[state.history.undoStack.length - 1];
+      const marker = JSON.stringify(snapshot);
+      if (previous && JSON.stringify(previous) === marker) return;
+      state.history.undoStack.push(snapshot);
+      if (state.history.undoStack.length > 40) {
+        state.history.undoStack.shift();
+      }
+      if (resetRedo) {
+        state.history.redoStack = [];
+      }
+    }
+
+    function applyHistorySnapshot(snapshot) {
+      if (!snapshot || !state.canvas) return;
+      state.history.isApplying = true;
+      state.view = { ...state.view, ...(snapshot.view || {}) };
+      syncAppearanceControls();
+      applySerializedState(state.staticObjects, snapshot.static || {}, false);
+      applySerializedObject(state.photoImage, snapshot.photo, false);
+      applySerializedState(state.sides.front, snapshot.front || {}, true);
+      applySerializedState(state.sides.back, snapshot.back || {}, true);
+      restoreCustomObjects(snapshot.custom || [], snapshot.currentSide || 'front');
+      applyAppearanceControls();
+      state.canvas.requestRenderAll();
+      state.history.isApplying = false;
+      refreshLayerList();
+    }
+
+    function applyBatchDesignSnapshot(snapshot) {
+      if (!snapshot || !state.canvas) return;
+      state.history.isApplying = true;
+      state.view = { ...state.view, ...(snapshot.view || {}) };
+      syncAppearanceControls();
+      applySerializedState(state.staticObjects, snapshot.static || {}, false);
+      applySerializedObject(state.photoImage, snapshot.photo, false);
+      applySerializedState(state.sides.front, snapshot.front || {}, false);
+      applySerializedState(state.sides.back, snapshot.back || {}, false);
+      restoreCustomObjects(snapshot.custom || [], snapshot.currentSide || 'front');
+      applyAppearanceControls();
+      state.canvas.requestRenderAll();
+      state.history.isApplying = false;
+      pushHistoryState(true);
+      refreshLayerList();
+    }
+
+    function undoCanvas() {
+      if (state.history.undoStack.length <= 1) {
+        setStatus('Nothing to undo yet.', false, true);
+        return;
+      }
+      const current = state.history.undoStack.pop();
+      state.history.redoStack.push(current);
+      const previous = state.history.undoStack[state.history.undoStack.length - 1];
+      applyHistorySnapshot(previous);
+      setStatus('Undo applied.', true);
+    }
+
+    function redoCanvas() {
+      if (!state.history.redoStack.length) {
+        setStatus('Nothing to redo yet.', false, true);
+        return;
+      }
+      const snapshot = state.history.redoStack.pop();
+      state.history.undoStack.push(snapshot);
+      applyHistorySnapshot(snapshot);
+      setStatus('Redo applied.', true);
+    }
+
+    function bindInspectorControls() {
+      field('propName').addEventListener('change', (event) => {
+        applyActiveObjectChanges((active) => {
+          active.name = escapeValue(event.target.value) || active.name || 'custom';
+          updateActiveObjectBadge(active.name);
+        });
+      });
+      field('propX').addEventListener('change', (event) => {
+        applyActiveObjectChanges((active) => active.set('left', Number(event.target.value) || 0));
+      });
+      field('propY').addEventListener('change', (event) => {
+        applyActiveObjectChanges((active) => active.set('top', Number(event.target.value) || 0));
+      });
+      field('propWidth').addEventListener('change', (event) => {
+        applyActiveObjectChanges((active) => {
+          const base = active.width || active.getScaledWidth() || 1;
+          const next = Math.max(1, Number(event.target.value) || base);
+          active.set('scaleX', next / base);
+        });
+      });
+      field('propHeight').addEventListener('change', (event) => {
+        applyActiveObjectChanges((active) => {
+          const base = active.height || active.getScaledHeight() || 1;
+          const next = Math.max(1, Number(event.target.value) || base);
+          active.set('scaleY', next / base);
+        });
+      });
+      field('propAngle').addEventListener('input', (event) => {
+        field('propAngleValue').textContent = String(event.target.value);
+        applyActiveObjectChanges((active) => active.set('angle', Number(event.target.value) || 0));
+      });
+      field('propOpacity').addEventListener('input', (event) => {
+        field('propOpacityValue').textContent = `${event.target.value}%`;
+        applyActiveObjectChanges((active) => active.set('opacity', (Number(event.target.value) || 0) / 100));
+      });
+      field('propText').addEventListener('input', (event) => {
+        applyActiveObjectChanges((active) => {
+          if (typeof active.text === 'string') active.set('text', event.target.value);
+        });
+      });
+      field('propFont').addEventListener('change', (event) => {
+        applyActiveObjectChanges((active) => {
+          if (typeof active.text === 'string') active.set('fontFamily', event.target.value);
+        });
+      });
+      field('propFontSize').addEventListener('change', (event) => {
+        applyActiveObjectChanges((active) => {
+          if (typeof active.text === 'string') active.set('fontSize', Number(event.target.value) || active.fontSize || 16);
+        });
+      });
+      field('propFill').addEventListener('input', (event) => {
+        applyActiveObjectChanges((active) => active.set('fill', event.target.value));
+      });
+      field('propAlign').addEventListener('change', (event) => {
+        applyActiveObjectChanges((active) => {
+          if (typeof active.text === 'string') active.set('textAlign', event.target.value);
+        });
+      });
+      field('shapeFill').addEventListener('input', (event) => {
+        applyActiveObjectChanges((active) => active.set('fill', event.target.value));
+      });
+      field('shapeStroke').addEventListener('input', (event) => {
+        applyActiveObjectChanges((active) => active.set('stroke', event.target.value));
+      });
+      field('shapeStrokeWidth').addEventListener('input', (event) => {
+        field('shapeStrokeWidthValue').textContent = event.target.value;
+        applyActiveObjectChanges((active) => active.set('strokeWidth', Number(event.target.value) || 0));
+      });
+      ['shadowEnable', 'shadowColor', 'shadowBlur', 'shadowX', 'shadowY'].forEach((id) => {
+        field(id).addEventListener(id === 'shadowEnable' ? 'change' : 'input', updateShadowControls);
+      });
+      field('genericImageInput').addEventListener('change', handleGenericImageUpload);
+    }
+
+    function bindGlobalEditorEvents() {
+      document.addEventListener('click', (event) => {
+        if (!event.target.closest('.context-menu')) hideContextMenu();
+        if (event.target === field('templateModal')) closeTemplateModal();
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.ctrlKey || event.metaKey) {
+          const key = event.key.toLowerCase();
+          if (key === 'z') {
+            event.preventDefault();
+            if (event.shiftKey) redoCanvas();
+            else undoCanvas();
+          } else if (key === 'c') {
+            event.preventDefault();
+            copySelection();
+          } else if (key === 'v') {
+            event.preventDefault();
+            pasteSelection();
+          } else if (key === 'x') {
+            event.preventDefault();
+            contextCut();
+          } else if (key === 'd') {
+            event.preventDefault();
+            duplicateSelection();
+          }
+        } else if (event.key === 'Delete' || event.key === 'Backspace') {
+          const active = getActiveObject();
+          if (active && !active.isEditing) {
+            deleteSelected();
+          }
+        } else if (event.key === 'Escape') {
+          hideContextMenu();
+          closeTemplateModal();
+          if (state.canvas) {
+            state.canvas.discardActiveObject();
+            state.canvas.requestRenderAll();
+          }
+        }
+      });
+    }
+
+    function bindFieldUpdates() {
+      [
+        'instituteInput', 'serialInput', 'profileTypeInput', 'nameInput', 'bloodGroupInput',
+        'employeeIdInput', 'batchInput', 'yearInput', 'dobInput', 'validUptoInput',
+        'contactInput', 'fatherNameInput', 'addressInput', 'facilityInput',
+        'subFacilityInput', 'courseInput'
+      ].forEach((id) => {
+        field(id).addEventListener('input', renderRecordOnCanvas);
+        field(id).addEventListener('change', renderRecordOnCanvas);
+      });
+
+      field('zoomRange').addEventListener('input', (event) => setCanvasZoom(event.target.value));
+      field('bgOpacityRange').addEventListener('input', (event) => {
+        state.view.bgOpacity = Number(event.target.value) || 24;
+        updateSliderValue('bgOpacityValue', state.view.bgOpacity, '%');
+        applyAppearanceControls();
+        pushHistoryState();
+      });
+      field('nameSizeRange').addEventListener('input', (event) => {
+        state.view.nameSize = Number(event.target.value) || 34;
+        updateSliderValue('nameSizeValue', state.view.nameSize);
+        applyAppearanceControls();
+        pushHistoryState();
+      });
+      field('roleSizeRange').addEventListener('input', (event) => {
+        state.view.roleSize = Number(event.target.value) || 24;
+        updateSliderValue('roleSizeValue', state.view.roleSize);
+        applyAppearanceControls();
+        pushHistoryState();
+      });
+      field('accentColorInput').addEventListener('input', (event) => {
+        state.view.accent = event.target.value;
+        applyAppearanceControls();
+        pushHistoryState();
+      });
+      field('textColorInput').addEventListener('input', (event) => {
+        state.view.textColor = event.target.value;
+        applyAppearanceControls();
+        pushHistoryState();
+      });
+      field('nameFontFamilyInput').addEventListener('change', (event) => {
+        state.view.nameFont = event.target.value;
+        applyAppearanceControls();
+        pushHistoryState();
+      });
+      field('bodyFontFamilyInput').addEventListener('change', (event) => {
+        state.view.bodyFont = event.target.value;
+        applyAppearanceControls();
+        pushHistoryState();
+      });
+      field('instituteInput').addEventListener('change', async () => {
+        await loadBatchOptions();
+        renderRecordOnCanvas();
+      });
+      field('batchSelector').addEventListener('change', async () => {
+        await loadBatchRecords();
+      });
+    }
+
+    window.addEventListener('load', () => {
+      buildCanvas();
+      bindFieldUpdates();
+      bindInspectorControls();
+      bindGlobalEditorEvents();
+      syncAppearanceControls();
+      applyCanvasScale();
+      renderRecordOnCanvas();
+      syncObjectInspector(null);
+      setToolMode('select');
+      if (!SUPABASE_ENABLED) {
+        setStatus(`Editor is connected to ${DATA_SOURCE_LABEL}. Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in this shell to load hosted records.`, false, true);
+      }
+      if (field('instituteInput').value) {
+        loadBatchOptions().then(() => {
+          if (field('serialInput').value) {
+            const initialSerial = field('serialInput').value;
+            const batchOptions = Array.from(field('batchSelector').options).map((option) => option.value).filter(Boolean);
+            const tryNextBatch = async (index = 0) => {
+              if (index >= batchOptions.length) {
+                await loadCard();
+                return;
+              }
+              field('batchSelector').value = batchOptions[index];
+              await loadBatchRecords(initialSerial);
+              if (state.currentRecordIndex >= 0) return;
+              await tryNextBatch(index + 1);
+            };
+            if (batchOptions.length) {
+              tryNextBatch();
+              return;
+            }
+            loadCard();
+          }
+        });
+      }
+    });
+
+    window.addEventListener('resize', () => applyCanvasScale());
+  </script>
+</body>
+</html>
