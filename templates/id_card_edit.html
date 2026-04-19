@@ -132,6 +132,12 @@
       flex-wrap: wrap;
       align-items: center;
     }
+    .batch-browser {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
     .field {
       display: grid;
       gap: 6px;
@@ -364,21 +370,9 @@
                 </select>
               </div>
             </div>
-            <div class="grid two">
-              <div class="field">
-                <label for="recordSelector">Card Record</label>
-                <select id="recordSelector">
-                  <option value="">Select card</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="serialInput">Selected Serial</label>
-                <input id="serialInput" value="{{ initial_serial }}" placeholder="Serial auto-fills after record selection" readonly>
-              </div>
-            </div>
+            <input id="serialInput" value="{{ initial_serial }}" type="hidden">
             <div class="toolbar">
-              <button class="btn primary" type="button" onclick="loadSelectedCard()">Load Selected</button>
-              <button class="btn" type="button" onclick="saveCard()">Save</button>
+              <button class="btn primary" type="button" onclick="saveBatchDesign()">Save Batch Design</button>
               <button class="btn" type="button" onclick="exportCard('png')">PNG</button>
               <button class="btn" type="button" onclick="exportCard('pdf')">PDF</button>
             </div>
@@ -619,11 +613,16 @@
               <span>Snap guides + undo/redo enabled</span>
             </div>
             <div class="quick-tools">
+              <div class="batch-browser">
+                <button class="btn tiny" type="button" onclick="showPreviousRecord()">Previous Card</button>
+                <span class="badge" id="batchBrowserBadge">Card: -- / --</span>
+                <button class="btn tiny" type="button" onclick="showNextRecord()">Next Card</button>
+              </div>
               <span class="badge" id="activeObjectBadge">Active: none</span>
               <span class="badge" id="currentSideBadge">Side: front</span>
               <button class="btn tiny" type="button" onclick="undoCanvas()">Undo</button>
               <button class="btn tiny" type="button" onclick="redoCanvas()">Redo</button>
-              <button class="btn tiny" type="button" onclick="saveCard()">Quick Save</button>
+              <button class="btn tiny" type="button" onclick="saveBatchDesign()">Quick Save</button>
             </div>
           </div>
         </div>
@@ -649,6 +648,7 @@
       record: null,
       settings: null,
       availableRecords: [],
+      currentRecordIndex: -1,
       canvas: null,
       staticObjects: {},
       sides: { front: {}, back: {} },
@@ -687,6 +687,10 @@
       return document.getElementById(id);
     }
 
+    function currentBatchId() {
+      return escapeValue(field('batchSelector').value);
+    }
+
     function visibleSideObjects() {
       return Object.values(state.sides[state.currentSide] || {}).filter(Boolean);
     }
@@ -703,7 +707,7 @@
       return {
         ...(state.record || {}),
         institute_name: escapeValue(field('instituteInput').value),
-        serial_no: escapeValue(field('serialInput').value),
+        serial_no: escapeValue((state.record || {}).serial_no || field('serialInput').value),
         profile_type: profileType,
         name: escapeValue(field('nameInput').value),
         blood_group: escapeValue(field('bloodGroupInput').value),
@@ -748,17 +752,26 @@
       field('loadedTypeChip').textContent = `Type: ${record && record.profile_type ? record.profile_type : '--'}`;
     }
 
-    function resetRecordPicker() {
+    function updateBatchBrowserBadge() {
+      const total = state.availableRecords.length;
+      const current = total && state.currentRecordIndex >= 0 ? state.currentRecordIndex + 1 : '--';
+      field('batchBrowserBadge').textContent = `Card: ${current} / ${total || '--'}`;
+    }
+
+    function resetBatchRecords() {
       state.availableRecords = [];
-      field('recordSelector').innerHTML = '<option value="">Select card</option>';
+      state.currentRecordIndex = -1;
+      state.record = null;
       field('serialInput').value = '';
+      updateLoadedChips(null);
+      updateBatchBrowserBadge();
     }
 
     async function loadBatchOptions() {
       const institute = escapeValue(field('instituteInput').value);
       const batchSelector = field('batchSelector');
       batchSelector.innerHTML = '<option value="">Select batch</option>';
-      resetRecordPicker();
+      resetBatchRecords();
       if (!institute) return;
       try {
         const res = await fetch(`/api/batches?institute=${encodeURIComponent(institute)}`);
@@ -775,40 +788,88 @@
       }
     }
 
-    async function loadRecordOptions(preferredSerial = '') {
-      const institute = escapeValue(field('instituteInput').value);
-      const batchId = escapeValue(field('batchSelector').value);
-      resetRecordPicker();
-      if (!institute || !batchId) return;
-      try {
-        const res = await fetch(`/api/records?institute=${encodeURIComponent(institute)}&batch_id=${encodeURIComponent(batchId)}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Unable to load batch records.');
-        state.availableRecords = Array.isArray(data.records) ? data.records : [];
-        field('recordSelector').innerHTML = '<option value="">Select card</option>' + state.availableRecords.map((record, index) => {
-          const serial = record.serial_no || '';
-          const type = record.profile_type || '-';
-          const name = record.name || 'Unnamed';
-          return `<option value="${index}">${name} | ${serial} | ${type}</option>`;
-        }).join('');
-        if (preferredSerial) {
-          const foundIndex = state.availableRecords.findIndex((record) => (record.serial_no || '') === preferredSerial);
-          if (foundIndex >= 0) {
-            field('recordSelector').value = String(foundIndex);
-            syncSelectedRecord();
-          }
-        }
-      } catch (error) {
-        setStatus(error.message || 'Unable to load records for this batch.', false, true);
+    function syncCurrentRecord() {
+      const record = state.currentRecordIndex >= 0 ? state.availableRecords[state.currentRecordIndex] : null;
+      field('serialInput').value = record && record.serial_no ? record.serial_no : '';
+      if (!record) {
+        state.record = null;
+        updateLoadedChips(null);
+        updateBatchBrowserBadge();
+        return null;
+      }
+      state.record = { ...record };
+      applyRecordToFields(state.record);
+      renderRecordOnCanvas();
+      updateBatchBrowserBadge();
+      return state.record;
+    }
+
+    function showRecordAt(index) {
+      if (!state.availableRecords.length) {
+        setStatus('No cards loaded for this batch.', false, true);
+        return;
+      }
+      const nextIndex = Math.max(0, Math.min(state.availableRecords.length - 1, Number(index) || 0));
+      state.currentRecordIndex = nextIndex;
+      const record = syncCurrentRecord();
+      if (record) {
+        setStatus(`Showing ${record.name || record.serial_no || 'card'} (${nextIndex + 1}/${state.availableRecords.length}).`, true);
       }
     }
 
-    function syncSelectedRecord() {
-      const selectedIndex = field('recordSelector').value;
-      const record = selectedIndex === '' ? null : state.availableRecords[Number(selectedIndex)];
-      field('serialInput').value = record && record.serial_no ? record.serial_no : '';
-      if (record) {
-        updateLoadedChips(record);
+    function showPreviousRecord() {
+      if (!state.availableRecords.length) {
+        setStatus('Select a batch first to browse cards.', false, true);
+        return;
+      }
+      const nextIndex = state.currentRecordIndex <= 0 ? state.availableRecords.length - 1 : state.currentRecordIndex - 1;
+      showRecordAt(nextIndex);
+    }
+
+    function showNextRecord() {
+      if (!state.availableRecords.length) {
+        setStatus('Select a batch first to browse cards.', false, true);
+        return;
+      }
+      const nextIndex = state.currentRecordIndex >= state.availableRecords.length - 1 ? 0 : state.currentRecordIndex + 1;
+      showRecordAt(nextIndex);
+    }
+
+    async function loadBatchRecords(preferredSerial = '') {
+      const institute = escapeValue(field('instituteInput').value);
+      const batchId = escapeValue(field('batchSelector').value);
+      resetBatchRecords();
+      if (!institute || !batchId) return;
+      try {
+        const [, recordsRes, designRes] = await Promise.all([
+          loadSettingsForInstitute(institute),
+          fetch(`/api/records?institute=${encodeURIComponent(institute)}&batch_id=${encodeURIComponent(batchId)}`),
+          fetch(`/api/id-card-edit/batch-design?institute=${encodeURIComponent(institute)}&batch_id=${encodeURIComponent(batchId)}`),
+        ]);
+        const recordsData = await recordsRes.json();
+        const designData = await designRes.json();
+        if (!recordsRes.ok) throw new Error(recordsData.error || 'Unable to load batch records.');
+        if (!designRes.ok) throw new Error(designData.error || 'Unable to load batch design.');
+        state.availableRecords = Array.isArray(recordsData.records) ? recordsData.records : [];
+        if (!state.availableRecords.length) {
+          updateBatchBrowserBadge();
+          setStatus('No cards were found in this batch.', false, true);
+          return;
+        }
+        const foundIndex = preferredSerial
+          ? state.availableRecords.findIndex((record) => (record.serial_no || '') === preferredSerial)
+          : -1;
+        state.currentRecordIndex = foundIndex >= 0 ? foundIndex : 0;
+        syncCurrentRecord();
+        if (designData && designData.design) {
+          applyBatchDesignSnapshot(designData.design);
+          renderRecordOnCanvas();
+        } else {
+          pushHistoryState(true);
+        }
+        setStatus(`Loaded ${state.availableRecords.length} cards for this batch.`, true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to load records for this batch.', false, true);
       }
     }
 
@@ -1455,46 +1516,29 @@
       }
     }
 
-    async function loadSelectedCard() {
+    async function saveBatchDesign() {
       const institute = escapeValue(field('instituteInput').value);
-      const batchId = escapeValue(field('batchSelector').value);
-      const selectedIndex = field('recordSelector').value;
-      if (!institute) {
-        setStatus('Select an institute first.');
+      const batchId = currentBatchId();
+      if (!institute || !batchId) {
+        setStatus('Select an institute and batch before saving the design.', false, true);
         return;
       }
-      if (!batchId) {
-        setStatus('Select a batch first.');
-        return;
-      }
-      if (selectedIndex === '') {
-        setStatus('Select a card record first.');
-        return;
-      }
-      syncSelectedRecord();
-      await loadCard();
-    }
-
-    async function saveCard() {
-      const payload = currentPayload();
-      if (!payload.institute_name || !payload.serial_no || !payload.name) {
-        setStatus('Institute, serial number, and name are required before saving.');
-        return;
-      }
-      setStatus('Saving card changes...');
+      setStatus('Saving batch design...');
       try {
-        const res = await fetch('/api/id-card-edit/save', {
+        const res = await fetch('/api/id-card-edit/batch-design', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            institute,
+            batch_id: batchId,
+            design: captureBatchDesignState(),
+          }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Unable to save card.');
-        state.record = data.record || payload;
-        renderRecordOnCanvas();
-        setStatus(`Saved changes for ${payload.serial_no}.`, true);
+        if (!res.ok) throw new Error(data.error || 'Unable to save batch design.');
+        setStatus(`Saved design for batch ${batchId}.`, true);
       } catch (error) {
-        setStatus(error.message || 'Unable to save card.');
+        setStatus(error.message || 'Unable to save batch design.');
       }
     }
 
@@ -1573,19 +1617,27 @@
       return {
         currentSide: state.currentSide,
         view: { ...state.view },
-        front: serializeObjectMap(state.sides.front),
-        back: serializeObjectMap(state.sides.back),
+        front: serializeObjectMap(state.sides.front, true),
+        back: serializeObjectMap(state.sides.back, true),
       };
     }
 
-    function serializeObjectMap(map) {
+    function captureBatchDesignState() {
+      return {
+        currentSide: state.currentSide,
+        view: { ...state.view },
+        front: serializeObjectMap(state.sides.front, false),
+        back: serializeObjectMap(state.sides.back, false),
+      };
+    }
+
+    function serializeObjectMap(map, includeText) {
       const output = {};
       Object.entries(map || {}).forEach(([key, obj]) => {
-        output[key] = {
+        const serialized = {
           left: obj.left || 0,
           top: obj.top || 0,
           width: obj.width || 0,
-          text: obj.text || '',
           fontSize: obj.fontSize || 16,
           fontFamily: obj.fontFamily || 'Segoe UI',
           fill: obj.fill || '#17324d',
@@ -1594,19 +1646,22 @@
           charSpacing: obj.charSpacing || 0,
           angle: obj.angle || 0,
         };
+        if (includeText) {
+          serialized.text = obj.text || '';
+        }
+        output[key] = serialized;
       });
       return output;
     }
 
-    function applySerializedState(targetMap, serializedMap) {
+    function applySerializedState(targetMap, serializedMap, includeText) {
       Object.entries(serializedMap || {}).forEach(([key, value]) => {
         const obj = targetMap[key];
         if (!obj || !value) return;
-        obj.set({
+        const nextState = {
           left: value.left,
           top: value.top,
           width: value.width,
-          text: value.text,
           fontSize: value.fontSize,
           fontFamily: value.fontFamily,
           fill: value.fill,
@@ -1614,7 +1669,11 @@
           textAlign: value.textAlign,
           charSpacing: value.charSpacing,
           angle: value.angle,
-        });
+        };
+        if (includeText && Object.prototype.hasOwnProperty.call(value, 'text')) {
+          nextState.text = value.text;
+        }
+        obj.set(nextState);
         obj.setCoords();
       });
     }
@@ -1639,12 +1698,26 @@
       state.history.isApplying = true;
       state.view = { ...state.view, ...(snapshot.view || {}) };
       syncAppearanceControls();
-      applySerializedState(state.sides.front, snapshot.front || {});
-      applySerializedState(state.sides.back, snapshot.back || {});
+      applySerializedState(state.sides.front, snapshot.front || {}, true);
+      applySerializedState(state.sides.back, snapshot.back || {}, true);
       setSideVisibility(snapshot.currentSide || 'front');
       applyAppearanceControls();
       state.canvas.requestRenderAll();
       state.history.isApplying = false;
+    }
+
+    function applyBatchDesignSnapshot(snapshot) {
+      if (!snapshot || !state.canvas) return;
+      state.history.isApplying = true;
+      state.view = { ...state.view, ...(snapshot.view || {}) };
+      syncAppearanceControls();
+      applySerializedState(state.sides.front, snapshot.front || {}, false);
+      applySerializedState(state.sides.back, snapshot.back || {}, false);
+      setSideVisibility(snapshot.currentSide || 'front');
+      applyAppearanceControls();
+      state.canvas.requestRenderAll();
+      state.history.isApplying = false;
+      pushHistoryState(true);
     }
 
     function undoCanvas() {
@@ -1723,10 +1796,7 @@
         renderRecordOnCanvas();
       });
       field('batchSelector').addEventListener('change', async () => {
-        await loadRecordOptions();
-      });
-      field('recordSelector').addEventListener('change', () => {
-        syncSelectedRecord();
+        await loadBatchRecords();
       });
     }
 
@@ -1749,9 +1819,8 @@
                 return;
               }
               field('batchSelector').value = batchOptions[index];
-              await loadRecordOptions(initialSerial);
-              if (field('recordSelector').value !== '') {
-                await loadSelectedCard();
+              await loadBatchRecords(initialSerial);
+              if (state.currentRecordIndex >= 0) {
                 return;
               }
               await tryNextBatch(index + 1);

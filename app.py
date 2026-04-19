@@ -416,6 +416,7 @@ def default_institute_settings(institute=None):
         "signature_url": "",
         "signature_drive_id": "",
         "print_templates": [],
+        "batch_editor_designs": {},
         "facility_custom_sub_locations": {},
     }
 
@@ -4489,6 +4490,24 @@ def decode_image_data_url(data_url):
     return base64.b64decode(encoded), mime_type
 
 
+def sanitize_batch_editor_designs(data):
+    cleaned = {}
+    if not isinstance(data, dict):
+        return cleaned
+    for batch_id, payload in data.items():
+        key = str(batch_id or "").strip()
+        if not key or not isinstance(payload, dict):
+            continue
+        design = payload.get("design")
+        if not isinstance(design, dict):
+            continue
+        cleaned[key] = {
+            "updated_at": str(payload.get("updated_at") or "").strip(),
+            "design": design,
+        }
+    return cleaned
+
+
 @app.route("/api/retrieve-card")
 def retrieve_card():
     try:
@@ -4545,6 +4564,52 @@ def id_card_edit_save():
     except FileNotFoundError as exc:
         return jsonify({"error": str(exc)}), 404
     return jsonify(result)
+
+
+@app.route("/api/id-card-edit/batch-design", methods=["GET", "POST"])
+@admin_required
+def id_card_edit_batch_design():
+    if request.method == "GET":
+        institute = canonicalize_institute_name(request.args.get("institute"))
+        batch_id = str(request.args.get("batch_id") or "").strip()
+        if not institute:
+            return jsonify({"error": "Institute is required"}), 400
+        if not batch_id:
+            return jsonify({"error": "Batch is required"}), 400
+        settings = load_settings(institute)
+        designs = sanitize_batch_editor_designs(settings.get("batch_editor_designs", {}))
+        return jsonify({
+            "institute": institute,
+            "batch_id": batch_id,
+            "design": (designs.get(batch_id) or {}).get("design"),
+            "updated_at": (designs.get(batch_id) or {}).get("updated_at", ""),
+        })
+
+    payload = request.get_json(silent=True) or {}
+    institute = canonicalize_institute_name(payload.get("institute"))
+    batch_id = str(payload.get("batch_id") or "").strip()
+    design = payload.get("design")
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    if not batch_id:
+        return jsonify({"error": "Batch is required"}), 400
+    if not isinstance(design, dict) or not design:
+        return jsonify({"error": "Design payload is required"}), 400
+
+    settings = load_settings(institute)
+    designs = sanitize_batch_editor_designs(settings.get("batch_editor_designs", {}))
+    designs[batch_id] = {
+        "updated_at": current_timestamp_display(),
+        "design": design,
+    }
+    settings["batch_editor_designs"] = designs
+    save_settings(settings, institute)
+    return jsonify({
+        "status": "saved",
+        "institute": institute,
+        "batch_id": batch_id,
+        "updated_at": designs[batch_id]["updated_at"],
+    })
 
 
 @app.route("/api/id-card-edit/export", methods=["POST"])
