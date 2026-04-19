@@ -275,6 +275,12 @@
       padding: 12px;
       overflow: auto;
     }
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 248px;
+      gap: 12px;
+      align-items: start;
+    }
     .canvas-stage {
       min-height: 560px;
       display: grid;
@@ -285,6 +291,43 @@
         linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(241,246,250,0.92) 100%);
       border: 1px dashed #c9d6e3;
       padding: 12px;
+    }
+    .layers-panel {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255,255,255,0.92);
+      box-shadow: 0 12px 30px rgba(23,50,77,0.08);
+      overflow: hidden;
+    }
+    .layers-head {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .layers-body {
+      padding: 12px;
+      display: grid;
+      gap: 12px;
+    }
+    .layer-group {
+      display: grid;
+      gap: 8px;
+    }
+    .layer-group h3 {
+      margin: 0;
+      font-size: 12px;
+      color: var(--ink-soft);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .layer-buttons {
+      display: grid;
+      gap: 8px;
+    }
+    .layer-buttons .btn {
+      justify-content: flex-start;
+      text-align: left;
     }
     .canvas-shell {
       transform-origin: top center;
@@ -320,6 +363,9 @@
       .hero {
         flex-direction: column;
         align-items: flex-start;
+      }
+      .workspace-grid {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -369,12 +415,6 @@
               <button class="btn primary" type="button" onclick="saveBatchDesign()">Save Batch Design</button>
               <button class="btn" type="button" onclick="exportCard('png')">PNG</button>
               <button class="btn" type="button" onclick="exportCard('pdf')">PDF</button>
-            </div>
-            <div class="toolbar">
-              <button class="btn tiny" type="button" onclick="undoCanvas()">Undo</button>
-              <button class="btn tiny" type="button" onclick="redoCanvas()">Redo</button>
-              <button class="btn tiny" type="button" onclick="switchSide('front')">Front</button>
-              <button class="btn tiny" type="button" onclick="switchSide('back')">Back</button>
             </div>
           </div>
         </details>
@@ -476,10 +516,6 @@
               <button class="btn tiny" type="button" onclick="nudgeActive(5, 0)">Right</button>
               <button class="btn tiny" type="button" onclick="nudgeActive(0, -5)">Up</button>
               <button class="btn tiny" type="button" onclick="nudgeActive(0, 5)">Down</button>
-            </div>
-            <div class="toolbar">
-              <button class="btn tiny" type="button" onclick="switchSide('front')">Show Front</button>
-              <button class="btn tiny" type="button" onclick="switchSide('back')">Show Back</button>
             </div>
           </div>
         </details>
@@ -589,12 +625,6 @@
           <h1>ID Card Edit Studio</h1>
           <p>Fabric.js keeps editing fast in the browser. Flask still handles record load, save, and export so this page stays aligned with your existing data flow.</p>
         </div>
-        <div class="hero-actions">
-          <div class="side-tabs" role="tablist" aria-label="Card side">
-            <button class="side-tab active" id="frontTab" type="button" onclick="switchSide('front')">Front Side</button>
-            <button class="side-tab" id="backTab" type="button" onclick="switchSide('back')">Back Side</button>
-          </div>
-        </div>
       </section>
 
       <section class="panel">
@@ -612,6 +642,10 @@
                 <span class="badge" id="batchBrowserBadge">Card: -- / --</span>
                 <button class="btn tiny" type="button" onclick="showNextRecord()">Next Card</button>
               </div>
+              <div class="side-tabs" role="tablist" aria-label="Card side">
+                <button class="side-tab active" id="frontTab" type="button" onclick="switchSide('front')">Front Side</button>
+                <button class="side-tab" id="backTab" type="button" onclick="switchSide('back')">Back Side</button>
+              </div>
               <span class="badge" id="activeObjectBadge">Active: none</span>
               <span class="badge" id="currentSideBadge">Side: front</span>
               <button class="btn tiny" type="button" onclick="undoCanvas()">Undo</button>
@@ -621,10 +655,49 @@
           </div>
         </div>
         <div class="canvas-wrap">
-          <div class="canvas-stage">
-            <div class="canvas-shell" id="canvasShell">
-              <canvas id="cardCanvas" width="960" height="540"></canvas>
+          <div class="workspace-grid">
+            <div class="canvas-stage">
+              <div class="canvas-shell" id="canvasShell">
+                <canvas id="cardCanvas" width="960" height="540"></canvas>
+              </div>
             </div>
+            <aside class="layers-panel">
+              <div class="layers-head">Layers</div>
+              <div class="layers-body">
+                <div class="layer-group">
+                  <h3>Global Layers</h3>
+                  <div class="layer-buttons">
+                    <button class="btn tiny" type="button" onclick="focusLayer('accentBar')">Accent Color Bar</button>
+                    <button class="btn tiny" type="button" onclick="focusLayer('headerBar')">Header Strip</button>
+                    <button class="btn tiny" type="button" onclick="focusLayer('cardShell')">Card Base</button>
+                    <button class="btn tiny" type="button" onclick="focusLayer('photo')">Photo Area</button>
+                  </div>
+                </div>
+                <div class="layer-group">
+                  <h3>Front Layers</h3>
+                  <div class="layer-buttons">
+                    <button class="btn tiny" type="button" onclick="focusLayer('institute')">Institute Name</button>
+                    <button class="btn tiny" type="button" onclick="focusLayer('type')">Card Type</button>
+                    <button class="btn tiny" type="button" onclick="focusLayer('name')">Name</button>
+                    <button class="btn tiny" type="button" onclick="focusLayer('role')">Role</button>
+                    <button class="btn tiny" type="button" onclick="focusLayer('details')">Details</button>
+                    <button class="btn tiny" type="button" onclick="focusLayer('serial')">Serial</button>
+                    <button class="btn tiny" type="button" onclick="focusLayer('footer')">Footer</button>
+                  </div>
+                </div>
+                <div class="layer-group">
+                  <h3>Back Layers</h3>
+                  <div class="layer-buttons">
+                    <button class="btn tiny" type="button" onclick="focusLayer('backTitle')">Back Title</button>
+                    <button class="btn tiny" type="button" onclick="focusLayer('backSubtitle')">Back Subtitle</button>
+                    <button class="btn tiny" type="button" onclick="focusLayer('addressBlock')">Address Block</button>
+                    <button class="btn tiny" type="button" onclick="focusLayer('noteBlock')">Notes Block</button>
+                    <button class="btn tiny" type="button" onclick="focusLayer('emergency')">Emergency Note</button>
+                    <button class="btn tiny" type="button" onclick="focusLayer('backFooter')">Back Footer</button>
+                  </div>
+                </div>
+              </div>
+            </aside>
           </div>
         </div>
       </section>
@@ -648,6 +721,7 @@
       sides: { front: {}, back: {} },
       backgroundImage: null,
       photoImage: null,
+      pendingPhotoSnapshot: null,
       currentSide: 'front',
       snapGuides: [],
       history: {
@@ -742,8 +816,7 @@
     }
 
     function updateLoadedChips(record) {
-      field('loadedSerialChip').textContent = `Serial: ${record && record.serial_no ? record.serial_no : '--'}`;
-      field('loadedTypeChip').textContent = `Type: ${record && record.profile_type ? record.profile_type : '--'}`;
+      return record;
     }
 
     function updateBatchBrowserBadge() {
@@ -856,9 +929,11 @@
         state.currentRecordIndex = foundIndex >= 0 ? foundIndex : 0;
         syncCurrentRecord();
         if (designData && designData.design) {
+          state.pendingPhotoSnapshot = designData.design.photo || null;
           applyBatchDesignSnapshot(designData.design);
           renderRecordOnCanvas();
         } else {
+          state.pendingPhotoSnapshot = null;
           pushHistoryState(true);
         }
         setStatus(`Loaded ${state.availableRecords.length} cards for this batch.`, true);
@@ -894,14 +969,12 @@
       updateSliderValue('bgOpacityValue', state.view.bgOpacity, '%');
       updateSliderValue('nameSizeValue', state.view.nameSize);
       updateSliderValue('roleSizeValue', state.view.roleSize);
-      field('zoomChip').textContent = `Zoom: ${state.view.zoom}%`;
     }
 
     function setCanvasZoom(zoom) {
       state.view.zoom = Math.max(70, Math.min(140, Number(zoom) || 100));
       field('canvasShell').style.transform = `scale(${state.view.zoom / 100})`;
       updateSliderValue('zoomValue', state.view.zoom, '%');
-      field('zoomChip').textContent = `Zoom: ${state.view.zoom}%`;
     }
 
     function buildEditableTextbox(text, options = {}) {
@@ -1026,8 +1099,9 @@
         fill: '#ffffff',
         stroke: '#d8e1ea',
         strokeWidth: 2,
-        selectable: false,
-        evented: false,
+        selectable: true,
+        evented: true,
+        name: 'cardShell',
       });
       shared.accent = new fabric.Rect({
         left: 20,
@@ -1037,8 +1111,9 @@
         rx: 28,
         ry: 28,
         fill: state.view.accent,
-        selectable: false,
-        evented: false,
+        selectable: true,
+        evented: true,
+        name: 'accentBar',
       });
       shared.headerBar = new fabric.Rect({
         left: 20,
@@ -1046,8 +1121,9 @@
         width: 920,
         height: 30,
         fill: '#17324d',
-        selectable: false,
-        evented: false,
+        selectable: true,
+        evented: true,
+        name: 'headerBar',
       });
       canvas.add(shared.card, shared.accent, shared.headerBar);
       state.staticObjects = shared;
@@ -1241,6 +1317,26 @@
       }
       state.canvas.setActiveObject(object);
       state.canvas.requestRenderAll();
+    }
+
+    function focusLayer(name) {
+      if (!state.canvas) return;
+      if (name === 'photo' && state.photoImage) {
+        if (state.currentSide !== 'front') {
+          setSideVisibility('front');
+        }
+        state.canvas.setActiveObject(state.photoImage);
+        state.canvas.requestRenderAll();
+        updateActiveObjectBadge('photo');
+        return;
+      }
+      if (state.staticObjects && state.staticObjects[name]) {
+        state.canvas.setActiveObject(state.staticObjects[name]);
+        state.canvas.requestRenderAll();
+        updateActiveObjectBadge(name);
+        return;
+      }
+      focusObject(name);
     }
 
     function resetCanvasLayout() {
@@ -1460,14 +1556,18 @@
           top: 144,
           name: 'photo',
           visible: state.currentSide === 'front',
-          selectable: false,
-          evented: false,
+          selectable: true,
+          evented: true,
         });
         img.scaleToWidth(180);
         img.scaleToHeight(220);
         state.photoImage = img;
         state.canvas.add(img);
         state.canvas.moveTo(img, 100);
+        if (state.pendingPhotoSnapshot) {
+          applySerializedObject(state.photoImage, state.pendingPhotoSnapshot, false);
+          state.pendingPhotoSnapshot = null;
+        }
         state.canvas.requestRenderAll();
       }, { crossOrigin: 'anonymous' });
     }
@@ -1611,6 +1711,8 @@
       return {
         currentSide: state.currentSide,
         view: { ...state.view },
+        static: serializeObjectMap(state.staticObjects, false),
+        photo: serializeCanvasObject(state.photoImage, false),
         front: serializeObjectMap(state.sides.front, true),
         back: serializeObjectMap(state.sides.back, true),
       };
@@ -1620,55 +1722,71 @@
       return {
         currentSide: state.currentSide,
         view: { ...state.view },
+        static: serializeObjectMap(state.staticObjects, false),
+        photo: serializeCanvasObject(state.photoImage, false),
         front: serializeObjectMap(state.sides.front, false),
         back: serializeObjectMap(state.sides.back, false),
       };
     }
 
+    function serializeCanvasObject(obj, includeText) {
+      if (!obj) return null;
+      const serialized = {
+        left: obj.left || 0,
+        top: obj.top || 0,
+        width: obj.width || 0,
+        height: obj.height || 0,
+        scaleX: obj.scaleX || 1,
+        scaleY: obj.scaleY || 1,
+        fontSize: obj.fontSize || 16,
+        fontFamily: obj.fontFamily || 'Segoe UI',
+        fill: obj.fill || '#17324d',
+        visible: !!obj.visible,
+        textAlign: obj.textAlign || 'left',
+        charSpacing: obj.charSpacing || 0,
+        angle: obj.angle || 0,
+      };
+      if (includeText) {
+        serialized.text = obj.text || '';
+      }
+      return serialized;
+    }
+
     function serializeObjectMap(map, includeText) {
       const output = {};
       Object.entries(map || {}).forEach(([key, obj]) => {
-        const serialized = {
-          left: obj.left || 0,
-          top: obj.top || 0,
-          width: obj.width || 0,
-          fontSize: obj.fontSize || 16,
-          fontFamily: obj.fontFamily || 'Segoe UI',
-          fill: obj.fill || '#17324d',
-          visible: !!obj.visible,
-          textAlign: obj.textAlign || 'left',
-          charSpacing: obj.charSpacing || 0,
-          angle: obj.angle || 0,
-        };
-        if (includeText) {
-          serialized.text = obj.text || '';
-        }
-        output[key] = serialized;
+        output[key] = serializeCanvasObject(obj, includeText);
       });
       return output;
     }
 
+    function applySerializedObject(obj, value, includeText) {
+      if (!obj || !value) return;
+      const nextState = {
+        left: value.left,
+        top: value.top,
+        width: value.width,
+        height: value.height,
+        scaleX: value.scaleX,
+        scaleY: value.scaleY,
+        fontSize: value.fontSize,
+        fontFamily: value.fontFamily,
+        fill: value.fill,
+        visible: value.visible,
+        textAlign: value.textAlign,
+        charSpacing: value.charSpacing,
+        angle: value.angle,
+      };
+      if (includeText && Object.prototype.hasOwnProperty.call(value, 'text')) {
+        nextState.text = value.text;
+      }
+      obj.set(nextState);
+      obj.setCoords();
+    }
+
     function applySerializedState(targetMap, serializedMap, includeText) {
       Object.entries(serializedMap || {}).forEach(([key, value]) => {
-        const obj = targetMap[key];
-        if (!obj || !value) return;
-        const nextState = {
-          left: value.left,
-          top: value.top,
-          width: value.width,
-          fontSize: value.fontSize,
-          fontFamily: value.fontFamily,
-          fill: value.fill,
-          visible: value.visible,
-          textAlign: value.textAlign,
-          charSpacing: value.charSpacing,
-          angle: value.angle,
-        };
-        if (includeText && Object.prototype.hasOwnProperty.call(value, 'text')) {
-          nextState.text = value.text;
-        }
-        obj.set(nextState);
-        obj.setCoords();
+        applySerializedObject(targetMap[key], value, includeText);
       });
     }
 
@@ -1692,6 +1810,8 @@
       state.history.isApplying = true;
       state.view = { ...state.view, ...(snapshot.view || {}) };
       syncAppearanceControls();
+      applySerializedState(state.staticObjects, snapshot.static || {}, false);
+      applySerializedObject(state.photoImage, snapshot.photo, false);
       applySerializedState(state.sides.front, snapshot.front || {}, true);
       applySerializedState(state.sides.back, snapshot.back || {}, true);
       setSideVisibility(snapshot.currentSide || 'front');
@@ -1705,6 +1825,8 @@
       state.history.isApplying = true;
       state.view = { ...state.view, ...(snapshot.view || {}) };
       syncAppearanceControls();
+      applySerializedState(state.staticObjects, snapshot.static || {}, false);
+      applySerializedObject(state.photoImage, snapshot.photo, false);
       applySerializedState(state.sides.front, snapshot.front || {}, false);
       applySerializedState(state.sides.back, snapshot.back || {}, false);
       setSideVisibility(snapshot.currentSide || 'front');
