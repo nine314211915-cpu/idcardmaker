@@ -1,0 +1,1626 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ID Card Editor</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+  <style>
+    :root {
+      --ink: #17324d;
+      --ink-soft: #59728c;
+      --line: #d8e1ea;
+      --panel: rgba(255,255,255,0.96);
+      --surface: linear-gradient(180deg, #edf4fb 0%, #f7efe7 100%);
+      --accent: #8b0000;
+      --accent-soft: #fbeaea;
+      --ok: #17673a;
+      --warn: #8a5a00;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      color: var(--ink);
+      background: var(--surface);
+      min-height: 100vh;
+    }
+    .shell {
+      display: grid;
+      grid-template-columns: 332px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    .sidebar {
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      padding: 14px;
+      overflow-y: auto;
+      backdrop-filter: blur(10px);
+    }
+    .stage {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .hero, .panel {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255,255,255,0.84);
+      box-shadow: 0 18px 40px rgba(23,50,77,0.08);
+    }
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+    }
+    .hero h1 {
+      margin: 0 0 6px;
+      font-size: 20px;
+    }
+    .hero p {
+      margin: 0;
+      color: var(--ink-soft);
+      line-height: 1.4;
+      max-width: 760px;
+      font-size: 13px;
+    }
+    .hero-actions,
+    .toolbar,
+    .chip-row,
+    .quick-tools {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .panel-head {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      font-weight: 700;
+    }
+    .panel-body {
+      padding: 12px 14px;
+    }
+    .summary-card {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(239,245,250,0.98) 100%);
+      border: 1px solid var(--line);
+      box-shadow: 0 10px 24px rgba(23,50,77,0.06);
+      margin-bottom: 10px;
+    }
+    .summary-card h2 {
+      margin: 0;
+      font-size: 17px;
+    }
+    .summary-card p {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .compact-stack {
+      display: grid;
+      gap: 10px;
+    }
+    .chip,
+    .badge,
+    .meta span {
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.96);
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+    .meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--ink-soft);
+      font-size: 12px;
+    }
+    .top-actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+    .field label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink-soft);
+    }
+    .grid {
+      display: grid;
+      gap: 10px;
+    }
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .mini-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .field input,
+    .field select,
+    .field textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px 10px;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+      font-size: 13px;
+    }
+    .field textarea {
+      min-height: 66px;
+      resize: vertical;
+    }
+    .btn {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 9px 12px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 13px;
+      line-height: 1.1;
+    }
+    .btn.primary {
+      background: linear-gradient(135deg, var(--accent) 0%, #b21f1f 100%);
+      border-color: transparent;
+      color: #fff;
+    }
+    .btn.soft {
+      background: var(--accent-soft);
+      border-color: #efc8c8;
+      color: var(--accent);
+    }
+    .btn.tiny {
+      padding: 7px 10px;
+      font-size: 12px;
+    }
+    .status {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #eef6ff;
+      border: 1px solid #d8e8ff;
+      color: var(--ink);
+      font-size: 13px;
+    }
+    .status.ok {
+      background: #eaf8ef;
+      border-color: #caead7;
+      color: var(--ok);
+    }
+    .status.warn {
+      background: #fff6e5;
+      border-color: #f1ddae;
+      color: var(--warn);
+    }
+    details.control-group {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.86);
+      overflow: hidden;
+    }
+    details.control-group[open] {
+      box-shadow: 0 10px 28px rgba(23,50,77,0.05);
+    }
+    details.control-group summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 11px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: rgba(255,255,255,0.92);
+    }
+    details.control-group summary::-webkit-details-marker {
+      display: none;
+    }
+    .summary-hint {
+      color: var(--ink-soft);
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .group-body {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      border-top: 1px solid rgba(216,225,234,0.85);
+    }
+    .slider-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+    }
+    .slider-row input[type="range"] {
+      width: 100%;
+    }
+    .slider-value {
+      min-width: 44px;
+      text-align: right;
+      color: var(--ink-soft);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .canvas-wrap {
+      padding: 12px;
+      overflow: auto;
+    }
+    .canvas-stage {
+      min-height: 560px;
+      display: grid;
+      place-items: center;
+      border-radius: 16px;
+      background:
+        radial-gradient(circle at top left, rgba(139,0,0,0.08), transparent 30%),
+        linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(241,246,250,0.92) 100%);
+      border: 1px dashed #c9d6e3;
+      padding: 12px;
+    }
+    .canvas-shell {
+      transform-origin: top center;
+      transition: transform .15s ease;
+      position: relative;
+    }
+    .side-tabs {
+      display: inline-flex;
+      gap: 6px;
+      padding: 4px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.96);
+      border: 1px solid var(--line);
+    }
+    .side-tab {
+      border: 0;
+      background: transparent;
+      color: var(--ink-soft);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .side-tab.active {
+      background: linear-gradient(135deg, var(--accent) 0%, #b21f1f 100%);
+      color: #fff;
+    }
+    @media (max-width: 1180px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { border-right: 0; border-bottom: 1px solid var(--line); }
+      .hero {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="summary-card">
+        <div class="toolbar">
+          <a class="btn" href="/admin">Back to Admin</a>
+          <button class="btn soft" type="button" onclick="resetCanvasLayout()">Reset Layout</button>
+        </div>
+        <div>
+          <h2>Studio ID Card Editor</h2>
+          <p>Load a saved record, switch front/back views, adjust the live Fabric.js canvas, then save the data or export the current design.</p>
+        </div>
+        <div class="chip-row">
+          <span class="chip" id="loadedSerialChip">Serial: --</span>
+          <span class="chip" id="loadedTypeChip">Type: --</span>
+          <span class="chip" id="zoomChip">Zoom: 100%</span>
+        </div>
+      </div>
+
+      <div class="status" id="statusBox">Editor ready. Load a card to start.</div>
+
+      <div class="compact-stack">
+        <details class="control-group" open>
+          <summary>
+            <span>Load & Actions</span>
+            <span class="summary-hint">Open, save, export, history</span>
+          </summary>
+          <div class="group-body">
+            <div class="grid two">
+              <div class="field">
+                <label for="instituteInput">Institute</label>
+                <input id="instituteInput" value="{{ initial_institute }}" placeholder="Institute name">
+              </div>
+              <div class="field">
+                <label for="serialInput">Serial No</label>
+                <input id="serialInput" value="{{ initial_serial }}" placeholder="ID-20260419-0001">
+              </div>
+            </div>
+            <div class="toolbar">
+              <button class="btn primary" type="button" onclick="loadCard()">Load</button>
+              <button class="btn" type="button" onclick="saveCard()">Save</button>
+              <button class="btn" type="button" onclick="exportCard('png')">PNG</button>
+              <button class="btn" type="button" onclick="exportCard('pdf')">PDF</button>
+            </div>
+            <div class="toolbar">
+              <button class="btn tiny" type="button" onclick="undoCanvas()">Undo</button>
+              <button class="btn tiny" type="button" onclick="redoCanvas()">Redo</button>
+              <button class="btn tiny" type="button" onclick="switchSide('front')">Front</button>
+              <button class="btn tiny" type="button" onclick="switchSide('back')">Back</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="control-group" open>
+          <summary>
+            <span>Record Data</span>
+            <span class="summary-hint">Compact form fields</span>
+          </summary>
+          <div class="group-body">
+            <div class="grid two">
+              <div class="field">
+                <label for="profileTypeInput">Profile Type</label>
+                <select id="profileTypeInput">
+                  <option value="student">Student</option>
+                  <option value="employee">Employee</option>
+                  <option value="lecturer">Lecturer</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="bloodGroupInput">Blood Group</label>
+                <input id="bloodGroupInput" placeholder="B+">
+              </div>
+            </div>
+            <div class="field">
+              <label for="nameInput">Full Name</label>
+              <input id="nameInput" placeholder="Full name">
+            </div>
+            <div class="grid two">
+              <div class="field">
+                <label for="courseInput">Course / Designation</label>
+                <input id="courseInput" placeholder="B.Sc. Nursing / Officer">
+              </div>
+              <div class="field">
+                <label for="employeeIdInput">Employee ID</label>
+                <input id="employeeIdInput" placeholder="EMP-01">
+              </div>
+            </div>
+            <div class="grid two">
+              <div class="field">
+                <label for="batchInput">Batch Session</label>
+                <input id="batchInput" placeholder="2025-26">
+              </div>
+              <div class="field">
+                <label for="yearInput">Training Year</label>
+                <input id="yearInput" placeholder="Year 2">
+              </div>
+            </div>
+            <div class="grid two">
+              <div class="field">
+                <label for="dobInput">Date of Birth</label>
+                <input id="dobInput" placeholder="14/08/2004">
+              </div>
+              <div class="field">
+                <label for="validUptoInput">Valid Upto</label>
+                <input id="validUptoInput" placeholder="31/03/2027">
+              </div>
+            </div>
+            <div class="grid two">
+              <div class="field">
+                <label for="contactInput">Contact</label>
+                <input id="contactInput" placeholder="9876543210">
+              </div>
+              <div class="field">
+                <label for="fatherNameInput">Father / Guardian</label>
+                <input id="fatherNameInput" placeholder="Guardian name">
+              </div>
+            </div>
+            <div class="grid two">
+              <div class="field">
+                <label for="facilityInput">Facility / Department</label>
+                <input id="facilityInput" placeholder="Department or facility">
+              </div>
+              <div class="field">
+                <label for="subFacilityInput">Sub Location</label>
+                <input id="subFacilityInput" placeholder="Village / town / unit">
+              </div>
+            </div>
+            <div class="field">
+              <label for="addressInput">Address</label>
+              <textarea id="addressInput" placeholder="Address"></textarea>
+            </div>
+          </div>
+        </details>
+
+        <details class="control-group" open>
+          <summary>
+            <span>Appearance</span>
+            <span class="summary-hint">Color, fonts, sizing, zoom</span>
+          </summary>
+          <div class="group-body">
+            <div class="mini-grid">
+              <div class="field">
+                <label for="accentColorInput">Accent Color</label>
+                <input id="accentColorInput" type="color" value="#8b0000">
+              </div>
+              <div class="field">
+                <label for="textColorInput">Text Color</label>
+                <input id="textColorInput" type="color" value="#17324d">
+              </div>
+            </div>
+            <div class="mini-grid">
+              <div class="field">
+                <label for="nameFontFamilyInput">Name Font</label>
+                <select id="nameFontFamilyInput">
+                  <option value="Georgia">Georgia</option>
+                  <option value="Segoe UI">Segoe UI</option>
+                  <option value="Trebuchet MS">Trebuchet MS</option>
+                  <option value="Times New Roman">Times New Roman</option>
+                  <option value="Verdana">Verdana</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="bodyFontFamilyInput">Body Font</label>
+                <select id="bodyFontFamilyInput">
+                  <option value="Segoe UI">Segoe UI</option>
+                  <option value="Georgia">Georgia</option>
+                  <option value="Trebuchet MS">Trebuchet MS</option>
+                  <option value="Arial">Arial</option>
+                  <option value="Verdana">Verdana</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label for="zoomRange">Canvas Zoom</label>
+              <div class="slider-row">
+                <input id="zoomRange" type="range" min="70" max="140" value="100">
+                <span class="slider-value" id="zoomValue">100%</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="bgOpacityRange">Background Opacity</label>
+              <div class="slider-row">
+                <input id="bgOpacityRange" type="range" min="0" max="60" value="24">
+                <span class="slider-value" id="bgOpacityValue">24%</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="nameSizeRange">Name Size</label>
+              <div class="slider-row">
+                <input id="nameSizeRange" type="range" min="24" max="48" value="34">
+                <span class="slider-value" id="nameSizeValue">34</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="roleSizeRange">Role Size</label>
+              <div class="slider-row">
+                <input id="roleSizeRange" type="range" min="18" max="34" value="24">
+                <span class="slider-value" id="roleSizeValue">24</span>
+              </div>
+            </div>
+            <div class="toolbar">
+              <button class="btn tiny" type="button" onclick="applyPreset('official')">Official</button>
+              <button class="btn tiny" type="button" onclick="applyPreset('blue')">Blue</button>
+              <button class="btn tiny" type="button" onclick="applyPreset('clean')">Clean</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="control-group" open>
+          <summary>
+            <span>Canvas Tools</span>
+            <span class="summary-hint">Object focus, alignment, switching</span>
+          </summary>
+          <div class="group-body">
+            <div class="toolbar">
+              <button class="btn tiny" type="button" onclick="focusObject('name')">Name</button>
+              <button class="btn tiny" type="button" onclick="focusObject('role')">Role</button>
+              <button class="btn tiny" type="button" onclick="focusObject('photo')">Photo</button>
+              <button class="btn tiny" type="button" onclick="focusObject('serial')">Serial</button>
+              <button class="btn tiny" type="button" onclick="focusObject('backTitle')">Back Title</button>
+            </div>
+            <div class="toolbar">
+              <button class="btn tiny" type="button" onclick="alignActive('left')">Align Left</button>
+              <button class="btn tiny" type="button" onclick="alignActive('center')">Center</button>
+              <button class="btn tiny" type="button" onclick="alignActive('right')">Align Right</button>
+            </div>
+            <div class="toolbar">
+              <button class="btn tiny" type="button" onclick="nudgeActive(-5, 0)">Left</button>
+              <button class="btn tiny" type="button" onclick="nudgeActive(5, 0)">Right</button>
+              <button class="btn tiny" type="button" onclick="nudgeActive(0, -5)">Up</button>
+              <button class="btn tiny" type="button" onclick="nudgeActive(0, 5)">Down</button>
+            </div>
+            <div class="toolbar">
+              <button class="btn tiny" type="button" onclick="switchSide('front')">Show Front</button>
+              <button class="btn tiny" type="button" onclick="switchSide('back')">Show Back</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="control-group">
+          <summary>
+            <span>Assets</span>
+            <span class="summary-hint">Replace card photo</span>
+          </summary>
+          <div class="group-body">
+            <div class="field">
+              <label for="photoInput">Replace Photo</label>
+              <input id="photoInput" type="file" accept="image/*">
+            </div>
+            <div class="toolbar">
+              <button class="btn" type="button" onclick="uploadPhoto()">Upload Photo</button>
+            </div>
+          </div>
+        </details>
+      </div>
+    </aside>
+
+    <main class="stage">
+      <section class="hero">
+        <div>
+          <h1>ID Card Edit Studio</h1>
+          <p>Fabric.js keeps editing fast in the browser. Flask still handles record load, save, and export so this page stays aligned with your existing data flow.</p>
+        </div>
+        <div class="hero-actions">
+          <div class="side-tabs" role="tablist" aria-label="Card side">
+            <button class="side-tab active" id="frontTab" type="button" onclick="switchSide('front')">Front Side</button>
+            <button class="side-tab" id="backTab" type="button" onclick="switchSide('back')">Back Side</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">Live Canvas</div>
+        <div class="panel-body">
+          <div class="top-actions">
+            <div class="meta">
+              <span>Browser: Fabric.js edits the card</span>
+              <span>Server: Flask loads, saves, exports</span>
+              <span>Snap guides + undo/redo enabled</span>
+            </div>
+            <div class="quick-tools">
+              <span class="badge" id="activeObjectBadge">Active: none</span>
+              <span class="badge" id="currentSideBadge">Side: front</span>
+              <button class="btn tiny" type="button" onclick="undoCanvas()">Undo</button>
+              <button class="btn tiny" type="button" onclick="redoCanvas()">Redo</button>
+              <button class="btn tiny" type="button" onclick="saveCard()">Quick Save</button>
+            </div>
+          </div>
+        </div>
+        <div class="canvas-wrap">
+          <div class="canvas-stage">
+            <div class="canvas-shell" id="canvasShell">
+              <canvas id="cardCanvas" width="960" height="540"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const CANVAS_WIDTH = 960;
+    const CANVAS_HEIGHT = 540;
+    const SNAP_MARGIN = 8;
+
+    const state = {
+      record: null,
+      settings: null,
+      canvas: null,
+      staticObjects: {},
+      sides: { front: {}, back: {} },
+      backgroundImage: null,
+      photoImage: null,
+      currentSide: 'front',
+      snapGuides: [],
+      history: {
+        undoStack: [],
+        redoStack: [],
+        isApplying: false,
+      },
+      view: {
+        zoom: 100,
+        bgOpacity: 24,
+        nameSize: 34,
+        roleSize: 24,
+        accent: '#8b0000',
+        textColor: '#17324d',
+        nameFont: 'Georgia',
+        bodyFont: 'Segoe UI',
+      },
+    };
+
+    function setStatus(message, ok = false, warn = false) {
+      const box = document.getElementById('statusBox');
+      box.textContent = message;
+      box.className = warn ? 'status warn' : (ok ? 'status ok' : 'status');
+    }
+
+    function escapeValue(value) {
+      return String(value || '').trim();
+    }
+
+    function field(id) {
+      return document.getElementById(id);
+    }
+
+    function visibleSideObjects() {
+      return Object.values(state.sides[state.currentSide] || {}).filter(Boolean);
+    }
+
+    function allEditableObjects() {
+      return [
+        ...Object.values(state.sides.front || {}),
+        ...Object.values(state.sides.back || {}),
+      ].filter(Boolean);
+    }
+
+    function currentPayload() {
+      const profileType = field('profileTypeInput').value || 'student';
+      return {
+        ...(state.record || {}),
+        institute_name: escapeValue(field('instituteInput').value),
+        serial_no: escapeValue(field('serialInput').value),
+        profile_type: profileType,
+        name: escapeValue(field('nameInput').value),
+        blood_group: escapeValue(field('bloodGroupInput').value),
+        employee_id: escapeValue(field('employeeIdInput').value),
+        batch_session: escapeValue(field('batchInput').value),
+        training_year: escapeValue(field('yearInput').value),
+        dob: escapeValue(field('dobInput').value),
+        valid_upto: escapeValue(field('validUptoInput').value),
+        contact: escapeValue(field('contactInput').value),
+        father_name: escapeValue(field('fatherNameInput').value),
+        address: escapeValue(field('addressInput').value),
+        facility_location: escapeValue(field('facilityInput').value),
+        facility_sub_location: escapeValue(field('subFacilityInput').value),
+        department: escapeValue(field('facilityInput').value),
+        course: profileType === 'student' ? escapeValue(field('courseInput').value) : '',
+        designation: profileType === 'student' ? '' : escapeValue(field('courseInput').value),
+      };
+    }
+
+    function applyRecordToFields(record) {
+      field('instituteInput').value = record.institute_name || '';
+      field('serialInput').value = record.serial_no || '';
+      field('profileTypeInput').value = record.profile_type || 'student';
+      field('nameInput').value = record.name || '';
+      field('bloodGroupInput').value = record.blood_group || '';
+      field('employeeIdInput').value = record.employee_id || '';
+      field('batchInput').value = record.batch_session || '';
+      field('yearInput').value = record.training_year || '';
+      field('dobInput').value = record.dob || '';
+      field('validUptoInput').value = record.valid_upto || '';
+      field('contactInput').value = record.contact || '';
+      field('fatherNameInput').value = record.father_name || '';
+      field('addressInput').value = record.address || '';
+      field('facilityInput').value = record.facility_location || record.department || '';
+      field('subFacilityInput').value = record.facility_sub_location || '';
+      field('courseInput').value = record.course || record.designation || '';
+      updateLoadedChips(record);
+    }
+
+    function updateLoadedChips(record) {
+      field('loadedSerialChip').textContent = `Serial: ${record && record.serial_no ? record.serial_no : '--'}`;
+      field('loadedTypeChip').textContent = `Type: ${record && record.profile_type ? record.profile_type : '--'}`;
+    }
+
+    function updateSliderValue(id, value, suffix = '') {
+      field(id).textContent = `${value}${suffix}`;
+    }
+
+    function updateActiveObjectBadge(name) {
+      field('activeObjectBadge').textContent = `Active: ${name || 'none'}`;
+    }
+
+    function updateSideBadge() {
+      field('currentSideBadge').textContent = `Side: ${state.currentSide}`;
+      field('frontTab').classList.toggle('active', state.currentSide === 'front');
+      field('backTab').classList.toggle('active', state.currentSide === 'back');
+    }
+
+    function syncAppearanceControls() {
+      field('zoomRange').value = state.view.zoom;
+      field('bgOpacityRange').value = state.view.bgOpacity;
+      field('nameSizeRange').value = state.view.nameSize;
+      field('roleSizeRange').value = state.view.roleSize;
+      field('accentColorInput').value = state.view.accent;
+      field('textColorInput').value = state.view.textColor;
+      field('nameFontFamilyInput').value = state.view.nameFont;
+      field('bodyFontFamilyInput').value = state.view.bodyFont;
+      updateSliderValue('zoomValue', state.view.zoom, '%');
+      updateSliderValue('bgOpacityValue', state.view.bgOpacity, '%');
+      updateSliderValue('nameSizeValue', state.view.nameSize);
+      updateSliderValue('roleSizeValue', state.view.roleSize);
+      field('zoomChip').textContent = `Zoom: ${state.view.zoom}%`;
+    }
+
+    function setCanvasZoom(zoom) {
+      state.view.zoom = Math.max(70, Math.min(140, Number(zoom) || 100));
+      field('canvasShell').style.transform = `scale(${state.view.zoom / 100})`;
+      updateSliderValue('zoomValue', state.view.zoom, '%');
+      field('zoomChip').textContent = `Zoom: ${state.view.zoom}%`;
+    }
+
+    function buildEditableTextbox(text, options = {}) {
+      return new fabric.Textbox(text, {
+        selectable: true,
+        editable: true,
+        transparentCorners: false,
+        borderColor: '#0f4c81',
+        cornerColor: '#0f4c81',
+        cornerStyle: 'circle',
+        ...options,
+      });
+    }
+
+    function addGuideLine(coords) {
+      const line = new fabric.Line(coords, {
+        stroke: '#0f4c81',
+        strokeWidth: 1,
+        selectable: false,
+        evented: false,
+        excludeFromExport: true,
+      });
+      state.snapGuides.push(line);
+      state.canvas.add(line);
+      line.moveTo(1000);
+    }
+
+    function clearSnapGuides() {
+      if (!state.canvas) return;
+      state.snapGuides.forEach((line) => state.canvas.remove(line));
+      state.snapGuides = [];
+    }
+
+    function getObjectCenterX(obj) {
+      return (obj.left || 0) + obj.getScaledWidth() / 2;
+    }
+
+    function getObjectCenterY(obj) {
+      return (obj.top || 0) + obj.getScaledHeight() / 2;
+    }
+
+    function applySnapGuides(target) {
+      if (!state.canvas || !target) return;
+      clearSnapGuides();
+      const targets = visibleSideObjects().filter((item) => item !== target);
+      const centerX = getObjectCenterX(target);
+      const centerY = getObjectCenterY(target);
+      const canvasCenterX = CANVAS_WIDTH / 2;
+      const canvasCenterY = CANVAS_HEIGHT / 2;
+
+      if (Math.abs(centerX - canvasCenterX) <= SNAP_MARGIN) {
+        target.set('left', canvasCenterX - target.getScaledWidth() / 2);
+        addGuideLine([canvasCenterX, 20, canvasCenterX, CANVAS_HEIGHT - 20]);
+      }
+      if (Math.abs(centerY - canvasCenterY) <= SNAP_MARGIN) {
+        target.set('top', canvasCenterY - target.getScaledHeight() / 2);
+        addGuideLine([20, canvasCenterY, CANVAS_WIDTH - 20, canvasCenterY]);
+      }
+
+      targets.forEach((item) => {
+        const itemCenterX = getObjectCenterX(item);
+        const itemCenterY = getObjectCenterY(item);
+
+        if (Math.abs(centerX - itemCenterX) <= SNAP_MARGIN) {
+          target.set('left', itemCenterX - target.getScaledWidth() / 2);
+          addGuideLine([itemCenterX, 20, itemCenterX, CANVAS_HEIGHT - 20]);
+        }
+        if (Math.abs(centerY - itemCenterY) <= SNAP_MARGIN) {
+          target.set('top', itemCenterY - target.getScaledHeight() / 2);
+          addGuideLine([20, itemCenterY, CANVAS_WIDTH - 20, itemCenterY]);
+        }
+
+        const itemLeft = item.left || 0;
+        const itemRight = itemLeft + item.getScaledWidth();
+        const targetLeft = target.left || 0;
+        const targetRight = targetLeft + target.getScaledWidth();
+
+        if (Math.abs(targetLeft - itemLeft) <= SNAP_MARGIN) {
+          target.set('left', itemLeft);
+          addGuideLine([itemLeft, 20, itemLeft, CANVAS_HEIGHT - 20]);
+        }
+        if (Math.abs(targetRight - itemRight) <= SNAP_MARGIN) {
+          target.set('left', itemRight - target.getScaledWidth());
+          addGuideLine([itemRight, 20, itemRight, CANVAS_HEIGHT - 20]);
+        }
+      });
+    }
+
+    function buildCanvas() {
+      const canvas = new fabric.Canvas('cardCanvas', {
+        backgroundColor: '#f7fafc',
+        preserveObjectStacking: true,
+        selection: true,
+      });
+      state.canvas = canvas;
+
+      canvas.on('selection:created', () => {
+        const active = canvas.getActiveObject();
+        updateActiveObjectBadge(active && active.name ? active.name : 'custom');
+      });
+      canvas.on('selection:updated', () => {
+        const active = canvas.getActiveObject();
+        updateActiveObjectBadge(active && active.name ? active.name : 'custom');
+      });
+      canvas.on('selection:cleared', () => updateActiveObjectBadge('none'));
+      canvas.on('object:moving', (event) => {
+        if (!event.target) return;
+        applySnapGuides(event.target);
+        canvas.requestRenderAll();
+      });
+      canvas.on('mouse:up', () => clearSnapGuides());
+      canvas.on('object:modified', () => pushHistoryState());
+
+      const shared = {};
+      shared.card = new fabric.Rect({
+        left: 20,
+        top: 20,
+        width: 920,
+        height: 500,
+        rx: 28,
+        ry: 28,
+        fill: '#ffffff',
+        stroke: '#d8e1ea',
+        strokeWidth: 2,
+        selectable: false,
+        evented: false,
+      });
+      shared.accent = new fabric.Rect({
+        left: 20,
+        top: 20,
+        width: 920,
+        height: 90,
+        rx: 28,
+        ry: 28,
+        fill: state.view.accent,
+        selectable: false,
+        evented: false,
+      });
+      shared.headerBar = new fabric.Rect({
+        left: 20,
+        top: 82,
+        width: 920,
+        height: 30,
+        fill: '#17324d',
+        selectable: false,
+        evented: false,
+      });
+      canvas.add(shared.card, shared.accent, shared.headerBar);
+      state.staticObjects = shared;
+
+      state.sides.front = {
+        photoFrame: new fabric.Rect({
+          left: 62,
+          top: 144,
+          width: 180,
+          height: 220,
+          rx: 16,
+          ry: 16,
+          fill: '#eef3f8',
+          stroke: '#d0dae5',
+          strokeWidth: 2,
+          selectable: true,
+          name: 'photo',
+        }),
+        photoLabel: buildEditableTextbox('PHOTO', {
+          left: 104,
+          top: 235,
+          width: 98,
+          fontSize: 22,
+          fill: '#6b7c8f',
+          fontWeight: '700',
+          textAlign: 'center',
+          name: 'photo',
+        }),
+        institute: buildEditableTextbox('Institute Name', {
+          left: 272,
+          top: 36,
+          width: 600,
+          fontSize: 30,
+          fill: '#ffffff',
+          fontWeight: '700',
+          name: 'institute',
+        }),
+        type: buildEditableTextbox('IDENTITY CARD', {
+          left: 272,
+          top: 84,
+          width: 360,
+          fontSize: 16,
+          fill: '#ffffff',
+          fontWeight: '700',
+          charSpacing: 120,
+          name: 'type',
+        }),
+        name: buildEditableTextbox('Full Name', {
+          left: 286,
+          top: 154,
+          width: 560,
+          fontSize: 34,
+          fill: '#17324d',
+          fontWeight: '700',
+          name: 'name',
+        }),
+        role: buildEditableTextbox('Course / Designation', {
+          left: 286,
+          top: 206,
+          width: 500,
+          fontSize: 24,
+          fill: '#8b0000',
+          fontWeight: '700',
+          name: 'role',
+        }),
+        details: buildEditableTextbox('', {
+          left: 286,
+          top: 256,
+          width: 560,
+          fontSize: 17,
+          lineHeight: 1.45,
+          fill: '#27435f',
+          name: 'details',
+        }),
+        serial: buildEditableTextbox('Serial: -', {
+          left: 62,
+          top: 404,
+          width: 280,
+          fontSize: 18,
+          fill: '#17324d',
+          fontWeight: '700',
+          name: 'serial',
+        }),
+        footer: buildEditableTextbox('Medical ID Editor', {
+          left: 62,
+          top: 452,
+          width: 800,
+          fontSize: 15,
+          fill: '#59728c',
+          name: 'footer',
+        }),
+      };
+
+      state.sides.back = {
+        backTitle: buildEditableTextbox('Important Information', {
+          left: 64,
+          top: 56,
+          width: 560,
+          fontSize: 28,
+          fontWeight: '700',
+          fill: '#17324d',
+          name: 'backTitle',
+        }),
+        backSubtitle: buildEditableTextbox('Keep this card safely and carry it when required.', {
+          left: 64,
+          top: 106,
+          width: 760,
+          fontSize: 18,
+          fill: '#8b0000',
+          fontWeight: '700',
+          name: 'backSubtitle',
+        }),
+        addressBlock: buildEditableTextbox('', {
+          left: 64,
+          top: 168,
+          width: 400,
+          fontSize: 18,
+          lineHeight: 1.45,
+          fill: '#17324d',
+          name: 'addressBlock',
+        }),
+        noteBlock: buildEditableTextbox('', {
+          left: 500,
+          top: 168,
+          width: 360,
+          fontSize: 16,
+          lineHeight: 1.5,
+          fill: '#27435f',
+          name: 'noteBlock',
+        }),
+        emergency: buildEditableTextbox('If found, return to the issuing institute office.', {
+          left: 64,
+          top: 412,
+          width: 560,
+          fontSize: 17,
+          fontWeight: '700',
+          fill: '#8b0000',
+          name: 'emergency',
+        }),
+        backFooter: buildEditableTextbox('This card is the property of the institute.', {
+          left: 64,
+          top: 454,
+          width: 760,
+          fontSize: 15,
+          fill: '#59728c',
+          name: 'backFooter',
+        }),
+      };
+
+      allEditableObjects().forEach((obj) => canvas.add(obj));
+      setSideVisibility('front');
+      syncAppearanceControls();
+      setCanvasZoom(state.view.zoom);
+      applyAppearanceControls();
+      updateSideBadge();
+      canvas.renderAll();
+      pushHistoryState(true);
+    }
+
+    function setSideVisibility(side) {
+      Object.values(state.sides.front).forEach((obj) => obj.set('visible', side === 'front'));
+      Object.values(state.sides.back).forEach((obj) => obj.set('visible', side === 'back'));
+      if (state.photoImage) {
+        state.photoImage.set('visible', side === 'front');
+      }
+      state.currentSide = side;
+      updateSideBadge();
+      if (state.canvas) {
+        state.canvas.discardActiveObject();
+        state.canvas.requestRenderAll();
+      }
+    }
+
+    function switchSide(side) {
+      if (!state.canvas || !['front', 'back'].includes(side)) return;
+      if (state.currentSide === side) return;
+      setSideVisibility(side);
+      pushHistoryState();
+      setStatus(`Switched to ${side} side.`, true);
+    }
+
+    function focusObject(name) {
+      const object = allEditableObjects().find((item) => item && item.name === name);
+      if (!object || !state.canvas) return;
+      if (!object.visible) {
+        if (Object.values(state.sides.back).includes(object)) {
+          setSideVisibility('back');
+        } else {
+          setSideVisibility('front');
+        }
+      }
+      state.canvas.setActiveObject(object);
+      state.canvas.requestRenderAll();
+    }
+
+    function resetCanvasLayout() {
+      if (!state.canvas) return;
+      clearSnapGuides();
+      state.canvas.dispose();
+      state.backgroundImage = null;
+      state.photoImage = null;
+      state.history.undoStack = [];
+      state.history.redoStack = [];
+      buildCanvas();
+      if (state.record) renderRecordOnCanvas();
+      setStatus('Canvas layout reset to default.', true);
+    }
+
+    function alignActive(mode) {
+      if (!state.canvas) return;
+      const active = state.canvas.getActiveObject();
+      if (!active) {
+        setStatus('Select a canvas object first.', false, true);
+        return;
+      }
+      if (mode === 'left') active.set('left', 62);
+      if (mode === 'center') active.set('left', (CANVAS_WIDTH - active.getScaledWidth()) / 2);
+      if (mode === 'right') active.set('left', 898 - active.getScaledWidth());
+      active.setCoords();
+      state.canvas.requestRenderAll();
+      pushHistoryState();
+    }
+
+    function nudgeActive(dx, dy) {
+      if (!state.canvas) return;
+      const active = state.canvas.getActiveObject();
+      if (!active) {
+        setStatus('Select a canvas object first.', false, true);
+        return;
+      }
+      active.set({
+        left: (active.left || 0) + dx,
+        top: (active.top || 0) + dy,
+      });
+      active.setCoords();
+      state.canvas.requestRenderAll();
+      pushHistoryState();
+    }
+
+    function applyPreset(mode) {
+      if (mode === 'official') {
+        state.view.accent = '#8b0000';
+        state.view.textColor = '#17324d';
+        state.view.bgOpacity = 24;
+        state.view.nameSize = 34;
+        state.view.roleSize = 24;
+        state.view.nameFont = 'Georgia';
+        state.view.bodyFont = 'Segoe UI';
+      } else if (mode === 'blue') {
+        state.view.accent = '#0f4c81';
+        state.view.textColor = '#16324a';
+        state.view.bgOpacity = 18;
+        state.view.nameSize = 33;
+        state.view.roleSize = 23;
+        state.view.nameFont = 'Trebuchet MS';
+        state.view.bodyFont = 'Verdana';
+      } else {
+        state.view.accent = '#7c3b00';
+        state.view.textColor = '#22313f';
+        state.view.bgOpacity = 10;
+        state.view.nameSize = 32;
+        state.view.roleSize = 22;
+        state.view.nameFont = 'Times New Roman';
+        state.view.bodyFont = 'Arial';
+      }
+      syncAppearanceControls();
+      applyAppearanceControls();
+      pushHistoryState();
+      setStatus(`Applied ${mode} preset.`, true);
+    }
+
+    function applyAppearanceControls() {
+      if (!state.canvas) return;
+      state.staticObjects.accent.set('fill', state.view.accent);
+      state.sides.front.name.set({
+        fill: state.view.textColor,
+        fontSize: state.view.nameSize,
+        fontFamily: state.view.nameFont,
+      });
+      state.sides.front.role.set({
+        fill: state.view.accent,
+        fontSize: state.view.roleSize,
+        fontFamily: state.view.bodyFont,
+      });
+      [
+        state.sides.front.details,
+        state.sides.front.serial,
+        state.sides.front.footer,
+        state.sides.front.institute,
+        state.sides.front.type,
+        state.sides.back.backTitle,
+        state.sides.back.backSubtitle,
+        state.sides.back.addressBlock,
+        state.sides.back.noteBlock,
+        state.sides.back.emergency,
+        state.sides.back.backFooter,
+      ].forEach((obj) => {
+        if (!obj) return;
+        obj.set({
+          fontFamily: obj.name === 'backTitle' ? state.view.nameFont : state.view.bodyFont,
+        });
+      });
+      state.sides.front.serial.set('fill', state.view.textColor);
+      state.sides.front.details.set('fill', state.view.textColor);
+      state.sides.back.backTitle.set('fill', state.view.textColor);
+      state.sides.back.addressBlock.set('fill', state.view.textColor);
+      state.sides.back.backSubtitle.set('fill', state.view.accent);
+      state.sides.back.emergency.set('fill', state.view.accent);
+      if (state.backgroundImage) {
+        state.backgroundImage.set('opacity', state.view.bgOpacity / 100);
+      }
+      state.canvas.requestRenderAll();
+    }
+
+    function renderRecordOnCanvas() {
+      if (!state.canvas) return;
+      const payload = currentPayload();
+      const courseOrDesignation = payload.profile_type === 'student'
+        ? (payload.training_year || payload.course || 'Student')
+        : (payload.designation || payload.facility_location || 'Employee');
+      const frontDetails = [
+        `DOB: ${payload.dob || '-'}`,
+        `Blood Group: ${payload.blood_group || '-'}`,
+        `Contact: ${payload.contact || '-'}`,
+        `Batch: ${payload.batch_session || '-'}`,
+        `Valid Upto: ${payload.valid_upto || '-'}`,
+        `Guardian: ${payload.father_name || '-'}`,
+      ].join('\n');
+      const backAddress = [
+        `Institute: ${payload.institute_name || '-'}`,
+        `Address: ${payload.address || '-'}`,
+        `Contact: ${payload.contact || '-'}`,
+      ].join('\n');
+      const backNotes = [
+        `Serial No: ${payload.serial_no || '-'}`,
+        `Profile: ${payload.profile_type || '-'}`,
+        `Course/Role: ${courseOrDesignation}`,
+        `Facility: ${payload.facility_location || payload.department || '-'}`,
+        `Sub Location: ${payload.facility_sub_location || '-'}`,
+      ].join('\n');
+
+      state.sides.front.institute.set('text', payload.institute_name || 'Institute Name');
+      state.sides.front.type.set('text', `${(payload.profile_type || 'student').toUpperCase()} ID CARD`);
+      state.sides.front.name.set('text', payload.name || 'Full Name');
+      state.sides.front.role.set('text', courseOrDesignation);
+      state.sides.front.details.set('text', frontDetails);
+      state.sides.front.serial.set('text', `Serial: ${payload.serial_no || '-'}`);
+      state.sides.front.footer.set('text', payload.address || 'Address will appear here');
+
+      state.sides.back.backTitle.set('text', payload.institute_name || 'Institute Information');
+      state.sides.back.backSubtitle.set('text', 'Please carry this card and follow institute rules.');
+      state.sides.back.addressBlock.set('text', backAddress);
+      state.sides.back.noteBlock.set('text', backNotes);
+      state.sides.back.emergency.set('text', 'If found, please return this card to the institute office.');
+      state.sides.back.backFooter.set('text', `Issued for ${payload.name || 'card holder'} | Validity: ${payload.valid_upto || '-'}`);
+
+      loadCanvasBackground();
+      loadCanvasPhoto(payload.photo_url || '');
+      updateLoadedChips(payload);
+      applyAppearanceControls();
+      state.canvas.requestRenderAll();
+    }
+
+    function loadCanvasBackground() {
+      const url = state.settings && state.settings.background_url ? state.settings.background_url : '';
+      if (!state.canvas) return;
+      if (!url) {
+        if (state.backgroundImage) {
+          state.canvas.remove(state.backgroundImage);
+          state.backgroundImage = null;
+          state.canvas.requestRenderAll();
+        }
+        return;
+      }
+      fabric.Image.fromURL(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`, (img) => {
+        if (!img) return;
+        img.set({
+          left: 20,
+          top: 20,
+          selectable: false,
+          evented: false,
+          opacity: state.view.bgOpacity / 100,
+        });
+        img.scaleToWidth(920);
+        img.scaleToHeight(500);
+        if (state.backgroundImage) {
+          state.canvas.remove(state.backgroundImage);
+        }
+        state.backgroundImage = img;
+        state.canvas.insertAt(img, 1);
+        state.canvas.requestRenderAll();
+      }, { crossOrigin: 'anonymous' });
+    }
+
+    function loadCanvasPhoto(url) {
+      if (!state.canvas) return;
+      if (state.photoImage) {
+        state.canvas.remove(state.photoImage);
+        state.photoImage = null;
+      }
+      state.sides.front.photoLabel.set('visible', !url);
+      if (!url) {
+        state.canvas.requestRenderAll();
+        return;
+      }
+      fabric.Image.fromURL(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`, (img) => {
+        if (!img) return;
+        img.set({
+          left: 62,
+          top: 144,
+          name: 'photo',
+          visible: state.currentSide === 'front',
+          selectable: false,
+          evented: false,
+        });
+        img.scaleToWidth(180);
+        img.scaleToHeight(220);
+        state.photoImage = img;
+        state.canvas.add(img);
+        state.canvas.moveTo(img, 100);
+        state.canvas.requestRenderAll();
+      }, { crossOrigin: 'anonymous' });
+    }
+
+    async function loadSettingsForInstitute(institute) {
+      if (!institute) {
+        state.settings = null;
+        return;
+      }
+      try {
+        const res = await fetch(`/api/settings?institute=${encodeURIComponent(institute)}`);
+        state.settings = await res.json();
+      } catch (error) {
+        state.settings = null;
+      }
+    }
+
+    async function loadCard() {
+      const institute = escapeValue(field('instituteInput').value);
+      const serial = escapeValue(field('serialInput').value);
+      if (!institute || !serial) {
+        setStatus('Institute and serial number are required before loading.');
+        return;
+      }
+      setStatus('Loading card...');
+      try {
+        const [, recordPromise] = await Promise.all([
+          loadSettingsForInstitute(institute),
+          fetch(`/api/id-card-edit/load?institute=${encodeURIComponent(institute)}&serial_no=${encodeURIComponent(serial)}`),
+        ]);
+        const data = await recordPromise.json();
+        if (!recordPromise.ok) throw new Error(data.error || 'Unable to load card.');
+        state.record = data.record || {};
+        applyRecordToFields(state.record);
+        renderRecordOnCanvas();
+        pushHistoryState(true);
+        setStatus(`Loaded ${state.record.serial_no || serial} for editing.`, true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to load card.');
+      }
+    }
+
+    async function saveCard() {
+      const payload = currentPayload();
+      if (!payload.institute_name || !payload.serial_no || !payload.name) {
+        setStatus('Institute, serial number, and name are required before saving.');
+        return;
+      }
+      setStatus('Saving card changes...');
+      try {
+        const res = await fetch('/api/id-card-edit/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to save card.');
+        state.record = data.record || payload;
+        renderRecordOnCanvas();
+        setStatus(`Saved changes for ${payload.serial_no}.`, true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to save card.');
+      }
+    }
+
+    async function uploadPhoto() {
+      const institute = escapeValue(field('instituteInput').value);
+      const serial = escapeValue(field('serialInput').value);
+      const input = field('photoInput');
+      if (!institute || !serial) {
+        setStatus('Load a card first so the photo can be attached to the right record.');
+        return;
+      }
+      if (!input.files || !input.files.length) {
+        setStatus('Choose a photo file first.');
+        return;
+      }
+      const formData = new FormData();
+      formData.append('photo', input.files[0]);
+      formData.append('serial_no', serial);
+      formData.append('institute_name', institute);
+      setStatus('Uploading photo...');
+      try {
+        const res = await fetch('/api/admin-attach-photo', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to upload photo.');
+        state.record = { ...(state.record || {}), photo_url: data.photo_url || '', photo_drive_id: data.photo_drive_id || '' };
+        renderRecordOnCanvas();
+        input.value = '';
+        setStatus('Photo uploaded and attached to the card.', true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to upload photo.');
+      }
+    }
+
+    async function exportCard(format) {
+      if (!state.canvas) return;
+      const payload = currentPayload();
+      if (!payload.serial_no) {
+        setStatus('Load a card before exporting.');
+        return;
+      }
+      setStatus(`Preparing ${format.toUpperCase()} export...`);
+      try {
+        const imageData = state.canvas.toDataURL({ format: 'png', quality: 1 });
+        const res = await fetch('/api/id-card-edit/export', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            format,
+            serial_no: payload.serial_no,
+            image_data: imageData,
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Unable to export card.');
+        }
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `${payload.serial_no}.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(blobUrl);
+        setStatus(`${format.toUpperCase()} export is ready.`, true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to export card.');
+      }
+    }
+
+    function captureCanvasState() {
+      return {
+        currentSide: state.currentSide,
+        view: { ...state.view },
+        front: serializeObjectMap(state.sides.front),
+        back: serializeObjectMap(state.sides.back),
+      };
+    }
+
+    function serializeObjectMap(map) {
+      const output = {};
+      Object.entries(map || {}).forEach(([key, obj]) => {
+        output[key] = {
+          left: obj.left || 0,
+          top: obj.top || 0,
+          width: obj.width || 0,
+          text: obj.text || '',
+          fontSize: obj.fontSize || 16,
+          fontFamily: obj.fontFamily || 'Segoe UI',
+          fill: obj.fill || '#17324d',
+          visible: !!obj.visible,
+          textAlign: obj.textAlign || 'left',
+          charSpacing: obj.charSpacing || 0,
+          angle: obj.angle || 0,
+        };
+      });
+      return output;
+    }
+
+    function applySerializedState(targetMap, serializedMap) {
+      Object.entries(serializedMap || {}).forEach(([key, value]) => {
+        const obj = targetMap[key];
+        if (!obj || !value) return;
+        obj.set({
+          left: value.left,
+          top: value.top,
+          width: value.width,
+          text: value.text,
+          fontSize: value.fontSize,
+          fontFamily: value.fontFamily,
+          fill: value.fill,
+          visible: value.visible,
+          textAlign: value.textAlign,
+          charSpacing: value.charSpacing,
+          angle: value.angle,
+        });
+        obj.setCoords();
+      });
+    }
+
+    function pushHistoryState(resetRedo = true) {
+      if (!state.canvas || state.history.isApplying) return;
+      const snapshot = captureCanvasState();
+      const previous = state.history.undoStack[state.history.undoStack.length - 1];
+      const marker = JSON.stringify(snapshot);
+      if (previous && JSON.stringify(previous) === marker) return;
+      state.history.undoStack.push(snapshot);
+      if (state.history.undoStack.length > 40) {
+        state.history.undoStack.shift();
+      }
+      if (resetRedo) {
+        state.history.redoStack = [];
+      }
+    }
+
+    function applyHistorySnapshot(snapshot) {
+      if (!snapshot || !state.canvas) return;
+      state.history.isApplying = true;
+      state.view = { ...state.view, ...(snapshot.view || {}) };
+      syncAppearanceControls();
+      applySerializedState(state.sides.front, snapshot.front || {});
+      applySerializedState(state.sides.back, snapshot.back || {});
+      setSideVisibility(snapshot.currentSide || 'front');
+      applyAppearanceControls();
+      state.canvas.requestRenderAll();
+      state.history.isApplying = false;
+    }
+
+    function undoCanvas() {
+      if (state.history.undoStack.length <= 1) {
+        setStatus('Nothing to undo yet.', false, true);
+        return;
+      }
+      const current = state.history.undoStack.pop();
+      state.history.redoStack.push(current);
+      const previous = state.history.undoStack[state.history.undoStack.length - 1];
+      applyHistorySnapshot(previous);
+      setStatus('Undo applied.', true);
+    }
+
+    function redoCanvas() {
+      if (!state.history.redoStack.length) {
+        setStatus('Nothing to redo yet.', false, true);
+        return;
+      }
+      const snapshot = state.history.redoStack.pop();
+      state.history.undoStack.push(snapshot);
+      applyHistorySnapshot(snapshot);
+      setStatus('Redo applied.', true);
+    }
+
+    function bindFieldUpdates() {
+      [
+        'instituteInput', 'serialInput', 'profileTypeInput', 'nameInput', 'bloodGroupInput',
+        'employeeIdInput', 'batchInput', 'yearInput', 'dobInput', 'validUptoInput',
+        'contactInput', 'fatherNameInput', 'addressInput', 'facilityInput',
+        'subFacilityInput', 'courseInput'
+      ].forEach((id) => {
+        field(id).addEventListener('input', renderRecordOnCanvas);
+        field(id).addEventListener('change', renderRecordOnCanvas);
+      });
+
+      field('zoomRange').addEventListener('input', (event) => setCanvasZoom(event.target.value));
+      field('bgOpacityRange').addEventListener('input', (event) => {
+        state.view.bgOpacity = Number(event.target.value) || 24;
+        updateSliderValue('bgOpacityValue', state.view.bgOpacity, '%');
+        applyAppearanceControls();
+      });
+      field('nameSizeRange').addEventListener('input', (event) => {
+        state.view.nameSize = Number(event.target.value) || 34;
+        updateSliderValue('nameSizeValue', state.view.nameSize);
+        applyAppearanceControls();
+      });
+      field('roleSizeRange').addEventListener('input', (event) => {
+        state.view.roleSize = Number(event.target.value) || 24;
+        updateSliderValue('roleSizeValue', state.view.roleSize);
+        applyAppearanceControls();
+      });
+      field('accentColorInput').addEventListener('input', (event) => {
+        state.view.accent = event.target.value;
+        applyAppearanceControls();
+        pushHistoryState();
+      });
+      field('textColorInput').addEventListener('input', (event) => {
+        state.view.textColor = event.target.value;
+        applyAppearanceControls();
+        pushHistoryState();
+      });
+      field('nameFontFamilyInput').addEventListener('change', (event) => {
+        state.view.nameFont = event.target.value;
+        applyAppearanceControls();
+        pushHistoryState();
+      });
+      field('bodyFontFamilyInput').addEventListener('change', (event) => {
+        state.view.bodyFont = event.target.value;
+        applyAppearanceControls();
+        pushHistoryState();
+      });
+    }
+
+    window.addEventListener('load', () => {
+      buildCanvas();
+      bindFieldUpdates();
+      syncAppearanceControls();
+      renderRecordOnCanvas();
+      if (field('instituteInput').value && field('serialInput').value) {
+        loadCard();
+      }
+    });
+  </script>
+</body>
+</html>

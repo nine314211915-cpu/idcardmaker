@@ -23,8 +23,6 @@ STORE_DIR = os.path.join(RUNTIME_DIR, "data_store")
 RECORDS_DIR = os.path.join(STORE_DIR, "records")
 CERTIFICATES_DIR = os.path.join(STORE_DIR, "certificates")
 SETTINGS_DIR = os.path.join(STORE_DIR, "settings")
-ID_CARD_TEMPLATES_DIR = os.path.join(STORE_DIR, "id_card_templates")
-COMMON_BACKGROUNDS_FILE = os.path.join(STORE_DIR, "common_backgrounds.json")
 LOGS_DIR = os.path.join(RUNTIME_DIR, "logs")
 APP_LOG_FILE = os.path.join(LOGS_DIR, "app.log")
 AUDIT_LOG_FILE = os.path.join(LOGS_DIR, "audit.log")
@@ -33,56 +31,17 @@ os.makedirs(ASSET_DIR, exist_ok=True)
 os.makedirs(RECORDS_DIR, exist_ok=True)
 os.makedirs(CERTIFICATES_DIR, exist_ok=True)
 os.makedirs(SETTINGS_DIR, exist_ok=True)
-os.makedirs(ID_CARD_TEMPLATES_DIR, exist_ok=True)
 os.makedirs(LOGS_DIR, exist_ok=True)
 app.config["SIGNATURE_UPLOAD_PASSWORD"] = os.environ.get("SIGNATURE_UPLOAD_PASSWORD", "admin123")
 app.config["ADMIN_PANEL_PASSWORD"] = os.environ.get("ADMIN_PANEL_PASSWORD", "admin123")
 app.config["SUPABASE_URL"] = os.environ.get("SUPABASE_URL", "").strip()
 app.config["SUPABASE_SERVICE_ROLE_KEY"] = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 app.config["SUPABASE_PHOTOS_BUCKET"] = os.environ.get("SUPABASE_PHOTOS_BUCKET", "id-card-photos").strip() or "id-card-photos"
-app.config["SUPABASE_TEMPLATE_THUMBNAILS_BUCKET"] = os.environ.get("SUPABASE_TEMPLATE_THUMBNAILS_BUCKET", "template-thumbnails").strip() or "template-thumbnails"
-app.config["SUPABASE_PROFILE_PHOTOS_BUCKET"] = os.environ.get("SUPABASE_PROFILE_PHOTOS_BUCKET", "profile-photos").strip() or "profile-photos"
-app.config["SUPABASE_TEMPLATE_ASSETS_BUCKET"] = os.environ.get("SUPABASE_TEMPLATE_ASSETS_BUCKET", "template-assets").strip() or "template-assets"
-app.config["SUPABASE_TEMPLATE_TABLE"] = os.environ.get("SUPABASE_TEMPLATE_TABLE", "templates").strip() or "templates"
 app.config["APP_BUILD_TAG"] = os.environ.get("APP_BUILD_TAG", "").strip() or datetime.utcnow().strftime("%Y%m%d-%H%M%S")
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.config["CRON_BACKUP_TOKEN"] = os.environ.get("CRON_BACKUP_TOKEN", "").strip()
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "medical-id-card-secret")
 HEX_COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
-ID_CARD_TEMPLATE_VARIABLES = [
-    "name",
-    "institute_name",
-    "profile_type",
-    "course",
-    "training_year",
-    "batch_session",
-    "father_name",
-    "aadhaar_no",
-    "employee_id",
-    "designation",
-    "department",
-    "dob",
-    "contact",
-    "blood_group",
-    "address",
-    "valid_upto",
-    "serial_no",
-    "batch_id",
-    "batch_name",
-    "submitted_at",
-    "saved_at",
-    "facility_location",
-    "facility_sub_location",
-    "background_scope",
-    "background_scope_label",
-    "background_scope_block",
-    "background_scope_facility_sub_location",
-    "custom_employee_field_label",
-    "custom_employee_field_value",
-    "photo_url",
-]
-
-
 def configure_project_logging():
     formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
     has_app_file_handler = any(
@@ -452,7 +411,6 @@ def default_institute_settings(institute=None):
         "print_background_active_id": "",
         "print_backgrounds": [],
         "office_backgrounds": [],
-        "fabric_batch_background_bindings": {},
         "certificate_background_url": "",
         "certificate_background_drive_id": "",
         "signature_url": "",
@@ -468,7 +426,6 @@ def default_admin_prefs():
         "auto_delete_enabled": False,
         "auto_delete_days": 15,
         "last_auto_cleanup_at": "",
-        "fabric_global_backgrounds": [],
     }
 
 
@@ -559,7 +516,6 @@ def make_storage_path(kind, institute):
         "records": RECORDS_DIR,
         "certificates": CERTIFICATES_DIR,
         "settings": SETTINGS_DIR,
-        "id_card_templates": ID_CARD_TEMPLATES_DIR,
     }
     return os.path.join(directory_map[kind], make_storage_filename(kind, institute))
 
@@ -569,7 +525,6 @@ def list_local_storage_filenames(kind):
         "records": RECORDS_DIR,
         "certificates": CERTIFICATES_DIR,
         "settings": SETTINGS_DIR,
-        "id_card_templates": ID_CARD_TEMPLATES_DIR,
     }
     directory = directory_map[kind]
     if not os.path.isdir(directory):
@@ -618,7 +573,6 @@ def load_admin_prefs():
         defaults["auto_delete_days"] = 15
     defaults["auto_delete_enabled"] = bool(defaults.get("auto_delete_enabled"))
     defaults["last_auto_cleanup_at"] = str(defaults.get("last_auto_cleanup_at") or "")
-    defaults["fabric_global_backgrounds"] = sanitize_global_backgrounds_list(defaults.get("fabric_global_backgrounds", []))
     return defaults
 
 
@@ -630,31 +584,7 @@ def save_admin_prefs(prefs):
     payload["auto_delete_days"] = max(1, int(payload.get("auto_delete_days", 15) or 15))
     payload["auto_delete_enabled"] = bool(payload.get("auto_delete_enabled"))
     payload["last_auto_cleanup_at"] = str(payload.get("last_auto_cleanup_at") or "")
-    payload["fabric_global_backgrounds"] = sanitize_global_backgrounds_list(payload.get("fabric_global_backgrounds", []))
     save_json_store(ADMIN_PREFS_FILE, "admin_prefs.json", payload)
-
-
-def load_common_backgrounds():
-    defaults = []
-    loaded = load_json_store(COMMON_BACKGROUNDS_FILE, "common_backgrounds.json", defaults)
-    items = sanitize_global_backgrounds_list(loaded if isinstance(loaded, list) else [])
-    if items:
-        return items
-
-    # One-time compatibility migration from older admin prefs storage.
-    prefs = load_admin_prefs()
-    legacy_items = sanitize_global_backgrounds_list(prefs.get("fabric_global_backgrounds", []))
-    if legacy_items:
-        save_common_backgrounds(legacy_items)
-        prefs["fabric_global_backgrounds"] = []
-        save_admin_prefs(prefs)
-        return legacy_items
-    return []
-
-
-def save_common_backgrounds(items):
-    payload = sanitize_global_backgrounds_list(items)
-    save_json_store(COMMON_BACKGROUNDS_FILE, "common_backgrounds.json", payload)
 
 
 def migrate_legacy_records_if_needed():
@@ -976,45 +906,6 @@ def sanitize_office_backgrounds_list(items):
     return sanitized[:200]
 
 
-def normalize_url_lookup_key(value):
-    return str(value or "").strip().split("?", 1)[0].lower()
-
-
-def sanitize_global_backgrounds_list(items):
-    if not isinstance(items, list):
-        return []
-    sanitized = []
-    seen_ids = set()
-    seen_urls = set()
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        background_id = str(item.get("id") or "").strip()
-        url = str(item.get("url") or "").strip()
-        key = normalize_url_lookup_key(url)
-        if not background_id or not url or background_id in seen_ids or key in seen_urls:
-            continue
-        seen_ids.add(background_id)
-        seen_urls.add(key)
-        orientation = str(item.get("orientation") or "landscape").strip().lower()
-        if orientation not in ("landscape", "portrait"):
-            orientation = "landscape"
-        side = str(item.get("side") or "front").strip().lower()
-        if side not in ("front", "back"):
-            side = "front"
-        sanitized.append({
-            "id": background_id,
-            "name": str(item.get("name") or "Background")[:80],
-            "url": url,
-            "orientation": orientation,
-            "side": side,
-            "created_at": str(item.get("created_at") or ""),
-            "updated_at": str(item.get("updated_at") or ""),
-            "institute_name": canonicalize_institute_name(item.get("institute_name")) or "",
-        })
-    return sanitized[:2000]
-
-
 def build_print_background_filename(institute_name, background_id):
     return f"print_bg_{make_asset_slug(institute_name)}_{secure_filename(background_id)}.jpg"
 
@@ -1052,19 +943,6 @@ def ensure_print_background_state(settings):
     return settings
 
 
-def sanitize_fabric_batch_background_bindings(value):
-    if not isinstance(value, dict):
-        return {}
-    cleaned = {}
-    for key, bg_url in value.items():
-        batch_id = str(key or "").strip()
-        url_value = str(bg_url or "").strip()
-        if not batch_id:
-            continue
-        cleaned[batch_id] = url_value
-    return cleaned
-
-
 def list_known_institutes_from_settings():
     institutes = set()
     if not os.path.isdir(SETTINGS_DIR):
@@ -1082,99 +960,6 @@ def list_known_institutes_from_settings():
     return institutes
 
 
-def remove_background_url_from_design_payload(design_payload, target_url_key):
-    if not isinstance(design_payload, dict) or not target_url_key:
-        return False
-    changed = False
-
-    def clear_snapshot(snapshot):
-        nonlocal changed
-        if not isinstance(snapshot, dict):
-            return
-        asset_urls = snapshot.get("asset_urls")
-        if isinstance(asset_urls, dict):
-            bg_url = str(asset_urls.get("background_image") or "").strip()
-            if normalize_url_lookup_key(bg_url) == target_url_key:
-                asset_urls.pop("background_image", None)
-                changed = True
-        library = snapshot.get("background_library")
-        if isinstance(library, list):
-            filtered = [item for item in library if normalize_url_lookup_key(item) != target_url_key]
-            if len(filtered) != len(library):
-                snapshot["background_library"] = filtered
-                changed = True
-
-    clear_snapshot(design_payload)
-    side_designs = design_payload.get("side_designs")
-    if isinstance(side_designs, dict):
-        clear_snapshot(side_designs.get("front"))
-        clear_snapshot(side_designs.get("back"))
-    return changed
-
-
-def remove_global_background_from_all_settings(target_url):
-    target_key = normalize_url_lookup_key(target_url)
-    if not target_key:
-        return {"updated_institutes": 0, "removed_background_links": 0, "removed_batch_bindings": 0, "updated_designs": 0}
-
-    institutes = set(list_known_institutes_from_settings())
-    try:
-        for batch in list_all_supabase_batches():
-            institute_name = canonicalize_institute_name(batch.get("institute_name"))
-            if institute_name:
-                institutes.add(institute_name)
-    except Exception:
-        pass
-
-    updated_institutes = 0
-    removed_links = 0
-    removed_bindings = 0
-    updated_designs = 0
-
-    for institute in sorted(institutes):
-        settings = load_settings(institute)
-        institute_changed = False
-
-        backgrounds = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
-        filtered_backgrounds = [item for item in backgrounds if normalize_url_lookup_key(item.get("url")) != target_key]
-        if len(filtered_backgrounds) != len(backgrounds):
-            removed_links += len(backgrounds) - len(filtered_backgrounds)
-            settings["print_backgrounds"] = filtered_backgrounds
-            institute_changed = True
-
-        bindings = sanitize_fabric_batch_background_bindings(settings.get("fabric_batch_background_bindings", {}))
-        filtered_bindings = {
-            batch_id: bg_url for batch_id, bg_url in bindings.items()
-            if normalize_url_lookup_key(bg_url) != target_key
-        }
-        if len(filtered_bindings) != len(bindings):
-            removed_bindings += len(bindings) - len(filtered_bindings)
-            settings["fabric_batch_background_bindings"] = filtered_bindings
-            institute_changed = True
-
-        background_url = str(settings.get("background_url") or "").strip()
-        if normalize_url_lookup_key(background_url) == target_key:
-            settings["background_url"] = ""
-            settings["background_drive_id"] = ""
-            institute_changed = True
-
-        design_payload = settings.get("fabric_design")
-        if remove_background_url_from_design_payload(design_payload, target_key):
-            settings["fabric_design"] = design_payload
-            updated_designs += 1
-            institute_changed = True
-
-        ensure_print_background_state(settings)
-        if institute_changed:
-            save_settings(settings, institute)
-            updated_institutes += 1
-
-    return {
-        "updated_institutes": updated_institutes,
-        "removed_background_links": removed_links,
-        "removed_batch_bindings": removed_bindings,
-        "updated_designs": updated_designs,
-    }
 
 
 def is_supabase_enabled():
@@ -1664,230 +1449,6 @@ def _build_template_preset_config(preset_id, orientation):
     }
 
 
-def build_blank_template_config(orientation="portrait", preset_id=""):
-    preset_config = _build_template_preset_config(str(preset_id or "").strip().lower(), orientation)
-    if preset_config:
-        return preset_config
-    return {
-        "front": {},
-        "back": {},
-        "orientation": normalize_template_orientation(orientation),
-        "version": 1,
-    }
-
-
-def sanitize_template_config_payload(config, orientation=None):
-    source = dict(config) if isinstance(config, dict) else {}
-    cleaned_orientation = normalize_template_orientation(orientation or source.get("orientation"))
-    front = source.get("front") if isinstance(source.get("front"), dict) else {}
-    back = source.get("back") if isinstance(source.get("back"), dict) else {}
-    cleaned = {
-        "front": front,
-        "back": back,
-        "orientation": cleaned_orientation,
-        "version": int(source.get("version") or 1),
-    }
-    if source.get("lastModified"):
-        cleaned["lastModified"] = str(source.get("lastModified"))
-    return cleaned
-
-
-def decode_data_url(data_url):
-    text = str(data_url or "").strip()
-    if not text.startswith("data:") or "," not in text:
-        raise ValueError("Invalid data URL")
-    header, encoded = text.split(",", 1)
-    if ";base64" not in header:
-        raise ValueError("Unsupported data URL encoding")
-    mime_type = header[5:].split(";", 1)[0] or "application/octet-stream"
-    return base64.b64decode(encoded), mime_type
-
-
-def build_template_thumbnail_storage_path(institute, template_id):
-    institute_slug = make_storage_slug(institute or "default")
-    template_slug = make_storage_slug(template_id or str(uuid.uuid4()))
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
-    return f"{institute_slug}/thumbnails/{template_slug}-{timestamp}.png"
-
-
-def build_template_asset_storage_path(institute, template_id, original_filename="", category="assets"):
-    institute_slug = make_storage_slug(institute or "default")
-    template_slug = make_storage_slug(template_id or "template")
-    source_name = os.path.splitext(original_filename or "")[0] or category or "asset"
-    asset_slug = make_storage_slug(source_name)
-    ext = os.path.splitext(original_filename or "")[1].lower() or ".png"
-    if len(ext) > 10:
-        ext = ".png"
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
-    return f"{institute_slug}/{template_slug}/{category}/{asset_slug}-{timestamp}{ext}"
-
-
-def build_template_bucket_payload():
-    return {
-        "thumbnail_bucket": app.config["SUPABASE_TEMPLATE_THUMBNAILS_BUCKET"],
-        "asset_bucket": app.config["SUPABASE_TEMPLATE_ASSETS_BUCKET"],
-        "profile_bucket": app.config["SUPABASE_PROFILE_PHOTOS_BUCKET"],
-    }
-
-
-def summarize_id_card_template(row):
-    item = dict(row or {})
-    item["id"] = str(item.get("id") or "").strip()
-    item["config"] = sanitize_template_config_payload(item.get("config"), item.get("orientation"))
-    item["orientation"] = item["config"]["orientation"]
-    item["name"] = str(item.get("name") or "").strip()
-    item["thumbnail_url"] = str(item.get("thumbnail_url") or "").strip()
-    item["institute_name"] = canonicalize_institute_name(item.get("institute_name")) or ""
-    item["created_at"] = str(item.get("created_at") or "")
-    item["updated_at"] = str(item.get("updated_at") or "")
-    item["description"] = str(item.get("description") or "")
-    item["is_system"] = bool(item.get("is_system"))
-    return item
-
-
-def sanitize_id_card_templates_list(items):
-    if not isinstance(items, list):
-        return []
-    sanitized = []
-    seen_ids = set()
-    for item in items:
-        template = summarize_id_card_template(item)
-        template_id = template.get("id", "")
-        if not template_id or template_id in seen_ids:
-            continue
-        seen_ids.add(template_id)
-        sanitized.append(template)
-    return sanitized[:500]
-
-
-def make_id_card_template_id():
-    return "idt-" + datetime.now().strftime("%Y%m%d%H%M%S") + "-" + "".join(
-        random.choices(string.ascii_lowercase + string.digits, k=6)
-    )
-
-
-def load_id_card_templates_for_institute(institute):
-    institute = canonicalize_institute_name(institute)
-    if not institute:
-        return []
-    path = make_storage_path("id_card_templates", institute)
-    filename = make_storage_filename("id_card_templates", institute)
-    return sanitize_id_card_templates_list(load_json_store(path, filename, []))
-
-
-def save_id_card_templates_for_institute(institute, templates):
-    institute = canonicalize_institute_name(institute)
-    if not institute:
-        return
-    path = make_storage_path("id_card_templates", institute)
-    filename = make_storage_filename("id_card_templates", institute)
-    save_json_store(path, filename, sanitize_id_card_templates_list(templates))
-
-
-def list_id_card_template_institutes():
-    institutes = set()
-    if not os.path.isdir(ID_CARD_TEMPLATES_DIR):
-        return institutes
-    for filename in os.listdir(ID_CARD_TEMPLATES_DIR):
-        if not (filename.startswith("id_card_templates__") and filename.endswith(".json")):
-            continue
-        file_path = os.path.join(ID_CARD_TEMPLATES_DIR, filename)
-        payload = load_json_store(file_path, filename, [])
-        for item in payload if isinstance(payload, list) else []:
-            institute = canonicalize_institute_name((item or {}).get("institute_name"))
-            if institute:
-                institutes.add(institute)
-    return institutes
-
-
-def list_supabase_templates(institute=None):
-    institute = canonicalize_institute_name(institute)
-    if institute:
-        templates = load_id_card_templates_for_institute(institute)
-    else:
-        templates = []
-        for current_institute in sorted(list_id_card_template_institutes()):
-            templates.extend(load_id_card_templates_for_institute(current_institute))
-    templates = sanitize_id_card_templates_list(templates)
-    templates.sort(key=lambda item: str(item.get("updated_at") or item.get("created_at") or ""), reverse=True)
-    return templates
-
-
-def get_supabase_template(template_id):
-    template_id = str(template_id or "").strip()
-    if not template_id:
-        return None
-    for institute in sorted(list_id_card_template_institutes()):
-        template = next(
-            (item for item in load_id_card_templates_for_institute(institute) if item.get("id") == template_id),
-            None,
-        )
-        if template:
-            return template
-    return None
-
-
-def list_supabase_profiles_for_studio(institute=None, limit=200):
-    limit_value = max(1, min(int(limit or 200), 500))
-    institute = canonicalize_institute_name(institute)
-    rows = []
-    fields = ",".join(["id", "institute_name"] + ID_CARD_TEMPLATE_VARIABLES)
-    query = {
-        "select": fields,
-        "order": "name.asc",
-        "limit": limit_value,
-    }
-    if institute:
-        query["institute_name"] = f"eq.{institute}"
-    try:
-        rows = supabase_request("GET", "profiles", query=query)
-    except Exception:
-        rows = []
-    result = []
-    for row in (rows if isinstance(rows, list) else []):
-        profile = {field: row.get(field, "") for field in ID_CARD_TEMPLATE_VARIABLES}
-        profile["id"] = row.get("id")
-        profile["institute_name"] = canonicalize_institute_name(row.get("institute_name")) or ""
-        result.append(profile)
-    record_rows = list_supabase_records(institute)[:limit_value]
-    for index, row in enumerate(record_rows):
-        profile = {field: row.get(field, "") for field in ID_CARD_TEMPLATE_VARIABLES}
-        for key, value in (row or {}).items():
-            if key not in profile:
-                profile[key] = value
-        profile["id"] = row.get("id") or f"record-{index}"
-        profile["institute_name"] = canonicalize_institute_name(row.get("institute_name")) or institute or ""
-        result.append(profile)
-    deduped = []
-    seen = set()
-    for item in result:
-        marker = (
-            str(item.get("serial_no") or "").strip(),
-            str(item.get("employee_id") or "").strip(),
-            str(item.get("name") or "").strip(),
-        )
-        if marker in seen:
-            continue
-        seen.add(marker)
-        deduped.append(item)
-    return deduped[:limit_value]
-
-
-def list_records_for_studio(institute=None, limit=200):
-    institute = canonicalize_institute_name(institute)
-    records = load_records(institute) if institute else load_records()
-    profiles = []
-    for index, row in enumerate(records[: max(1, min(int(limit or 200), 500))]):
-        profile = {field: row.get(field, "") for field in ID_CARD_TEMPLATE_VARIABLES}
-        for key, value in (row or {}).items():
-            if key not in profile:
-                profile[key] = value
-        profile["id"] = row.get("id") or row.get("serial_no") or f"local-{index}"
-        profile["institute_name"] = canonicalize_institute_name(row.get("institute_name")) or institute or ""
-        profiles.append(profile)
-    return profiles
-
-
 def list_local_batches(institute):
     institute = canonicalize_institute_name(institute)
     if not institute:
@@ -2012,21 +1573,6 @@ def list_record_backed_institutes():
             pass
     return institutes
 
-
-def get_default_template_institute():
-    institutes = set(DEFAULT_STUDIO_INSTITUTES)
-    institutes.update(list_known_institutes_from_settings())
-    institutes.update(list_record_backed_institutes())
-    try:
-        for batch in list_all_supabase_batches():
-            institute = canonicalize_institute_name(batch.get("institute_name"))
-            if institute:
-                institutes.add(institute)
-    except Exception:
-        pass
-    if institutes:
-        return sorted(institutes)[0]
-    return "Govt. Medical College, Jhunjhunu"
 
 def delete_supabase_storage_url(file_url):
     if not file_url or not is_supabase_enabled():
@@ -2520,12 +2066,6 @@ def delete_supabase_batch_data(institute, batch_id):
         "batches",
         query={"id": f"eq.{batch_id}", "institute_name": f"eq.{institute}"},
     )
-    settings = load_settings(institute)
-    bindings = sanitize_fabric_batch_background_bindings(settings.get("fabric_batch_background_bindings", {}))
-    if batch_id in bindings:
-        bindings.pop(batch_id, None)
-        settings["fabric_batch_background_bindings"] = bindings
-        save_settings(settings, institute)
     return {
         "status": "deleted",
         "batch_id": batch_id,
@@ -3652,83 +3192,6 @@ def save_signature_image(file_storage, institute_name):
     return drive_url or f"/generated-assets/{filename}", drive_id
 
 
-def save_print_studio_asset(file_storage, institute_name, asset_type):
-    valid_types = {"background", "photo", "logo", "signature"}
-    kind = str(asset_type or "").strip().lower()
-    if kind not in valid_types:
-        raise ValueError("Invalid asset type")
-
-    try:
-        file_storage.stream.seek(0)
-    except Exception:
-        pass
-    file_bytes = file_storage.read()
-    if not file_bytes:
-        raise ValueError("Empty image upload")
-
-    try:
-        img = Image.open(io.BytesIO(file_bytes))
-        img = ImageOps.exif_transpose(img)
-    except UnidentifiedImageError as exc:
-        raise ValueError("Unsupported image format") from exc
-
-    safe_institute = make_asset_slug(institute_name)
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
-    base_name = f"print_studio_{kind}_{safe_institute}_{timestamp}"
-
-    if kind == "signature":
-        # Make signature print-friendly:
-        # 1) transparent background (remove near-white paper)
-        # 2) darker ink with preserved anti-aliased edges
-        # 3) slight sharpness boost
-        rgba = img.convert("RGBA")
-        processed = []
-        for r, g, b, a in rgba.getdata():
-            if a == 0:
-                processed.append((r, g, b, 0))
-                continue
-            brightness = (r + g + b) / 3
-            channel_spread = max(r, g, b) - min(r, g, b)
-            if brightness > 236 and channel_spread < 20:
-                processed.append((255, 255, 255, 0))
-                continue
-            ink_boost = max(0, int((235 - brightness) * 1.35))
-            alpha = max(72, min(255, ink_boost + 72))
-            processed.append((16, 16, 16, alpha))
-        rgba.putdata(processed)
-        bbox = rgba.getbbox()
-        if bbox:
-            rgba = rgba.crop(bbox)
-        rgba = ImageEnhance.Sharpness(rgba).enhance(1.18)
-        mime_type = "image/png"
-        filename = f"{base_name}.png"
-        output = io.BytesIO()
-        rgba.save(output, "PNG")
-    else:
-        mime_type = "image/jpeg"
-        filename = f"{base_name}.jpg"
-        output = io.BytesIO()
-        img.convert("RGB").save(output, "JPEG", quality=94)
-
-    output_bytes = output.getvalue()
-    local_path = os.path.join(ASSET_DIR, filename)
-    with open(local_path, "wb") as image_file:
-        image_file.write(output_bytes)
-
-    if is_supabase_enabled():
-        object_path = f"{make_storage_slug(institute_name or 'default')}/print-studio/{kind}/{filename}"
-        return upload_bytes_to_supabase_storage(output_bytes, object_path, mime_type), ""
-
-    drive_id = None
-    drive_url = None
-    if is_drive_enabled():
-        try:
-            drive_id, drive_url = upload_bytes_to_drive(output_bytes, filename, mime_type, "assets")
-        except Exception:
-            app.logger.warning("Drive upload failed for print studio asset %s", filename, exc_info=True)
-    return drive_url or f"/generated-assets/{filename}", drive_id
-
-
 def build_placeholder_avatar_bytes(record=None, sequence_no=None):
     width, height = 300, 400
     image = Image.new("RGB", (width, height), "#f3efe7")
@@ -3899,6 +3362,16 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/id-card-edit")
+@admin_required
+def id_card_edit_page():
+    return render_template(
+        "id_card_edit.html",
+        initial_institute=canonicalize_institute_name(request.args.get("institute")) or "",
+        initial_serial=(request.args.get("serial_no") or "").strip(),
+    )
+
+
 @app.route("/certificate")
 def certificate():
     return render_template("certificate.html")
@@ -3908,41 +3381,6 @@ def admin():
     if not session.get("admin_authenticated"):
         return render_template("admin_login.html")
     return render_template("admin.html")
-
-
-@app.route("/templates")
-@admin_required
-def id_card_template_gallery_page():
-    response = make_response(render_template(
-        "template_gallery.html",
-        build_tag=app.config.get("APP_BUILD_TAG", ""),
-        default_institute=get_default_template_institute(),
-        **build_admin_institutes_payload(),
-    ))
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    response.headers["X-App-Build"] = app.config.get("APP_BUILD_TAG", "")
-    return response
-
-
-@app.route("/id-card-editor")
-@admin_required
-def id_card_editor_page():
-    response = make_response(render_template(
-        "id_card_editor.html",
-        build_tag=app.config.get("APP_BUILD_TAG", ""),
-        default_institute=get_default_template_institute(),
-        template_variables=ID_CARD_TEMPLATE_VARIABLES,
-        default_starter_config=build_blank_template_config("landscape", "gov_employee"),
-        **build_admin_institutes_payload(),
-        **build_template_bucket_payload(),
-    ))
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    response.headers["X-App-Build"] = app.config.get("APP_BUILD_TAG", "")
-    return response
 
 
 @app.route("/admin/print-cards")
@@ -3990,836 +3428,6 @@ def build_print_preview_context():
         "sample_record": sample_record,
         "build_tag": app.config.get("APP_BUILD_TAG", ""),
     }
-
-
-@app.route("/api/id-card-templates", methods=["GET", "POST"])
-@admin_required
-def id_card_templates_api():
-    if request.method == "GET":
-        institute = canonicalize_institute_name(request.args.get("institute"))
-        search = (request.args.get("search") or "").strip().lower()
-        orientation = normalize_template_orientation(request.args.get("orientation")) if request.args.get("orientation") else ""
-        try:
-            templates = list_supabase_templates(institute)
-        except Exception as exc:
-            return jsonify({"error": str(exc) or "Unable to load templates"}), 500
-        if search:
-            templates = [item for item in templates if search in str(item.get("name") or "").lower()]
-        if orientation:
-            templates = [item for item in templates if item.get("orientation") == orientation]
-        return jsonify({"templates": templates, "institute": institute or ""})
-
-    payload = request.get_json(silent=True) or {}
-    name = str(payload.get("name") or "").strip()
-    institute = canonicalize_institute_name(payload.get("institute_name"))
-    orientation = normalize_template_orientation(payload.get("orientation"))
-    preset_id = str(payload.get("preset_id") or "").strip().lower()
-    if not name:
-        return jsonify({"error": "Template name is required"}), 400
-    if not institute:
-        return jsonify({"error": "Institute is required"}), 400
-    try:
-        now_text = current_timestamp_display()
-        template = summarize_id_card_template({
-            "id": make_id_card_template_id(),
-            "name": name[:120],
-            "description": str(payload.get("description") or "").strip(),
-            "institute_name": institute,
-            "config": build_blank_template_config(orientation, preset_id),
-            "thumbnail_url": "",
-            "created_at": now_text,
-            "updated_at": now_text,
-            "is_system": False,
-        })
-        templates = load_id_card_templates_for_institute(institute)
-        templates.insert(0, template)
-        save_id_card_templates_for_institute(institute, templates)
-        return jsonify({"status": "created", "template": template}), 201
-    except Exception as exc:
-        return jsonify({"error": str(exc) or "Unable to create template"}), 500
-
-
-@app.route("/api/id-card-templates/<template_id>", methods=["GET", "PATCH", "DELETE"])
-@admin_required
-def id_card_template_detail_api(template_id):
-    template_id = str(template_id or "").strip()
-    if not template_id:
-        return jsonify({"error": "Template id is required"}), 400
-
-    try:
-        current = get_supabase_template(template_id)
-    except Exception as exc:
-        return jsonify({"error": str(exc) or "Unable to load template"}), 500
-
-    if not current:
-        return jsonify({"error": "Template not found"}), 404
-
-    if request.method == "GET":
-        return jsonify({"template": current})
-
-    if request.method == "DELETE":
-        if current.get("is_system"):
-            return jsonify({"error": "System templates cannot be deleted"}), 400
-        try:
-            thumbnail_url = current.get("thumbnail_url", "")
-            thumbnail_path = extract_supabase_object_path(thumbnail_url)
-            if thumbnail_path:
-                delete_supabase_storage_object_path(thumbnail_path, app.config["SUPABASE_TEMPLATE_THUMBNAILS_BUCKET"])
-            institute = canonicalize_institute_name(current.get("institute_name"))
-            templates = load_id_card_templates_for_institute(institute)
-            templates = [item for item in templates if item.get("id") != template_id]
-            save_id_card_templates_for_institute(institute, templates)
-            return jsonify({"status": "deleted", "template_id": template_id})
-        except Exception as exc:
-            return jsonify({"error": str(exc) or "Unable to delete template"}), 500
-
-    payload = request.get_json(silent=True) or {}
-    config = sanitize_template_config_payload(payload.get("config"), payload.get("orientation") or current.get("orientation"))
-    update_payload = {
-        "name": str(payload.get("name") or current.get("name") or "").strip()[:120],
-        "description": str(payload.get("description") or current.get("description") or "").strip(),
-        "institute_name": canonicalize_institute_name(payload.get("institute_name") or current.get("institute_name")),
-        "config": config,
-    }
-    thumbnail_data_url = str(payload.get("thumbnail_data_url") or "").strip()
-    if thumbnail_data_url:
-        if not is_supabase_enabled():
-            return jsonify({"error": "Supabase is required for template thumbnail upload"}), 400
-        try:
-            thumbnail_bytes, mime_type = decode_data_url(thumbnail_data_url)
-            object_path = build_template_thumbnail_storage_path(update_payload["institute_name"], template_id)
-            update_payload["thumbnail_url"] = upload_bytes_to_supabase_storage_bucket(
-                thumbnail_bytes,
-                object_path,
-                mime_type or "image/png",
-                app.config["SUPABASE_TEMPLATE_THUMBNAILS_BUCKET"],
-            )
-        except Exception as exc:
-            return jsonify({"error": str(exc) or "Unable to upload template thumbnail"}), 400
-
-    try:
-        institute = canonicalize_institute_name(current.get("institute_name"))
-        templates = load_id_card_templates_for_institute(institute)
-        next_templates = []
-        merged_template = None
-        for item in templates:
-            if item.get("id") != template_id:
-                next_templates.append(item)
-                continue
-            merged_template = summarize_id_card_template({
-                **item,
-                **update_payload,
-                "id": template_id,
-                "created_at": item.get("created_at", current.get("created_at", "")),
-                "updated_at": current_timestamp_display(),
-                "is_system": bool(item.get("is_system")),
-            })
-            next_templates.append(merged_template)
-        if not merged_template:
-            return jsonify({"error": "Template not found"}), 404
-        if update_payload["institute_name"] == institute:
-            save_id_card_templates_for_institute(institute, next_templates)
-        else:
-            destination_templates = load_id_card_templates_for_institute(update_payload["institute_name"])
-            destination_templates.insert(0, merged_template)
-            save_id_card_templates_for_institute(update_payload["institute_name"], destination_templates)
-            save_id_card_templates_for_institute(institute, [t for t in templates if t.get("id") != template_id])
-        template = merged_template
-        return jsonify({"status": "saved", "template": template})
-    except Exception as exc:
-        return jsonify({"error": str(exc) or "Unable to save template"}), 500
-
-
-@app.route("/api/id-card-templates/<template_id>/duplicate", methods=["POST"])
-@admin_required
-def duplicate_id_card_template_api(template_id):
-    try:
-        template = get_supabase_template(template_id)
-    except Exception as exc:
-        return jsonify({"error": str(exc) or "Unable to load template"}), 500
-    if not template:
-        return jsonify({"error": "Template not found"}), 404
-    payload = request.get_json(silent=True) or {}
-    name_suffix = str(payload.get("suffix") or "(Copy)").strip() or "(Copy)"
-    try:
-        now_text = current_timestamp_display()
-        duplicate = summarize_id_card_template({
-            "id": make_id_card_template_id(),
-            "name": f"{template.get('name', 'Template')} {name_suffix}".strip(),
-            "description": template.get("description", ""),
-            "institute_name": template.get("institute_name", ""),
-            "config": sanitize_template_config_payload(template.get("config"), template.get("orientation")),
-            "thumbnail_url": template.get("thumbnail_url", ""),
-            "created_at": now_text,
-            "updated_at": now_text,
-            "is_system": False,
-        })
-        templates = load_id_card_templates_for_institute(duplicate.get("institute_name"))
-        templates.insert(0, duplicate)
-        save_id_card_templates_for_institute(duplicate.get("institute_name"), templates)
-        return jsonify({"status": "duplicated", "template": duplicate}), 201
-    except Exception as exc:
-        return jsonify({"error": str(exc) or "Unable to duplicate template"}), 500
-
-
-@app.route("/api/id-card-templates/<template_id>/use", methods=["POST"])
-@admin_required
-def use_id_card_template_api(template_id):
-    try:
-        template = get_supabase_template(template_id)
-    except Exception as exc:
-        return jsonify({"error": str(exc) or "Unable to load template"}), 500
-    if not template:
-        return jsonify({"error": "Template not found"}), 404
-    try:
-        now_text = current_timestamp_display()
-        copy_template = summarize_id_card_template({
-            "id": make_id_card_template_id(),
-            "name": f"{template.get('name', 'Template')} Working Copy",
-            "description": template.get("description", ""),
-            "institute_name": template.get("institute_name", ""),
-            "config": sanitize_template_config_payload(template.get("config"), template.get("orientation")),
-            "thumbnail_url": template.get("thumbnail_url", ""),
-            "created_at": now_text,
-            "updated_at": now_text,
-            "is_system": False,
-        })
-        templates = load_id_card_templates_for_institute(copy_template.get("institute_name"))
-        templates.insert(0, copy_template)
-        save_id_card_templates_for_institute(copy_template.get("institute_name"), templates)
-        return jsonify({"status": "ready", "template": copy_template})
-    except Exception as exc:
-        return jsonify({"error": str(exc) or "Unable to create working copy"}), 500
-
-
-@app.route("/api/id-card-profiles")
-@admin_required
-def id_card_profiles_api():
-    institute = canonicalize_institute_name(request.args.get("institute"))
-    try:
-        if is_supabase_enabled():
-            profiles = list_supabase_profiles_for_studio(institute, request.args.get("limit") or 200)
-        else:
-            profiles = list_records_for_studio(institute, request.args.get("limit") or 200)
-        variables = list(ID_CARD_TEMPLATE_VARIABLES)
-        for profile in profiles:
-            for key in (profile or {}).keys():
-                cleaned = str(key or "").strip()
-                if cleaned and cleaned not in variables:
-                    variables.append(cleaned)
-        return jsonify({
-            "profiles": profiles,
-            "institute": institute or "",
-            "variables": variables,
-        })
-    except Exception as exc:
-        return jsonify({"error": str(exc) or "Unable to load profiles"}), 500
-
-
-@app.route("/api/id-card-assets/upload", methods=["POST"])
-@admin_required
-def id_card_assets_upload_api():
-    if not is_supabase_enabled():
-        return jsonify({"error": "Supabase is not configured"}), 400
-    if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-    upload_file = request.files["file"]
-    filename = secure_filename(upload_file.filename or "")
-    if not filename:
-        return jsonify({"error": "Invalid file name"}), 400
-    institute = canonicalize_institute_name(request.form.get("institute_name"))
-    template_id = str(request.form.get("template_id") or "").strip() or "draft"
-    category = str(request.form.get("category") or "assets").strip().lower() or "assets"
-    mime_type = str(upload_file.mimetype or "application/octet-stream").strip() or "application/octet-stream"
-    try:
-        object_path = build_template_asset_storage_path(institute, template_id, filename, category)
-        public_url = upload_bytes_to_supabase_storage_bucket(
-            upload_file.read(),
-            object_path,
-            mime_type,
-            app.config["SUPABASE_TEMPLATE_ASSETS_BUCKET"],
-        )
-        return jsonify({
-            "status": "uploaded",
-            "url": public_url,
-            "path": object_path,
-            "bucket": app.config["SUPABASE_TEMPLATE_ASSETS_BUCKET"],
-            "category": category,
-        })
-    except Exception as exc:
-        return jsonify({"error": str(exc) or "Unable to upload asset"}), 500
-
-
-@app.route("/api/fabric-design", methods=["GET", "POST"])
-@admin_required
-def fabric_design():
-    json_payload = request.get_json(silent=True) if request.is_json else {}
-    institute = canonicalize_institute_name(
-        request.args.get("institute")
-        or (json_payload.get("institute") if isinstance(json_payload, dict) else "")
-        or request.form.get("institute")
-    )
-    settings = load_settings(institute)
-    if request.method == "GET":
-        return jsonify({
-            "institute": institute,
-            "design": settings.get("fabric_design", {}),
-        })
-
-    payload = json_payload if isinstance(json_payload, dict) else {}
-    if not institute:
-        return jsonify({"error": "Institute is required to save design"}), 400
-    design = payload.get("design")
-    if not isinstance(design, dict):
-        return jsonify({"error": "Invalid design payload"}), 400
-    serialized = json.dumps(design, ensure_ascii=False)
-    if len(serialized) > 2_500_000:
-        return jsonify({"error": "Design payload too large"}), 400
-    settings["fabric_design"] = design
-    save_settings(settings, institute)
-    return jsonify({"saved": True, "institute": institute})
-
-
-@app.route("/api/fabric-assets/upload", methods=["POST"])
-@admin_required
-def fabric_asset_upload():
-    institute = canonicalize_institute_name(request.form.get("institute"))
-    if not institute:
-        return jsonify({"error": "Institute is required"}), 400
-    if "asset" not in request.files:
-        return jsonify({"error": "No file"}), 400
-    file_storage = request.files["asset"]
-    if not secure_filename(file_storage.filename):
-        return jsonify({"error": "Invalid filename"}), 400
-    asset_type = (request.form.get("asset_type") or "").strip().lower()
-    try:
-        asset_url, _ = save_print_studio_asset(file_storage, institute, asset_type)
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
-    except Exception:
-        return jsonify({"error": "Unable to upload print studio asset"}), 500
-    return jsonify({
-        "status": "saved",
-        "institute": institute,
-        "asset_type": asset_type,
-        "url": asset_url,
-    })
-
-
-@app.route("/api/fabric-assets/delete", methods=["POST"])
-@admin_required
-def fabric_asset_delete():
-    payload = request.get_json(silent=True) or {}
-    institute = canonicalize_institute_name(payload.get("institute"))
-    if not institute:
-        return jsonify({"error": "Institute is required"}), 400
-    file_url = str(payload.get("url") or "").strip()
-    if not file_url:
-        return jsonify({"error": "Asset URL is required"}), 400
-
-    deleted = False
-    if "/generated-assets/" in file_url:
-        filename = file_url.split("/generated-assets/", 1)[1].split("?", 1)[0].strip("/")
-        if not filename.startswith("print_studio_"):
-            return jsonify({"error": "Only print studio assets can be deleted"}), 400
-        delete_generated_asset_from_url(file_url)
-        deleted = True
-    else:
-        object_path = extract_supabase_object_path(file_url)
-        if object_path:
-            if "/print-studio/" not in object_path:
-                return jsonify({"error": "Only print studio assets can be deleted"}), 400
-            delete_supabase_storage_url(file_url)
-            deleted = True
-
-    return jsonify({
-        "status": "deleted" if deleted else "ignored",
-        "deleted": deleted,
-        "url": file_url,
-        "institute": institute,
-    })
-
-
-@app.route("/api/fabric-global-backgrounds", methods=["GET", "POST"])
-@admin_required
-def fabric_global_backgrounds():
-    backgrounds = load_common_backgrounds()
-
-    if request.method == "GET":
-        return jsonify({"backgrounds": backgrounds})
-
-    payload = request.get_json(silent=True) or {}
-    background_url = str(payload.get("url") or "").strip()
-    if not background_url:
-        return jsonify({"error": "Background URL is required"}), 400
-    orientation = str(payload.get("orientation") or "landscape").strip().lower()
-    if orientation not in ("landscape", "portrait"):
-        orientation = "landscape"
-
-    target_key = normalize_url_lookup_key(background_url)
-    existing = next((item for item in backgrounds if normalize_url_lookup_key(item.get("url")) == target_key), None)
-    if existing:
-        return jsonify({"status": "exists", "background": existing, "backgrounds": backgrounds})
-
-    now_text = current_timestamp_display()
-    institute = canonicalize_institute_name(payload.get("institute"))
-    entry = {
-        "id": "global-bg-" + datetime.now().strftime("%Y%m%d%H%M%S") + "-" + "".join(
-            random.choices(string.ascii_lowercase + string.digits, k=4)
-        ),
-        "name": str(payload.get("name") or f"Global Background {len(backgrounds) + 1}")[:80],
-        "url": background_url,
-        "orientation": orientation,
-        "created_at": now_text,
-        "updated_at": now_text,
-        "institute_name": institute or "",
-    }
-    backgrounds.insert(0, entry)
-    save_common_backgrounds(backgrounds[:2000])
-    return jsonify({"status": "saved", "background": entry, "backgrounds": load_common_backgrounds()})
-
-
-@app.route("/api/fabric-global-backgrounds/<background_id>", methods=["DELETE"])
-@admin_required
-def delete_fabric_global_background(background_id):
-    target_id = str(background_id or "").strip()
-    if not target_id:
-        return jsonify({"error": "Background id is required"}), 400
-
-    backgrounds = load_common_backgrounds()
-    target = next((item for item in backgrounds if str(item.get("id") or "").strip() == target_id), None)
-    if not target:
-        return jsonify({"error": "Background not found"}), 404
-
-    remaining = [item for item in backgrounds if str(item.get("id") or "").strip() != target_id]
-    save_common_backgrounds(remaining)
-
-    cleanup_result = remove_global_background_from_all_settings(target.get("url"))
-    delete_generated_asset_from_url(target.get("url"))
-    delete_supabase_storage_url(target.get("url"))
-
-    return jsonify({
-        "status": "deleted",
-        "deleted_id": target_id,
-        "deleted_url": str(target.get("url") or "").strip(),
-        "cleanup": cleanup_result,
-        "backgrounds": remaining,
-    })
-
-
-@app.route("/api/fabric-shared-backgrounds")
-@admin_required
-def fabric_shared_backgrounds():
-    limit = request.args.get("limit", 120)
-    try:
-        limit_value = max(1, min(int(limit), 400))
-    except Exception:
-        limit_value = 120
-
-    backgrounds = []
-    seen_urls = set()
-
-    def register_item(item_id, url, name="", institute_slug="", institute_name="", object_path="", source="", block="", facility_sub_location=""):
-        value = str(url or "").strip()
-        if not value:
-            return False
-        key = normalize_url_lookup_key(value)
-        if key in seen_urls:
-            return False
-        seen_urls.add(key)
-        backgrounds.append({
-            "id": str(item_id or "").strip(),
-            "url": value,
-            "object_path": str(object_path or "").strip(),
-            "label": str(name or "").strip(),
-            "institute_slug": str(institute_slug or "").strip(),
-            "institute_name": str(institute_name or "").strip(),
-            "source": str(source or "").strip(),
-            "block": str(block or "").strip(),
-            "facility_sub_location": str(facility_sub_location or "").strip(),
-        })
-        return True
-
-    institutes = set()
-    requested_institute = canonicalize_institute_name(request.args.get("institute"))
-    requested_batch_id = str(request.args.get("batch_id") or "").strip()
-    if requested_institute:
-        institutes.add(requested_institute)
-    institutes.update(list_known_institutes_from_settings())
-    try:
-        for batch in list_all_supabase_batches():
-            inst = canonicalize_institute_name(batch.get("institute_name"))
-            if inst:
-                institutes.add(inst)
-    except Exception:
-        pass
-
-    if requested_institute:
-        settings = load_settings(requested_institute)
-        batch_records = []
-        if requested_batch_id:
-            try:
-                batch_records = list_supabase_records(requested_institute, requested_batch_id)
-            except Exception:
-                batch_records = []
-        first_record = batch_records[0] if batch_records else {}
-        block = str(first_record.get("background_scope_block") or first_record.get("facility_location") or "").strip()
-        sub_location = str(first_record.get("background_scope_facility_sub_location") or first_record.get("facility_sub_location") or "").strip()
-        if block and sub_location:
-            for item in sanitize_office_backgrounds_list(settings.get("office_backgrounds", [])):
-                if str(item.get("block") or "").strip() != block:
-                    continue
-                if str(item.get("facility_sub_location") or "").strip() != sub_location:
-                    continue
-                if register_item(
-                    item.get("id"),
-                    item.get("url"),
-                    name=item.get("name"),
-                    institute_slug=make_storage_slug(f"{requested_institute}-{sub_location}"),
-                    institute_name=requested_institute,
-                    source="office_collection",
-                    block=block,
-                    facility_sub_location=sub_location,
-                ):
-                    if len(backgrounds) >= limit_value:
-                        return jsonify({"backgrounds": backgrounds})
-
-        for item in sanitize_print_backgrounds_list(settings.get("print_backgrounds", [])):
-            if register_item(
-                item.get("id"),
-                item.get("url"),
-                name=item.get("name"),
-                institute_slug=make_storage_slug(requested_institute),
-                institute_name=requested_institute,
-                source="institute_collection",
-            ):
-                if len(backgrounds) >= limit_value:
-                    return jsonify({"backgrounds": backgrounds})
-
-    for item in load_common_backgrounds():
-        register_item(
-            item.get("id"),
-            item.get("url"),
-            name=item.get("name"),
-            institute_slug=make_storage_slug(item.get("institute_name")) or "common",
-            institute_name=item.get("institute_name"),
-            source="global_pool",
-        )
-        if len(backgrounds) >= limit_value:
-            return jsonify({"backgrounds": backgrounds})
-
-    for inst in sorted(institutes):
-        if requested_institute and inst == requested_institute:
-            continue
-        settings = load_settings(inst)
-        for item in sanitize_print_backgrounds_list(settings.get("print_backgrounds", [])):
-            if register_item(
-                item.get("id"),
-                item.get("url"),
-                name=item.get("name"),
-                institute_slug=make_storage_slug(inst),
-                institute_name=inst,
-                source="institute_collection",
-            ):
-                if len(backgrounds) >= limit_value:
-                    return jsonify({"backgrounds": backgrounds})
-
-    return jsonify({"backgrounds": backgrounds})
-
-
-@app.route("/api/admin/institutes")
-@admin_required
-def admin_institutes_api():
-    institutes = set(DEFAULT_STUDIO_INSTITUTES)
-    institutes.update(list_known_institutes_from_settings())
-    institutes.update(list_record_backed_institutes())
-    try:
-        for batch in list_all_supabase_batches():
-            institute = canonicalize_institute_name(batch.get("institute_name"))
-            if institute:
-                institutes.add(institute)
-    except Exception:
-        pass
-    return jsonify({
-        "institutes": sorted(institutes),
-        "facility_institutes": list(FACILITY_LOCATION_INSTITUTES),
-        "facility_structure": build_facility_structure_payload(),
-    })
-
-
-def build_admin_institutes_payload():
-    institutes = set(DEFAULT_STUDIO_INSTITUTES)
-    institutes.update(list_known_institutes_from_settings())
-    institutes.update(list_record_backed_institutes())
-    try:
-        for batch in list_all_supabase_batches():
-            institute = canonicalize_institute_name(batch.get("institute_name"))
-            if institute:
-                institutes.add(institute)
-    except Exception:
-        pass
-    return {
-        "template_institutes": sorted(institutes),
-        "facility_institutes": list(FACILITY_LOCATION_INSTITUTES),
-        "facility_structure": build_facility_structure_payload(),
-    }
-
-
-def normalize_background_orientation(value):
-    orientation = str(value or "landscape").strip().lower()
-    return orientation if orientation in ("landscape", "portrait") else "landscape"
-
-
-def normalize_background_side(value):
-    side = str(value or "front").strip().lower()
-    return side if side in ("front", "back") else "front"
-
-
-def build_background_library_entry(entry_id, name, url, orientation, side, extra=None):
-    payload = {
-        "id": str(entry_id or "").strip(),
-        "name": str(name or "Background").strip()[:80] or "Background",
-        "url": str(url or "").strip(),
-        "orientation": normalize_background_orientation(orientation),
-        "side": normalize_background_side(side),
-        "created_at": current_timestamp_display(),
-        "updated_at": current_timestamp_display(),
-    }
-    if isinstance(extra, dict):
-        payload.update(extra)
-    return payload
-
-
-@app.route("/api/background-library", methods=["GET", "POST"])
-@admin_required
-def background_library_api():
-    if request.method == "GET":
-        scope = str(request.args.get("scope") or "common").strip().lower()
-        institute = canonicalize_institute_name(request.args.get("institute"))
-        block = str(request.args.get("block") or "").strip()
-        facility_sub_location = str(request.args.get("facility_sub_location") or "").strip()
-
-        if scope == "common":
-            items = load_common_backgrounds()
-        elif scope == "institute":
-            if not institute:
-                return jsonify({"items": [], "scope": scope, "institute": ""})
-            settings = load_settings(institute)
-            items = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
-        elif scope == "office":
-            if not institute or not block or not facility_sub_location:
-                return jsonify({"items": [], "scope": scope, "institute": institute or "", "block": block, "facility_sub_location": facility_sub_location})
-            settings = load_settings(institute)
-            items = [
-                item for item in sanitize_office_backgrounds_list(settings.get("office_backgrounds", []))
-                if str(item.get("block") or "").strip() == block and str(item.get("facility_sub_location") or "").strip() == facility_sub_location
-            ]
-        else:
-            return jsonify({"error": "Invalid scope"}), 400
-
-        return jsonify({
-            "scope": scope,
-            "institute": institute or "",
-            "block": block,
-            "facility_sub_location": facility_sub_location,
-            "items": items,
-        })
-
-    scope = str(request.form.get("scope") or "common").strip().lower()
-    institute = canonicalize_institute_name(request.form.get("institute"))
-    block = str(request.form.get("block") or "").strip()
-    facility_sub_location = str(request.form.get("facility_sub_location") or "").strip()
-    orientation = normalize_background_orientation(request.form.get("orientation"))
-    side = normalize_background_side(request.form.get("side"))
-    name = (request.form.get("name") or "").strip()
-
-    if "background" not in request.files:
-        return jsonify({"error": "No background file provided"}), 400
-    file_storage = request.files["background"]
-    if not secure_filename(file_storage.filename):
-        return jsonify({"error": "Invalid filename"}), 400
-
-    if scope == "common":
-        storage_scope_name = "Common Background Library"
-    elif scope == "institute":
-        if not institute:
-            return jsonify({"error": "Institute is required"}), 400
-        storage_scope_name = institute
-    elif scope == "office":
-        if not institute:
-            return jsonify({"error": "Institute is required"}), 400
-        if not block:
-            return jsonify({"error": "Block is required"}), 400
-        if not facility_sub_location:
-            return jsonify({"error": "Facility Sub Location is required"}), 400
-        storage_scope_name = institute
-    else:
-        return jsonify({"error": "Invalid scope"}), 400
-
-    entry_id = f"bg-{scope}-" + datetime.now().strftime("%Y%m%d%H%M%S") + "-" + "".join(random.choices(string.ascii_lowercase + string.digits, k=4))
-    entry_name = name or os.path.splitext(secure_filename(file_storage.filename))[0] or "Background"
-    try:
-        background_url, _ = save_print_background_image(file_storage, storage_scope_name, entry_id)
-    except Exception:
-        return jsonify({"error": "Unable to process background image"}), 400
-
-    if scope == "common":
-        items = load_common_backgrounds()
-        items.insert(0, build_background_library_entry(entry_id, entry_name, background_url, orientation, side, {"institute_name": ""}))
-        save_common_backgrounds(items[:2000])
-        saved_items = load_common_backgrounds()
-    elif scope == "institute":
-        settings = load_settings(institute)
-        items = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
-        items.insert(0, build_background_library_entry(entry_id, entry_name, background_url, orientation, side))
-        settings["print_backgrounds"] = items[:80]
-        save_settings(settings, institute)
-        saved_items = settings["print_backgrounds"]
-    else:
-        settings = load_settings(institute)
-        items = sanitize_office_backgrounds_list(settings.get("office_backgrounds", []))
-        items.insert(0, build_background_library_entry(entry_id, entry_name, background_url, orientation, side, {
-            "block": block,
-            "facility_sub_location": facility_sub_location,
-        }))
-        settings["office_backgrounds"] = items[:200]
-        save_settings(settings, institute)
-        saved_items = [
-            item for item in settings["office_backgrounds"]
-            if str(item.get("block") or "").strip() == block and str(item.get("facility_sub_location") or "").strip() == facility_sub_location
-        ]
-
-    return jsonify({
-        "status": "saved",
-        "scope": scope,
-        "institute": institute or "",
-        "block": block,
-        "facility_sub_location": facility_sub_location,
-        "items": saved_items,
-    })
-
-
-@app.route("/api/background-library/<background_id>", methods=["DELETE"])
-@admin_required
-def delete_background_library_item(background_id):
-    item_id = str(background_id or "").strip()
-    if not item_id:
-        return jsonify({"error": "Background id is required"}), 400
-
-    scope = str(request.args.get("scope") or "common").strip().lower()
-    institute = canonicalize_institute_name(request.args.get("institute"))
-    block = str(request.args.get("block") or "").strip()
-    facility_sub_location = str(request.args.get("facility_sub_location") or "").strip()
-
-    target = None
-    remaining = []
-    deleted_url = ""
-
-    if scope == "common":
-        items = load_common_backgrounds()
-        target = next((item for item in items if str(item.get("id") or "").strip() == item_id), None)
-        if not target:
-            return jsonify({"error": "Background not found"}), 404
-        remaining = [item for item in items if str(item.get("id") or "").strip() != item_id]
-        save_common_backgrounds(remaining)
-    elif scope == "institute":
-        if not institute:
-            return jsonify({"error": "Institute is required"}), 400
-        settings = load_settings(institute)
-        items = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
-        target = next((item for item in items if str(item.get("id") or "").strip() == item_id), None)
-        if not target:
-            return jsonify({"error": "Background not found"}), 404
-        remaining = [item for item in items if str(item.get("id") or "").strip() != item_id]
-        settings["print_backgrounds"] = remaining
-        if str(settings.get("print_background_active_id") or "").strip() == item_id:
-            settings["print_background_active_id"] = remaining[0].get("id", "") if remaining else ""
-            settings["background_url"] = remaining[0].get("url", "") if remaining else ""
-            settings["background_drive_id"] = ""
-        save_settings(settings, institute)
-    elif scope == "office":
-        if not institute:
-            return jsonify({"error": "Institute is required"}), 400
-        settings = load_settings(institute)
-        items = sanitize_office_backgrounds_list(settings.get("office_backgrounds", []))
-        target = next((item for item in items if str(item.get("id") or "").strip() == item_id), None)
-        if not target:
-            return jsonify({"error": "Background not found"}), 404
-        remaining_all = [item for item in items if str(item.get("id") or "").strip() != item_id]
-        settings["office_backgrounds"] = remaining_all
-        save_settings(settings, institute)
-        remaining = [
-            item for item in remaining_all
-            if (not block or str(item.get("block") or "").strip() == block)
-            and (not facility_sub_location or str(item.get("facility_sub_location") or "").strip() == facility_sub_location)
-        ]
-    else:
-        return jsonify({"error": "Invalid scope"}), 400
-
-    deleted_url = str((target or {}).get("url") or "").strip()
-    if deleted_url:
-        try:
-            delete_generated_asset_from_url(deleted_url)
-        except Exception:
-            pass
-        try:
-            delete_supabase_storage_url(deleted_url)
-        except Exception:
-            pass
-
-    return jsonify({
-        "status": "deleted",
-        "scope": scope,
-        "institute": institute or "",
-        "block": block,
-        "facility_sub_location": facility_sub_location,
-        "deleted_id": item_id,
-        "deleted_url": deleted_url,
-        "items": remaining,
-    })
-
-
-@app.route("/api/fabric-batch-background", methods=["GET", "POST"])
-@admin_required
-def fabric_batch_background():
-    if request.method == "GET":
-        institute = canonicalize_institute_name(request.args.get("institute"))
-        batch_id = str(request.args.get("batch_id") or "").strip()
-    else:
-        payload = request.get_json(silent=True) or {}
-        institute = canonicalize_institute_name(payload.get("institute"))
-        batch_id = str(payload.get("batch_id") or "").strip()
-    if not institute:
-        return jsonify({"error": "Institute is required"}), 400
-    if not batch_id:
-        return jsonify({"error": "Batch is required"}), 400
-
-    settings = load_settings(institute)
-    bindings = sanitize_fabric_batch_background_bindings(settings.get("fabric_batch_background_bindings", {}))
-
-    if request.method == "GET":
-        return jsonify({
-            "institute": institute,
-            "batch_id": batch_id,
-            "background_url": str(bindings.get(batch_id) or "").strip(),
-            "bindings_count": len(bindings),
-        })
-
-    payload = request.get_json(silent=True) or {}
-    background_url = str(payload.get("background_url") or "").strip()
-    if background_url:
-        bindings[batch_id] = background_url
-    else:
-        bindings.pop(batch_id, None)
-    settings["fabric_batch_background_bindings"] = bindings
-    save_settings(settings, institute)
-    return jsonify({
-        "status": "saved",
-        "institute": institute,
-        "batch_id": batch_id,
-        "background_url": str(bindings.get(batch_id) or "").strip(),
-        "bindings_count": len(bindings),
-    })
 
 
 @app.route("/admin/login", methods=["POST"])
@@ -5763,15 +4371,14 @@ def submit_batch():
     return jsonify({"status": "submitted", **result})
 
 
-@app.route("/api/retrieve-card")
-def retrieve_card():
-    institute = canonicalize_institute_name(request.args.get("institute"))
-    serial_lookup = (request.args.get("serial_no") or "").strip()
-    query_lookup = (request.args.get("query") or "").strip()
+def load_record_for_lookup(institute, serial_lookup="", query_lookup=""):
+    institute = canonicalize_institute_name(institute)
+    serial_lookup = (serial_lookup or "").strip()
+    query_lookup = (query_lookup or "").strip()
     if not institute:
-        return jsonify({"error": "Institute is required"}), 400
+        raise ValueError("Institute is required")
     if not serial_lookup and not query_lookup:
-        return jsonify({"error": "ID card number or name is required"}), 400
+        raise ValueError("ID card number or name is required")
 
     lookup_value = serial_lookup or query_lookup
     if is_supabase_enabled():
@@ -5784,23 +4391,26 @@ def retrieve_card():
         matches = find_records_by_name_lookup(records, query_lookup)
     if len(matches) > 1:
         if query_lookup:
-            return jsonify({"error": "More than one card matches this name. Please enter the full ID card number or a more specific name."}), 409
-        return jsonify({"error": "More than one card matches this short ID. Please enter the full ID card number."}), 409
+            raise LookupError("More than one card matches this name. Please enter the full ID card number or a more specific name.")
+        raise LookupError("More than one card matches this short ID. Please enter the full ID card number.")
     record = matches[0] if matches else None
     if not record:
-        return jsonify({"error": "Card not found"}), 404
-    return jsonify({"record": record, "institute": institute, "serial_no": record.get("serial_no", lookup_value)})
+        raise FileNotFoundError("Card not found")
+    return {
+        "record": record,
+        "institute": institute,
+        "serial_no": record.get("serial_no", lookup_value),
+    }
 
 
-@app.route("/api/update-card", methods=["POST"])
-def update_card():
-    payload = request.json or {}
+def persist_card_update(payload):
+    payload = dict(payload or {})
     institute = canonicalize_institute_name(payload.get("institute_name"))
     serial = (payload.get("serial_no") or "").strip()
     if not institute:
-        return jsonify({"error": "Institute is required"}), 400
+        raise ValueError("Institute is required")
     if not serial:
-        return jsonify({"error": "ID card number is required"}), 400
+        raise ValueError("ID card number is required")
 
     normalize_record_dates(payload)
     payload["institute_name"] = institute
@@ -5811,7 +4421,7 @@ def update_card():
     if is_supabase_enabled():
         existing = get_supabase_record_by_serial(institute, serial)
         if not existing:
-            return jsonify({"error": "Card not found"}), 404
+            raise FileNotFoundError("Card not found")
         submitted_at = existing.get("submitted_at")
         batch_id = existing.get("batch_id")
         batch_name = existing.get("batch_name")
@@ -5833,12 +4443,12 @@ def update_card():
             },
             query={"serial_no": f"eq.{serial}", "institute_name": f"eq.{institute}"},
         )
-        return jsonify({"status": "updated", "record": existing, "serial_no": serial})
+        return {"status": "updated", "record": existing, "serial_no": serial}
 
     records = load_records(institute)
     existing = next((rec for rec in records if rec.get("serial_no") == serial), None)
     if not existing:
-        return jsonify({"error": "Card not found"}), 404
+        raise FileNotFoundError("Card not found")
     submitted_at = existing.get("submitted_at")
     batch_total_cards = existing.get("batch_total_cards")
     existing.update(payload)
@@ -5846,7 +4456,117 @@ def update_card():
     if batch_total_cards:
         existing["batch_total_cards"] = batch_total_cards
     save_records(records, institute)
-    return jsonify({"status": "updated", "record": existing, "serial_no": serial})
+    return {"status": "updated", "record": existing, "serial_no": serial}
+
+
+def decode_image_data_url(data_url):
+    text = str(data_url or "").strip()
+    if not text.startswith("data:") or "," not in text:
+        raise ValueError("Invalid image data")
+    header, encoded = text.split(",", 1)
+    if ";base64" not in header:
+        raise ValueError("Unsupported image encoding")
+    mime_type = header[5:].split(";", 1)[0] or "image/png"
+    return base64.b64decode(encoded), mime_type
+
+
+@app.route("/api/retrieve-card")
+def retrieve_card():
+    try:
+        result = load_record_for_lookup(
+            request.args.get("institute"),
+            request.args.get("serial_no"),
+            request.args.get("query"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except LookupError as exc:
+        return jsonify({"error": str(exc)}), 409
+    except FileNotFoundError as exc:
+        return jsonify({"error": str(exc)}), 404
+    return jsonify(result)
+
+
+@app.route("/api/update-card", methods=["POST"])
+def update_card():
+    try:
+        result = persist_card_update(request.json or {})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except FileNotFoundError as exc:
+        return jsonify({"error": str(exc)}), 404
+    return jsonify(result)
+
+
+@app.route("/api/id-card-edit/load")
+@admin_required
+def id_card_edit_load():
+    try:
+        result = load_record_for_lookup(
+            request.args.get("institute"),
+            request.args.get("serial_no"),
+            request.args.get("query"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except LookupError as exc:
+        return jsonify({"error": str(exc)}), 409
+    except FileNotFoundError as exc:
+        return jsonify({"error": str(exc)}), 404
+    return jsonify(result)
+
+
+@app.route("/api/id-card-edit/save", methods=["POST"])
+@admin_required
+def id_card_edit_save():
+    try:
+        result = persist_card_update(request.get_json(silent=True) or {})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except FileNotFoundError as exc:
+        return jsonify({"error": str(exc)}), 404
+    return jsonify(result)
+
+
+@app.route("/api/id-card-edit/export", methods=["POST"])
+@admin_required
+def id_card_edit_export():
+    payload = request.get_json(silent=True) or {}
+    image_data = str(payload.get("image_data") or "").strip()
+    export_format = str(payload.get("format") or "png").strip().lower()
+    serial = secure_filename(str(payload.get("serial_no") or "id-card").strip()) or "id-card"
+    if export_format not in {"png", "pdf"}:
+        return jsonify({"error": "Invalid export format"}), 400
+    if not image_data:
+        return jsonify({"error": "Canvas image data is required"}), 400
+
+    try:
+        image_bytes, mime_type = decode_image_data_url(image_data)
+        image = Image.open(io.BytesIO(image_bytes))
+        image.load()
+    except Exception:
+        return jsonify({"error": "Unable to decode canvas image"}), 400
+
+    output = io.BytesIO()
+    if export_format == "pdf":
+        image.convert("RGB").save(output, "PDF", resolution=144.0)
+        output.seek(0)
+        return send_file(
+            output,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"{serial}.pdf",
+        )
+
+    save_format = "PNG" if mime_type.endswith("png") else "PNG"
+    image.save(output, save_format)
+    output.seek(0)
+    return send_file(
+        output,
+        mimetype="image/png",
+        as_attachment=True,
+        download_name=f"{serial}.png",
+    )
 
 @app.route("/api/records")
 @admin_required

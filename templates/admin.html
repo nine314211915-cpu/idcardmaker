@@ -1030,9 +1030,8 @@
     </div>
     <a href="/" class="nav-link">Home</a>
     <a href="/id-card" class="nav-link">ID Card Page</a>
+    <a href="/id-card-edit" class="nav-link">ID Card Editor</a>
     <a href="/certificate" class="nav-link">Certificate Page</a>
-    <a href="/templates" class="nav-link">Template Gallery</a>
-    <a href="/id-card-editor" class="nav-link">Photo Studio</a>
     <form method="post" action="/admin/logout" style="margin:0">
       <button class="nav-link" type="submit" style="background:rgba(255,255,255,0.08)">Logout</button>
     </form>
@@ -1063,9 +1062,8 @@
     <option value="">Select Batch</option>
   </select>
   <div class="toolbar-actions">
-    <button class="btn btn-outline" type="button" onclick="window.location.href='/id-card-editor'">Open Photo Studio</button>
-    <button class="btn btn-outline" type="button" onclick="window.location.href='/templates'">Open Template Gallery</button>
     <button class="btn btn-outline" type="button" onclick="openAdminBulkPhotoPicker()">Bulk Upload Photos</button>
+    <button class="btn btn-outline" type="button" onclick="window.location.href='/id-card-edit'">Open ID Card Editor</button>
     <button class="btn btn-outline" onclick="deleteSelectedBatch()">Delete Batch</button>
     <button class="btn btn-outline" type="button" onclick="document.getElementById('csvImportInput').click()">CSV Import</button>
     <button class="btn btn-outline" type="button" onclick="openPrintCards()">Open Print Preview</button>
@@ -2148,7 +2146,10 @@ function viewRecordFromEncoded(encoded) {
 }
 
 function editRecordFromEncoded(encoded) {
-  openEditModal(JSON.parse(decodeURIComponent(encoded)));
+  const record = JSON.parse(decodeURIComponent(encoded));
+  const institute = encodeURIComponent(record.institute_name || '');
+  const serial = encodeURIComponent(record.serial_no || '');
+  window.location.href = `/id-card-edit?institute=${institute}&serial_no=${serial}`;
 }
 
 function toggleEditFields() {
