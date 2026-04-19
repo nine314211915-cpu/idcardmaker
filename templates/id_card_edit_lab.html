@@ -925,6 +925,57 @@
           </div>
         </details>
 
+        <details class="panel-section" open>
+          <summary>
+            <span>Backgrounds</span>
+            <span class="mini-label" id="backgroundSourceLabel">Institute active</span>
+          </summary>
+          <div class="section-body">
+            <div class="field">
+              <label for="backgroundSelect">Institute Background Library</label>
+              <select id="backgroundSelect">
+                <option value="">Use institute active background</option>
+              </select>
+            </div>
+            <div class="inline-actions">
+              <button class="mini-btn" type="button" onclick="applySelectedBackground()">Apply Selected</button>
+              <button class="mini-btn" type="button" onclick="activateSelectedBackground()">Set Institute Active</button>
+              <button class="mini-btn" type="button" onclick="deleteSelectedBackground()">Delete Selected</button>
+            </div>
+            <div class="inline-actions">
+              <button class="mini-btn" type="button" onclick="useInstituteActiveBackground()">Use Institute Active</button>
+              <button class="mini-btn" type="button" onclick="clearBatchBackgroundOverride()">Clear Batch Override</button>
+            </div>
+            <div class="field-grid two">
+              <div class="field">
+                <label for="backgroundUploadName">Upload Name</label>
+                <input id="backgroundUploadName" type="text" placeholder="Official Blue">
+              </div>
+              <div class="field">
+                <label for="backgroundUploadInput">Upload File</label>
+                <input id="backgroundUploadInput" type="file" accept="image/*">
+              </div>
+            </div>
+            <div class="inline-actions">
+              <button class="mini-btn" type="button" onclick="uploadEditorBackground()">Upload To Institute Library</button>
+            </div>
+            <div class="field-grid two">
+              <div class="field">
+                <label for="backgroundLinkName">Link Name</label>
+                <input id="backgroundLinkName" type="text" placeholder="Hosted Background">
+              </div>
+              <div class="field">
+                <label for="backgroundLinkUrl">Background URL</label>
+                <input id="backgroundLinkUrl" type="url" placeholder="https://...">
+              </div>
+            </div>
+            <div class="inline-actions">
+              <button class="mini-btn" type="button" onclick="linkEditorBackground()">Link Into Institute Library</button>
+            </div>
+            <div class="prop-type" id="backgroundActiveMeta">Current background: none</div>
+          </div>
+        </details>
+
         <section class="panel-section">
           <div class="section-head">
             <span>Layers</span>
@@ -1121,6 +1172,8 @@
       activeTemplateSpec: null,
       clipboard: null,
       canvas: null,
+      backgroundLibrary: [],
+      batchBackground: null,
       staticObjects: {},
       sides: { front: {}, back: {} },
       backgroundImage: null,
@@ -1156,6 +1209,21 @@
       return String(value || '').trim();
     }
 
+    function cacheBustedUrl(url) {
+      const cleanUrl = escapeValue(url);
+      if (!cleanUrl) return '';
+      return `${cleanUrl}${cleanUrl.includes('?') ? '&' : '?'}t=${Date.now()}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     function setStatus(message, ok = false, warn = false) {
       const box = field('statusBox');
       box.textContent = message;
@@ -1187,6 +1255,99 @@
 
     function currentBatchId() {
       return escapeValue(field('batchSelector').value);
+    }
+
+    function normalizeBackgroundLibrary(items) {
+      if (!Array.isArray(items)) return [];
+      return items
+        .filter((item) => item && escapeValue(item.id) && escapeValue(item.url))
+        .map((item) => ({
+          id: escapeValue(item.id),
+          name: escapeValue(item.name) || 'Background',
+          url: escapeValue(item.url),
+          orientation: escapeValue(item.orientation) || 'landscape',
+        }));
+    }
+
+    function getBackgroundLibraryEntry(backgroundId) {
+      const targetId = escapeValue(backgroundId);
+      if (!targetId) return null;
+      return state.backgroundLibrary.find((item) => item.id === targetId) || null;
+    }
+
+    function selectedBackgroundId() {
+      return escapeValue(field('backgroundSelect').value);
+    }
+
+    function getEffectiveBackgroundConfig() {
+      const batchBackground = state.batchBackground || null;
+      if (batchBackground && escapeValue(batchBackground.url)) {
+        return {
+          source: 'batch',
+          id: escapeValue(batchBackground.id),
+          name: escapeValue(batchBackground.name) || 'Batch background',
+          url: escapeValue(batchBackground.url),
+        };
+      }
+      const instituteUrl = state.settings && state.settings.background_url ? escapeValue(state.settings.background_url) : '';
+      const activeEntry = getBackgroundLibraryEntry(state.settings && state.settings.active_background_id);
+      return {
+        source: instituteUrl ? 'institute' : 'none',
+        id: activeEntry ? activeEntry.id : '',
+        name: activeEntry ? activeEntry.name : (instituteUrl ? 'Institute active background' : 'None'),
+        url: instituteUrl,
+      };
+    }
+
+    function refreshBackgroundPanel() {
+      const select = field('backgroundSelect');
+      const sourceLabel = field('backgroundSourceLabel');
+      const activeMeta = field('backgroundActiveMeta');
+      if (!select || !sourceLabel || !activeMeta) return;
+      const options = ['<option value="">Use institute active background</option>'];
+      state.backgroundLibrary.forEach((item) => {
+        const selected = state.batchBackground && state.batchBackground.id === item.id
+          ? ' selected'
+          : '';
+        options.push(`<option value="${escapeHtml(item.id)}"${selected}>${escapeHtml(item.name)} (${escapeHtml(item.orientation)})</option>`);
+      });
+      select.innerHTML = options.join('');
+
+      const activeConfig = getEffectiveBackgroundConfig();
+      if (activeConfig.source === 'batch') {
+        sourceLabel.textContent = 'Batch design';
+        activeMeta.textContent = `Current background: ${activeConfig.name} (saved with batch design)`;
+      } else if (activeConfig.source === 'institute') {
+        sourceLabel.textContent = 'Institute active';
+        activeMeta.textContent = `Current background: ${activeConfig.name}`;
+      } else {
+        sourceLabel.textContent = 'No background';
+        activeMeta.textContent = 'Current background: none';
+      }
+    }
+
+    function applyBackgroundApiState(data) {
+      state.backgroundLibrary = normalizeBackgroundLibrary(data && data.backgrounds);
+      state.settings = {
+        ...(state.settings || {}),
+        background_url: escapeValue(data && data.background_url),
+        active_background_id: escapeValue(data && data.active_background_id),
+      };
+      if (state.batchBackground && state.batchBackground.id) {
+        const matchingEntry = getBackgroundLibraryEntry(state.batchBackground.id);
+        if (matchingEntry) {
+          state.batchBackground = {
+            mode: 'batch',
+            id: matchingEntry.id,
+            name: matchingEntry.name,
+            url: matchingEntry.url,
+          };
+        } else {
+          state.batchBackground = null;
+        }
+      }
+      refreshBackgroundPanel();
+      loadCanvasBackground();
     }
 
     function getCanvasSize(orientation = state.view.orientation) {
@@ -2289,6 +2450,14 @@
       clearSnapGuides();
       state.activeTemplateId = spec.id || '';
       state.activeTemplateSpec = spec;
+      if (escapeValue(spec.backgroundUrl || spec.background_url)) {
+        state.batchBackground = {
+          mode: 'batch',
+          id: '',
+          name: escapeValue(spec.label) || 'Template background',
+          url: escapeValue(spec.backgroundUrl || spec.background_url),
+        };
+      }
       state.view = {
         ...state.view,
         ...(spec.view || {}),
@@ -2327,6 +2496,7 @@
       });
 
       renderRecordOnCanvas();
+      refreshBackgroundPanel();
       applyAppearanceControls();
       state.canvas.requestRenderAll();
       closeTemplateModal();
@@ -2610,7 +2780,8 @@
     }
 
     function loadCanvasBackground() {
-      const url = state.settings && state.settings.background_url ? state.settings.background_url : '';
+      const activeBackground = getEffectiveBackgroundConfig();
+      const url = activeBackground.url;
       if (!state.canvas) return;
       const metrics = getLayoutMetrics();
       if (!url) {
@@ -2621,7 +2792,7 @@
         }
         return;
       }
-      fabric.Image.fromURL(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`, (img) => {
+      fabric.Image.fromURL(cacheBustedUrl(url), (img) => {
         if (!img) return;
         img.set({
           left: metrics.cardLeft,
@@ -2688,22 +2859,40 @@
     async function loadSettingsForInstitute(institute) {
       if (!institute) {
         state.settings = null;
+        state.backgroundLibrary = [];
+        state.batchBackground = null;
+        refreshBackgroundPanel();
         return;
       }
       try {
-        const res = await fetch(`/api/settings?institute=${encodeURIComponent(institute)}`);
-        state.settings = await res.json();
+        const [settingsRes, backgroundRes] = await Promise.all([
+          fetch(`/api/settings?institute=${encodeURIComponent(institute)}`),
+          fetch(`/api/print-backgrounds?institute=${encodeURIComponent(institute)}`),
+        ]);
+        state.settings = await settingsRes.json();
+        const backgroundData = await backgroundRes.json();
+        state.backgroundLibrary = backgroundRes.ok
+          ? normalizeBackgroundLibrary(backgroundData.backgrounds)
+          : [];
+        if (state.settings && backgroundRes.ok) {
+          state.settings.active_background_id = escapeValue(backgroundData.active_background_id);
+          state.settings.background_url = escapeValue(backgroundData.background_url || state.settings.background_url);
+        }
       } catch (error) {
         state.settings = null;
+        state.backgroundLibrary = [];
       }
+      refreshBackgroundPanel();
     }
 
     function resetBatchRecords() {
       state.availableRecords = [];
       state.currentRecordIndex = -1;
       state.record = null;
+      state.batchBackground = null;
       field('serialInput').value = '';
       updateBatchBrowserBadge();
+      refreshBackgroundPanel();
     }
 
     async function loadBatchOptions() {
@@ -2800,11 +2989,14 @@
         state.currentRecordIndex = foundIndex >= 0 ? foundIndex : 0;
         syncCurrentRecord();
         if (designData && designData.design) {
+          state.batchBackground = designData.design.background || null;
           state.pendingPhotoSnapshot = designData.design.photo || null;
           applyBatchDesignSnapshot(designData.design);
           renderRecordOnCanvas();
         } else {
+          state.batchBackground = null;
           state.pendingPhotoSnapshot = null;
+          refreshBackgroundPanel();
           pushHistoryState(true);
         }
         setStatus(`Loaded ${state.availableRecords.length} cards for this batch.`, true);
@@ -2905,6 +3097,7 @@
     function captureCanvasState() {
       return {
         currentSide: state.currentSide,
+        background: state.batchBackground ? { ...state.batchBackground } : null,
         view: { ...state.view },
         static: serializeObjectMap(state.staticObjects, false),
         photo: serializeCanvasObject(state.photoImage, false),
@@ -2917,6 +3110,7 @@
     function captureBatchDesignState() {
       return {
         currentSide: state.currentSide,
+        background: state.batchBackground ? { ...state.batchBackground } : null,
         view: { ...state.view },
         static: serializeObjectMap(state.staticObjects, false),
         photo: serializeCanvasObject(state.photoImage, false),
@@ -3039,8 +3233,10 @@
     function applyHistorySnapshot(snapshot) {
       if (!snapshot || !state.canvas) return;
       state.history.isApplying = true;
+      state.batchBackground = snapshot.background || null;
       state.view = { ...state.view, ...(snapshot.view || {}) };
       syncAppearanceControls();
+      refreshBackgroundPanel();
       applySerializedState(state.staticObjects, snapshot.static || {}, false);
       applySerializedObject(state.photoImage, snapshot.photo, false);
       applySerializedState(state.sides.front, snapshot.front || {}, true);
@@ -3055,8 +3251,10 @@
     function applyBatchDesignSnapshot(snapshot) {
       if (!snapshot || !state.canvas) return;
       state.history.isApplying = true;
+      state.batchBackground = snapshot.background || null;
       state.view = { ...state.view, ...(snapshot.view || {}) };
       syncAppearanceControls();
+      refreshBackgroundPanel();
       applySerializedState(state.staticObjects, snapshot.static || {}, false);
       applySerializedObject(state.photoImage, snapshot.photo, false);
       applySerializedState(state.sides.front, snapshot.front || {}, false);
@@ -3207,6 +3405,196 @@
       });
     }
 
+    function applySelectedBackground() {
+      const backgroundId = escapeValue(field('backgroundSelect').value);
+      if (!backgroundId) {
+        useInstituteActiveBackground();
+        return;
+      }
+      const entry = getBackgroundLibraryEntry(backgroundId);
+      if (!entry) {
+        setStatus('Selected background was not found in the institute library.', false, true);
+        return;
+      }
+      state.batchBackground = {
+        mode: 'batch',
+        id: entry.id,
+        name: entry.name,
+        url: entry.url,
+      };
+      refreshBackgroundPanel();
+      loadCanvasBackground();
+      pushHistoryState();
+      setStatus(`Applied ${entry.name} to this batch design.`, true);
+    }
+
+    function useInstituteActiveBackground() {
+      state.batchBackground = null;
+      refreshBackgroundPanel();
+      loadCanvasBackground();
+      pushHistoryState();
+      setStatus('Using the institute active background for this batch.', true);
+    }
+
+    function clearBatchBackgroundOverride() {
+      state.batchBackground = null;
+      field('backgroundSelect').value = '';
+      refreshBackgroundPanel();
+      loadCanvasBackground();
+      pushHistoryState();
+      setStatus('Batch background override cleared.', true);
+    }
+
+    async function activateSelectedBackground() {
+      const institute = escapeValue(field('instituteInput').value);
+      const backgroundId = selectedBackgroundId();
+      if (!institute) {
+        setStatus('Select institute before changing the active background.', false, true);
+        return;
+      }
+      if (!backgroundId) {
+        setStatus('Select a background first.', false, true);
+        return;
+      }
+      setStatus('Setting institute active background...');
+      try {
+        const res = await fetch(`/api/print-backgrounds/${encodeURIComponent(backgroundId)}/activate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ institute }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to activate background.');
+        applyBackgroundApiState(data);
+        pushHistoryState();
+        setStatus('Institute active background updated.', true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to activate background.', false, true);
+      }
+    }
+
+    async function deleteSelectedBackground() {
+      const institute = escapeValue(field('instituteInput').value);
+      const backgroundId = selectedBackgroundId();
+      const entry = getBackgroundLibraryEntry(backgroundId);
+      if (!institute) {
+        setStatus('Select institute before deleting a background.', false, true);
+        return;
+      }
+      if (!backgroundId || !entry) {
+        setStatus('Select a background first.', false, true);
+        return;
+      }
+      const confirmed = window.confirm(`Delete background "${entry.name}" from the institute library?`);
+      if (!confirmed) return;
+      setStatus('Deleting background...');
+      try {
+        const res = await fetch(`/api/print-backgrounds/${encodeURIComponent(backgroundId)}?institute=${encodeURIComponent(institute)}`, {
+          method: 'DELETE',
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to delete background.');
+        if (state.batchBackground && state.batchBackground.id === backgroundId) {
+          state.batchBackground = null;
+        }
+        applyBackgroundApiState(data);
+        pushHistoryState();
+        setStatus('Background deleted from the institute library.', true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to delete background.', false, true);
+      }
+    }
+
+    async function uploadEditorBackground() {
+      const institute = escapeValue(field('instituteInput').value);
+      const fileInput = field('backgroundUploadInput');
+      const file = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+      const name = escapeValue(field('backgroundUploadName').value) || (file ? file.name.replace(/\.[^.]+$/, '') : '');
+      if (!institute) {
+        setStatus('Select institute before uploading a background.', false, true);
+        return;
+      }
+      if (!file) {
+        setStatus('Choose a background image file first.', false, true);
+        return;
+      }
+      setStatus('Uploading background to institute library...');
+      try {
+        const formData = new FormData();
+        formData.append('institute', institute);
+        formData.append('name', name);
+        formData.append('orientation', state.view.orientation);
+        formData.append('background', file);
+        const res = await fetch('/api/print-backgrounds', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to upload background.');
+        applyBackgroundApiState(data);
+        if (data.background) {
+          state.batchBackground = {
+            mode: 'batch',
+            id: escapeValue(data.background.id),
+            name: escapeValue(data.background.name),
+            url: escapeValue(data.background.url),
+          };
+        }
+        fileInput.value = '';
+        field('backgroundUploadName').value = '';
+        refreshBackgroundPanel();
+        pushHistoryState();
+        setStatus('Background uploaded and added to the institute library.', true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to upload background.', false, true);
+      }
+    }
+
+    async function linkEditorBackground() {
+      const institute = escapeValue(field('instituteInput').value);
+      const name = escapeValue(field('backgroundLinkName').value);
+      const url = escapeValue(field('backgroundLinkUrl').value);
+      if (!institute) {
+        setStatus('Select institute before linking a background.', false, true);
+        return;
+      }
+      if (!url) {
+        setStatus('Enter a background URL first.', false, true);
+        return;
+      }
+      setStatus('Linking hosted background...');
+      try {
+        const res = await fetch('/api/print-backgrounds/link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            institute,
+            name,
+            url,
+            orientation: state.view.orientation,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to link background.');
+        applyBackgroundApiState(data);
+        if (data.background) {
+          state.batchBackground = {
+            mode: 'batch',
+            id: escapeValue(data.background.id),
+            name: escapeValue(data.background.name),
+            url: escapeValue(data.background.url),
+          };
+        }
+        field('backgroundLinkName').value = '';
+        field('backgroundLinkUrl').value = '';
+        refreshBackgroundPanel();
+        pushHistoryState();
+        setStatus('Hosted background added to the institute library.', true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to link background.', false, true);
+      }
+    }
+
     function bindFieldUpdates() {
       [
         'instituteInput', 'serialInput', 'profileTypeInput', 'nameInput', 'bloodGroupInput',
@@ -3261,11 +3649,25 @@
         applyOrientation(event.target.value);
       });
       field('instituteInput').addEventListener('change', async () => {
+        state.batchBackground = null;
+        refreshBackgroundPanel();
+        await loadSettingsForInstitute(escapeValue(field('instituteInput').value));
         await loadBatchOptions();
         renderRecordOnCanvas();
       });
       field('batchSelector').addEventListener('change', async () => {
         await loadBatchRecords();
+      });
+      field('backgroundSelect').addEventListener('change', () => {
+        const selectedId = escapeValue(field('backgroundSelect').value);
+        const entry = getBackgroundLibraryEntry(selectedId);
+        if (!entry && !selectedId) {
+          field('backgroundActiveMeta').textContent = 'Current background: institute active background';
+          return;
+        }
+        if (entry) {
+          field('backgroundActiveMeta').textContent = `Selected background: ${entry.name} (${entry.orientation})`;
+        }
       });
     }
 
@@ -3278,6 +3680,7 @@
       applyCanvasScale();
       renderRecordOnCanvas();
       syncObjectInspector(null);
+      refreshBackgroundPanel();
       setToolMode('select');
       window.setTimeout(refreshPanelScrollControls, 80);
       window.setTimeout(refreshPanelScrollControls, 260);
@@ -3285,7 +3688,7 @@
         setStatus(`Editor is connected to ${DATA_SOURCE_LABEL}. Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in this shell to load hosted records.`, false, true);
       }
       if (field('instituteInput').value) {
-        loadBatchOptions().then(() => {
+        loadSettingsForInstitute(escapeValue(field('instituteInput').value)).then(() => loadBatchOptions()).then(() => {
           if (field('serialInput').value) {
             const initialSerial = field('serialInput').value;
             const batchOptions = Array.from(field('batchSelector').options).map((option) => option.value).filter(Boolean);
