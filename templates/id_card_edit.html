@@ -336,12 +336,6 @@
           <h2>Studio ID Card Editor</h2>
           <p>Load a saved record, switch front/back views, adjust the live Fabric.js canvas, then save the data or export the current design.</p>
         </div>
-        <div class="chip-row">
-          <span class="chip" id="loadedSerialChip">Serial: --</span>
-          <span class="chip" id="loadedTypeChip">Type: --</span>
-          <span class="chip" id="dataSourceChip">Source: {{ data_source_label }}</span>
-          <span class="chip" id="zoomChip">Zoom: 100%</span>
-        </div>
       </div>
 
       <div class="status{% if not supabase_enabled %} warn{% endif %}" id="statusBox">{% if supabase_enabled %}Editor ready. Load a card to start.{% else %}Editor ready. This local run is using Local JSON data because Supabase is not configured in this shell.{% endif %}</div>
@@ -381,87 +375,6 @@
               <button class="btn tiny" type="button" onclick="redoCanvas()">Redo</button>
               <button class="btn tiny" type="button" onclick="switchSide('front')">Front</button>
               <button class="btn tiny" type="button" onclick="switchSide('back')">Back</button>
-            </div>
-          </div>
-        </details>
-
-        <details class="control-group" open>
-          <summary>
-            <span>Record Data</span>
-            <span class="summary-hint">Compact form fields</span>
-          </summary>
-          <div class="group-body">
-            <div class="grid two">
-              <div class="field">
-                <label for="profileTypeInput">Profile Type</label>
-                <select id="profileTypeInput">
-                  <option value="student">Student</option>
-                  <option value="employee">Employee</option>
-                  <option value="lecturer">Lecturer</option>
-                </select>
-              </div>
-              <div class="field">
-                <label for="bloodGroupInput">Blood Group</label>
-                <input id="bloodGroupInput" placeholder="B+">
-              </div>
-            </div>
-            <div class="field">
-              <label for="nameInput">Full Name</label>
-              <input id="nameInput" placeholder="Full name">
-            </div>
-            <div class="grid two">
-              <div class="field">
-                <label for="courseInput">Course / Designation</label>
-                <input id="courseInput" placeholder="B.Sc. Nursing / Officer">
-              </div>
-              <div class="field">
-                <label for="employeeIdInput">Employee ID</label>
-                <input id="employeeIdInput" placeholder="EMP-01">
-              </div>
-            </div>
-            <div class="grid two">
-              <div class="field">
-                <label for="batchInput">Batch Session</label>
-                <input id="batchInput" placeholder="2025-26">
-              </div>
-              <div class="field">
-                <label for="yearInput">Training Year</label>
-                <input id="yearInput" placeholder="Year 2">
-              </div>
-            </div>
-            <div class="grid two">
-              <div class="field">
-                <label for="dobInput">Date of Birth</label>
-                <input id="dobInput" placeholder="14/08/2004">
-              </div>
-              <div class="field">
-                <label for="validUptoInput">Valid Upto</label>
-                <input id="validUptoInput" placeholder="31/03/2027">
-              </div>
-            </div>
-            <div class="grid two">
-              <div class="field">
-                <label for="contactInput">Contact</label>
-                <input id="contactInput" placeholder="9876543210">
-              </div>
-              <div class="field">
-                <label for="fatherNameInput">Father / Guardian</label>
-                <input id="fatherNameInput" placeholder="Guardian name">
-              </div>
-            </div>
-            <div class="grid two">
-              <div class="field">
-                <label for="facilityInput">Facility / Department</label>
-                <input id="facilityInput" placeholder="Department or facility">
-              </div>
-              <div class="field">
-                <label for="subFacilityInput">Sub Location</label>
-                <input id="subFacilityInput" placeholder="Village / town / unit">
-              </div>
-            </div>
-            <div class="field">
-              <label for="addressInput">Address</label>
-              <textarea id="addressInput" placeholder="Address"></textarea>
             </div>
           </div>
         </details>
@@ -583,6 +496,87 @@
             </div>
             <div class="toolbar">
               <button class="btn" type="button" onclick="uploadPhoto()">Upload Photo</button>
+            </div>
+          </div>
+        </details>
+
+        <details class="control-group">
+          <summary>
+            <span>Record Data</span>
+            <span class="summary-hint">Compact form fields</span>
+          </summary>
+          <div class="group-body">
+            <div class="grid two">
+              <div class="field">
+                <label for="profileTypeInput">Profile Type</label>
+                <select id="profileTypeInput">
+                  <option value="student">Student</option>
+                  <option value="employee">Employee</option>
+                  <option value="lecturer">Lecturer</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="bloodGroupInput">Blood Group</label>
+                <input id="bloodGroupInput" placeholder="B+">
+              </div>
+            </div>
+            <div class="field">
+              <label for="nameInput">Full Name</label>
+              <input id="nameInput" placeholder="Full name">
+            </div>
+            <div class="grid two">
+              <div class="field">
+                <label for="courseInput">Course / Designation</label>
+                <input id="courseInput" placeholder="B.Sc. Nursing / Officer">
+              </div>
+              <div class="field">
+                <label for="employeeIdInput">Employee ID</label>
+                <input id="employeeIdInput" placeholder="EMP-01">
+              </div>
+            </div>
+            <div class="grid two">
+              <div class="field">
+                <label for="batchInput">Batch Session</label>
+                <input id="batchInput" placeholder="2025-26">
+              </div>
+              <div class="field">
+                <label for="yearInput">Training Year</label>
+                <input id="yearInput" placeholder="Year 2">
+              </div>
+            </div>
+            <div class="grid two">
+              <div class="field">
+                <label for="dobInput">Date of Birth</label>
+                <input id="dobInput" placeholder="14/08/2004">
+              </div>
+              <div class="field">
+                <label for="validUptoInput">Valid Upto</label>
+                <input id="validUptoInput" placeholder="31/03/2027">
+              </div>
+            </div>
+            <div class="grid two">
+              <div class="field">
+                <label for="contactInput">Contact</label>
+                <input id="contactInput" placeholder="9876543210">
+              </div>
+              <div class="field">
+                <label for="fatherNameInput">Father / Guardian</label>
+                <input id="fatherNameInput" placeholder="Guardian name">
+              </div>
+            </div>
+            <div class="grid two">
+              <div class="field">
+                <label for="facilityInput">Facility / Department</label>
+                <input id="facilityInput" placeholder="Department or facility">
+              </div>
+              <div class="field">
+                <label for="subFacilityInput">Sub Location</label>
+                <input id="subFacilityInput" placeholder="Village / town / unit">
+              </div>
+            </div>
+            <div class="field">
+              <label for="addressInput">Address</label>
+              <textarea id="addressInput" placeholder="Address"></textarea>
             </div>
           </div>
         </details>
