@@ -119,15 +119,52 @@
     .workspace {
       display: grid;
       grid-template-columns: 74px minmax(0, 1fr) 336px;
-      min-height: 0;
+      min-height: calc(100vh - 132px);
     }
     .left-rail {
       background: linear-gradient(180deg, #304253 0%, #243241 100%);
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #1b2731;
+      min-height: 0;
+    }
+    .side-scroll-head {
+      padding: 10px 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: grid;
+      gap: 8px;
+    }
+    .side-scroll-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: rgba(255,255,255,0.62);
+      text-align: center;
+    }
+    .side-scroll-actions {
+      display: grid;
+      gap: 6px;
+    }
+    .side-scroll-btn {
+      min-height: 34px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: #21303d;
+      color: #fff;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .side-scroll-btn:hover {
+      background: #2b4357;
+    }
+    .left-rail-body,
+    .right-panel-body {
+      min-height: 0;
+      overflow-y: auto;
       padding: 12px 10px;
       display: flex;
       flex-direction: column;
       gap: 10px;
-      border-right: 1px solid #1b2731;
     }
     .rail-title {
       font-size: 11px;
@@ -177,10 +214,10 @@
       color: var(--muted);
     }
     .canvas-stage {
-      padding: 20px;
+      padding: 10px 20px 20px;
       overflow: auto;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
       background:
         linear-gradient(45deg, rgba(0,0,0,0.04) 25%, transparent 25%),
@@ -203,8 +240,22 @@
     .right-panel {
       background: var(--panel);
       border-left: 1px solid var(--line);
-      overflow-y: auto;
-      padding: 14px;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .right-scroll-head {
+      padding: 12px 14px 8px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255,255,255,0.92);
+    }
+    .right-scroll-actions {
+      display: flex;
+      gap: 8px;
     }
     .status-box {
       padding: 10px 12px;
@@ -399,10 +450,15 @@
         flex-wrap: wrap;
         border-right: 0;
         border-bottom: 1px solid #1b2731;
+        min-height: auto;
       }
       .right-panel {
         border-left: 0;
         border-top: 1px solid var(--line);
+      }
+      .left-rail-body,
+      .right-panel-body {
+        overflow: visible;
       }
       .rail-title {
         width: 100%;
@@ -567,40 +623,49 @@
 
     <div class="workspace">
       <aside class="left-rail">
-        <div class="rail-title">Tools</div>
-        <button class="rail-btn" type="button" onclick="setToolMode('select', this)">Select</button>
-        <button class="rail-btn" type="button" onclick="addText()">Text</button>
-        <button class="rail-btn" type="button" onclick="openGenericImagePicker()">Image</button>
-        <button class="rail-btn" type="button" onclick="addRect()">Rect</button>
-        <button class="rail-btn" type="button" onclick="addCircle()">Circle</button>
-        <button class="rail-btn" type="button" onclick="addLine()">Line</button>
-        <button class="rail-btn" type="button" onclick="addPhotoPlaceholder()">Photo</button>
-        <button class="rail-btn" type="button" onclick="addBarcode()">Barcode</button>
-        <button class="rail-btn" type="button" onclick="addQRCode()">QR</button>
-        <button class="rail-btn" type="button" onclick="toggleDrawing(this)">Draw</button>
-        <div class="rail-title">Edit</div>
-        <button class="rail-btn" type="button" onclick="copySelection()">Copy</button>
-        <button class="rail-btn" type="button" onclick="pasteSelection()">Paste</button>
-        <button class="rail-btn" type="button" onclick="duplicateSelection()">Duplicate</button>
-        <button class="rail-btn" type="button" onclick="deleteSelected()">Delete</button>
-        <button class="rail-btn" type="button" onclick="toggleLockSelected()">Lock</button>
-        <div class="rail-title">Move</div>
-        <button class="rail-btn" type="button" onclick="alignActive('left')">Left</button>
-        <button class="rail-btn" type="button" onclick="alignActive('center')">Center</button>
-        <button class="rail-btn" type="button" onclick="alignActive('right')">Right</button>
-        <button class="rail-btn" type="button" onclick="nudgeActive(0, -5)">Up</button>
-        <button class="rail-btn" type="button" onclick="nudgeActive(0, 5)">Down</button>
-        <div class="rail-title">Focus</div>
-        <button class="rail-btn" type="button" onclick="focusLayer('name')">Name</button>
-        <button class="rail-btn" type="button" onclick="focusLayer('role')">Role</button>
-        <button class="rail-btn" type="button" onclick="focusLayer('details')">Details</button>
-        <button class="rail-btn" type="button" onclick="focusLayer('photo')">Photo</button>
-        <button class="rail-btn" type="button" onclick="focusLayer('backTitle')">Back</button>
-        <div class="rail-title">Style</div>
-        <button class="rail-btn" type="button" onclick="applyPreset('official')">Official</button>
-        <button class="rail-btn" type="button" onclick="applyPreset('blue')">Blue</button>
-        <button class="rail-btn" type="button" onclick="applyPreset('clean')">Clean</button>
-        <button class="rail-btn" type="button" onclick="resetCanvasLayout()">Reset</button>
+        <div class="side-scroll-head">
+          <div class="side-scroll-title">Left Menu</div>
+          <div class="side-scroll-actions">
+            <button class="side-scroll-btn" type="button" onclick="scrollPanelBy('leftRailBody', -220)">Up</button>
+            <button class="side-scroll-btn" type="button" onclick="scrollPanelBy('leftRailBody', 220)">Down</button>
+          </div>
+        </div>
+        <div class="left-rail-body" id="leftRailBody">
+          <div class="rail-title">Tools</div>
+          <button class="rail-btn" type="button" onclick="setToolMode('select', this)">Select</button>
+          <button class="rail-btn" type="button" onclick="addText()">Text</button>
+          <button class="rail-btn" type="button" onclick="openGenericImagePicker()">Image</button>
+          <button class="rail-btn" type="button" onclick="addRect()">Rect</button>
+          <button class="rail-btn" type="button" onclick="addCircle()">Circle</button>
+          <button class="rail-btn" type="button" onclick="addLine()">Line</button>
+          <button class="rail-btn" type="button" onclick="addPhotoPlaceholder()">Photo</button>
+          <button class="rail-btn" type="button" onclick="addBarcode()">Barcode</button>
+          <button class="rail-btn" type="button" onclick="addQRCode()">QR</button>
+          <button class="rail-btn" type="button" onclick="toggleDrawing(this)">Draw</button>
+          <div class="rail-title">Edit</div>
+          <button class="rail-btn" type="button" onclick="copySelection()">Copy</button>
+          <button class="rail-btn" type="button" onclick="pasteSelection()">Paste</button>
+          <button class="rail-btn" type="button" onclick="duplicateSelection()">Duplicate</button>
+          <button class="rail-btn" type="button" onclick="deleteSelected()">Delete</button>
+          <button class="rail-btn" type="button" onclick="toggleLockSelected()">Lock</button>
+          <div class="rail-title">Move</div>
+          <button class="rail-btn" type="button" onclick="alignActive('left')">Left</button>
+          <button class="rail-btn" type="button" onclick="alignActive('center')">Center</button>
+          <button class="rail-btn" type="button" onclick="alignActive('right')">Right</button>
+          <button class="rail-btn" type="button" onclick="nudgeActive(0, -5)">Up</button>
+          <button class="rail-btn" type="button" onclick="nudgeActive(0, 5)">Down</button>
+          <div class="rail-title">Focus</div>
+          <button class="rail-btn" type="button" onclick="focusLayer('name')">Name</button>
+          <button class="rail-btn" type="button" onclick="focusLayer('role')">Role</button>
+          <button class="rail-btn" type="button" onclick="focusLayer('details')">Details</button>
+          <button class="rail-btn" type="button" onclick="focusLayer('photo')">Photo</button>
+          <button class="rail-btn" type="button" onclick="focusLayer('backTitle')">Back</button>
+          <div class="rail-title">Style</div>
+          <button class="rail-btn" type="button" onclick="applyPreset('official')">Official</button>
+          <button class="rail-btn" type="button" onclick="applyPreset('blue')">Blue</button>
+          <button class="rail-btn" type="button" onclick="applyPreset('clean')">Clean</button>
+          <button class="rail-btn" type="button" onclick="resetCanvasLayout()">Reset</button>
+        </div>
       </aside>
 
       <main class="canvas-zone">
@@ -623,6 +688,14 @@
       </main>
 
       <aside class="right-panel">
+        <div class="right-scroll-head">
+          <span class="mini-label">Right Menu</span>
+          <div class="right-scroll-actions">
+            <button class="mini-btn" type="button" onclick="scrollPanelBy('rightPanelBody', -260)">Up</button>
+            <button class="mini-btn" type="button" onclick="scrollPanelBy('rightPanelBody', 260)">Down</button>
+          </div>
+        </div>
+        <div class="right-panel-body" id="rightPanelBody">
         <div class="status-box{% if not supabase_enabled %} warn{% endif %}" id="statusBox">{% if supabase_enabled %}Editor ready. Select institute and batch to load cards.{% else %}Editor ready. This local run is using Local JSON data because Supabase is not configured in this shell.{% endif %}</div>
 
         <details class="panel-section" open>
@@ -965,6 +1038,7 @@
             </div>
           </div>
         </details>
+        </div>
       </aside>
     </div>
 
@@ -1081,6 +1155,12 @@
       const box = field('statusBox');
       box.textContent = message;
       box.className = warn ? 'status-box warn' : (ok ? 'status-box ok' : 'status-box');
+    }
+
+    function scrollPanelBy(id, amount) {
+      const panel = field(id);
+      if (!panel) return;
+      panel.scrollBy({ top: amount, behavior: 'smooth' });
     }
 
     function currentBatchId() {
