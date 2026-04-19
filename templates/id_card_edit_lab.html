@@ -208,6 +208,17 @@
       font-size: 12px;
       color: var(--muted);
     }
+    .canvas-meta-main {
+      flex: 1 1 280px;
+      min-width: 220px;
+    }
+    .canvas-meta-side {
+      flex: 1 1 320px;
+      min-width: 260px;
+      display: grid;
+      justify-items: end;
+      gap: 8px;
+    }
     .canvas-stage {
       padding: 10px 20px 20px;
       overflow: auto;
@@ -253,6 +264,10 @@
       color: var(--text);
       font-size: 13px;
       margin-bottom: 12px;
+    }
+    .canvas-meta .status-box {
+      margin-bottom: 0;
+      width: min(100%, 460px);
     }
     .status-box.ok {
       background: #eaf8ef;
@@ -456,6 +471,12 @@
       .right-panel-body {
         position: static;
         overflow: visible;
+      }
+      .canvas-meta-side {
+        justify-items: start;
+      }
+      .canvas-meta .status-box {
+        width: 100%;
       }
       .rail-title {
         width: 100%;
@@ -668,14 +689,17 @@
 
       <main class="canvas-zone">
         <section class="canvas-meta">
-          <div>
+          <div class="canvas-meta-main">
             <h1>ID Card Edit Lab</h1>
             <p>Menu-style Fabric.js layout with the existing institute + batch data flow and batch-wide design saving.</p>
           </div>
-          <div class="mini-tools">
-            <span class="status-chip" id="activeObjectBadge">Active: none</span>
-            <span class="status-chip" id="currentSideBadge">Side: front</span>
-            <span class="status-chip" id="sourceBadge">Source: {{ data_source_label }}</span>
+          <div class="canvas-meta-side">
+            <div class="status-box{% if not supabase_enabled %} warn{% endif %}" id="statusBox">{% if supabase_enabled %}Editor ready. Select institute and batch to load cards.{% else %}Editor ready. This local run is using Local JSON data because Supabase is not configured in this shell.{% endif %}</div>
+            <div class="mini-tools">
+              <span class="status-chip" id="activeObjectBadge">Active: none</span>
+              <span class="status-chip" id="currentSideBadge">Side: front</span>
+              <span class="status-chip" id="sourceBadge">Source: {{ data_source_label }}</span>
+            </div>
           </div>
         </section>
         <section class="canvas-stage" id="canvasStage">
@@ -689,8 +713,6 @@
         <div class="right-scroll-head" id="rightScrollHead">
         </div>
         <div class="right-panel-body" id="rightPanelBody">
-        <div class="status-box{% if not supabase_enabled %} warn{% endif %}" id="statusBox">{% if supabase_enabled %}Editor ready. Select institute and batch to load cards.{% else %}Editor ready. This local run is using Local JSON data because Supabase is not configured in this shell.{% endif %}</div>
-
         <details class="panel-section" open>
           <summary>
             <span>Object Properties</span>
