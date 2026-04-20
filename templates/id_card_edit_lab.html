@@ -2882,6 +2882,9 @@
       if (!state.canvas) return;
       const metrics = getLayoutMetrics();
       if (!url) {
+        if (state.staticObjects && state.staticObjects.card) {
+          state.staticObjects.card.set('fill', '#ffffff');
+        }
         if (state.backgroundImage) {
           state.canvas.remove(state.backgroundImage);
           state.backgroundImage = null;
@@ -2895,6 +2898,9 @@
         const naturalHeight = Number(img.height) || 1;
         const stretchScaleX = metrics.cardWidth / naturalWidth;
         const stretchScaleY = metrics.cardHeight / naturalHeight;
+        if (state.staticObjects && state.staticObjects.card) {
+          state.staticObjects.card.set('fill', 'rgba(255,255,255,0)');
+        }
         img.set({
           originX: 'left',
           originY: 'top',
