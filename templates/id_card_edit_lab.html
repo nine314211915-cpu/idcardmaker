@@ -626,6 +626,7 @@
         <select id="batchSelector">
           <option value="">Select batch</option>
         </select>
+        <button class="tool-btn" type="button" onclick="saveInstituteDesign()">Save Institute Design</button>
         <button class="tool-btn primary" type="button" onclick="saveBatchDesign()">Save Batch Design</button>
       </div>
       <div class="top-group">
@@ -3237,15 +3238,18 @@
       resetBatchRecords();
       if (!institute || !batchId) return;
       try {
-        const [, recordsRes, designRes] = await Promise.all([
+        const [, recordsRes, batchDesignRes, instituteDesignRes] = await Promise.all([
           loadSettingsForInstitute(institute),
           fetch(`/api/records?institute=${encodeURIComponent(institute)}&batch_id=${encodeURIComponent(batchId)}`),
           fetch(`/api/id-card-edit/batch-design?institute=${encodeURIComponent(institute)}&batch_id=${encodeURIComponent(batchId)}`),
+          fetch(`/api/id-card-edit/institute-design?institute=${encodeURIComponent(institute)}`),
         ]);
         const recordsData = await recordsRes.json();
-        const designData = await designRes.json();
+        const batchDesignData = await batchDesignRes.json();
+        const instituteDesignData = await instituteDesignRes.json();
         if (!recordsRes.ok) throw new Error(recordsData.error || 'Unable to load batch records.');
-        if (!designRes.ok) throw new Error(designData.error || 'Unable to load batch design.');
+        if (!batchDesignRes.ok) throw new Error(batchDesignData.error || 'Unable to load batch design.');
+        if (!instituteDesignRes.ok) throw new Error(instituteDesignData.error || 'Unable to load institute design.');
         state.availableRecords = Array.isArray(recordsData.records) ? recordsData.records : [];
         if (!state.availableRecords.length) {
           updateBatchBrowserBadge();
@@ -3257,10 +3261,13 @@
           : -1;
         state.currentRecordIndex = foundIndex >= 0 ? foundIndex : 0;
         syncCurrentRecord();
-        if (designData && designData.design) {
-          state.batchBackgrounds = normalizeBackgroundState(designData.design.background);
-          state.pendingPhotoSnapshot = designData.design.photo || null;
-          applyBatchDesignSnapshot(designData.design);
+        const activeDesign = batchDesignData && batchDesignData.design
+          ? batchDesignData.design
+          : (instituteDesignData && instituteDesignData.design ? instituteDesignData.design : null);
+        if (activeDesign) {
+          state.batchBackgrounds = normalizeBackgroundState(activeDesign.background);
+          state.pendingPhotoSnapshot = activeDesign.photo || null;
+          applyBatchDesignSnapshot(activeDesign);
           renderRecordOnCanvas();
         } else {
           state.batchBackgrounds = { front: null, back: null };
@@ -3268,7 +3275,13 @@
           refreshBackgroundPanel();
           pushHistoryState(true);
         }
-        setStatus(`Loaded ${state.availableRecords.length} cards for this batch.`, true);
+        if (batchDesignData && batchDesignData.design) {
+          setStatus(`Loaded ${state.availableRecords.length} cards for this batch with batch design.`, true);
+        } else if (instituteDesignData && instituteDesignData.design) {
+          setStatus(`Loaded ${state.availableRecords.length} cards for this batch with institute design.`, true);
+        } else {
+          setStatus(`Loaded ${state.availableRecords.length} cards for this batch.`, true);
+        }
       } catch (error) {
         setStatus(error.message || 'Unable to load records for this batch.', false, true);
       }
@@ -3322,6 +3335,30 @@
         setStatus(`Saved design for batch ${batchId}.`, true);
       } catch (error) {
         setStatus(error.message || 'Unable to save batch design.', false, true);
+      }
+    }
+
+    async function saveInstituteDesign() {
+      const institute = escapeValue(field('instituteInput').value);
+      if (!institute) {
+        setStatus('Select an institute before saving the design.', false, true);
+        return;
+      }
+      setStatus('Saving institute design...');
+      try {
+        const res = await fetch('/api/id-card-edit/institute-design', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            institute,
+            design: captureBatchDesignState(),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to save institute design.');
+        setStatus(`Saved design for institute ${institute}.`, true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to save institute design.', false, true);
       }
     }
 

@@ -4526,6 +4526,18 @@ def sanitize_batch_editor_designs(data):
     return cleaned
 
 
+def sanitize_editor_design_payload(payload):
+    if not isinstance(payload, dict):
+        return None
+    design = payload.get("design")
+    if not isinstance(design, dict) or not design:
+        return None
+    return {
+        "updated_at": str(payload.get("updated_at") or "").strip(),
+        "design": design,
+    }
+
+
 @app.route("/api/retrieve-card")
 def retrieve_card():
     try:
@@ -4627,6 +4639,42 @@ def id_card_edit_batch_design():
         "institute": institute,
         "batch_id": batch_id,
         "updated_at": designs[batch_id]["updated_at"],
+    })
+
+
+@app.route("/api/id-card-edit/institute-design", methods=["GET", "POST"])
+@admin_required
+def id_card_edit_institute_design():
+    if request.method == "GET":
+        institute = canonicalize_institute_name(request.args.get("institute"))
+        if not institute:
+            return jsonify({"error": "Institute is required"}), 400
+        settings = load_settings(institute)
+        design_payload = sanitize_editor_design_payload(settings.get("institute_editor_design"))
+        return jsonify({
+            "institute": institute,
+            "design": (design_payload or {}).get("design"),
+            "updated_at": (design_payload or {}).get("updated_at", ""),
+        })
+
+    payload = request.get_json(silent=True) or {}
+    institute = canonicalize_institute_name(payload.get("institute"))
+    design = payload.get("design")
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    if not isinstance(design, dict) or not design:
+        return jsonify({"error": "Design payload is required"}), 400
+
+    settings = load_settings(institute)
+    settings["institute_editor_design"] = {
+        "updated_at": current_timestamp_display(),
+        "design": design,
+    }
+    save_settings(settings, institute)
+    return jsonify({
+        "status": "saved",
+        "institute": institute,
+        "updated_at": settings["institute_editor_design"]["updated_at"],
     })
 
 
