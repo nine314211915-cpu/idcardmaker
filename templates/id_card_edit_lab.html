@@ -162,7 +162,9 @@
     .rail-title {
       font-size: 11px;
       text-transform: uppercase;
-      color: rgba(255,255,255,0.62);
+      color: #f2c36b;
+      font-weight: 700;
+      text-shadow: 0 1px 0 rgba(0,0,0,0.18);
       letter-spacing: .08em;
       text-align: center;
       margin: 4px 0 2px;
@@ -697,6 +699,10 @@
           <button class="rail-btn" type="button" onclick="deleteSelected()">Delete</button>
           <button class="rail-btn" type="button" onclick="toggleLockSelected()">Lock</button>
           <div class="rail-title">Move</div>
+          <button class="rail-btn" type="button" onclick="bringToFront()">Front</button>
+          <button class="rail-btn" type="button" onclick="bringForward()">Forward</button>
+          <button class="rail-btn" type="button" onclick="sendBackwards()">Backward</button>
+          <button class="rail-btn" type="button" onclick="sendToBack()">Back</button>
           <button class="rail-btn" type="button" onclick="alignActive('left')">Left</button>
           <button class="rail-btn" type="button" onclick="alignActive('center')">Center</button>
           <button class="rail-btn" type="button" onclick="alignActive('right')">Right</button>
