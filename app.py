@@ -908,7 +908,7 @@ def sanitize_office_backgrounds_list(items):
 
 
 def build_print_background_filename(institute_name, background_id):
-    return f"print_bg_{make_asset_slug(institute_name)}_{secure_filename(background_id)}.jpg"
+    return f"print_bg_{make_asset_slug(institute_name)}_{secure_filename(background_id)}.png"
 
 
 def ensure_print_background_state(settings):
@@ -3118,13 +3118,22 @@ def save_image_asset(file_storage, filename, kind):
 
     try:
         img = Image.open(io.BytesIO(file_bytes))
-        img = ImageOps.exif_transpose(img).convert("RGB")
+        img = ImageOps.exif_transpose(img)
     except UnidentifiedImageError as exc:
         raise ValueError("Unsupported image format") from exc
 
     local_path = os.path.join(ASSET_DIR, filename)
     output = io.BytesIO()
-    img.save(output, "JPEG", quality=92)
+    extension = os.path.splitext(filename)[1].lower()
+    if extension == ".png":
+        if img.mode not in ("RGBA", "LA"):
+            img = img.convert("RGBA")
+        img.save(output, "PNG")
+        mime_type = "image/png"
+    else:
+        img = img.convert("RGB")
+        img.save(output, "JPEG", quality=92)
+        mime_type = "image/jpeg"
     output_bytes = output.getvalue()
     with open(local_path, "wb") as image_file:
         image_file.write(output_bytes)
@@ -3132,13 +3141,13 @@ def save_image_asset(file_storage, filename, kind):
     if is_supabase_enabled():
         storage_kind = str(kind or "assets").strip().lower() or "assets"
         object_path = f"shared/{storage_kind}/{filename}"
-        return upload_bytes_to_supabase_storage(output_bytes, object_path, "image/jpeg"), ""
+        return upload_bytes_to_supabase_storage(output_bytes, object_path, mime_type), ""
 
     drive_id = None
     drive_url = None
     if is_drive_enabled():
         try:
-            drive_id, drive_url = upload_bytes_to_drive(output_bytes, filename, "image/jpeg", kind)
+            drive_id, drive_url = upload_bytes_to_drive(output_bytes, filename, mime_type, kind)
         except Exception:
             app.logger.warning("Drive upload failed for asset %s", filename, exc_info=True)
     return drive_url or f"/generated-assets/{filename}", drive_id

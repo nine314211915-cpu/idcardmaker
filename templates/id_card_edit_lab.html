@@ -1353,6 +1353,31 @@
       };
     }
 
+    function syncStaticBackgroundPresentation(hasBackground) {
+      if (!state.staticObjects) return;
+      const card = state.staticObjects.card;
+      const accent = state.staticObjects.accent;
+      const headerBar = state.staticObjects.headerBar;
+      if (card) {
+        card.set({
+          fill: hasBackground ? 'rgba(255,255,255,0)' : '#ffffff',
+          stroke: hasBackground ? 'rgba(216,225,234,0)' : '#d8e1ea',
+        });
+      }
+      if (accent) {
+        accent.set({
+          fill: state.view.accent,
+          opacity: hasBackground ? 0 : 1,
+        });
+      }
+      if (headerBar) {
+        headerBar.set({
+          fill: '#17324d',
+          opacity: hasBackground ? 0 : 1,
+        });
+      }
+    }
+
     function refreshBackgroundPanel() {
       const select = field('backgroundSelect');
       const sourceLabel = field('backgroundSourceLabel');
@@ -2785,6 +2810,7 @@
 
     function applyAppearanceControls() {
       if (!state.canvas) return;
+      syncStaticBackgroundPresentation(!!getEffectiveBackgroundConfig().url);
       state.staticObjects.accent.set('fill', state.view.accent);
       state.sides.front.name.set({
         fill: state.view.textColor,
@@ -2881,10 +2907,8 @@
       const url = activeBackground.url;
       if (!state.canvas) return;
       const metrics = getLayoutMetrics();
+      syncStaticBackgroundPresentation(!!url);
       if (!url) {
-        if (state.staticObjects && state.staticObjects.card) {
-          state.staticObjects.card.set('fill', '#ffffff');
-        }
         if (state.backgroundImage) {
           state.canvas.remove(state.backgroundImage);
           state.backgroundImage = null;
@@ -2898,9 +2922,6 @@
         const naturalHeight = Number(img.height) || 1;
         const stretchScaleX = metrics.cardWidth / naturalWidth;
         const stretchScaleY = metrics.cardHeight / naturalHeight;
-        if (state.staticObjects && state.staticObjects.card) {
-          state.staticObjects.card.set('fill', 'rgba(255,255,255,0)');
-        }
         img.set({
           originX: 'left',
           originY: 'top',
@@ -2914,8 +2935,9 @@
           clipPath: new fabric.Rect({
             originX: 'left',
             originY: 'top',
-            left: 0,
-            top: 0,
+            absolutePositioned: true,
+            left: metrics.cardLeft,
+            top: metrics.cardTop,
             width: metrics.cardWidth,
             height: metrics.cardHeight,
             rx: 28,
