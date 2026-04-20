@@ -745,7 +745,7 @@
         <div class="right-scroll-head" id="rightScrollHead">
         </div>
         <div class="right-panel-body" id="rightPanelBody">
-        <details class="panel-section" open>
+        <details class="panel-section">
           <summary>
             <span>Object Properties</span>
             <span class="mini-label">Selected layer</span>
@@ -796,7 +796,7 @@
           </div>
         </details>
 
-        <details class="panel-section" open>
+        <details class="panel-section">
           <summary>
             <span>Text Properties</span>
             <span class="mini-label">For text layers</span>
@@ -878,7 +878,7 @@
           </div>
         </details>
 
-        <details class="panel-section" open>
+        <details class="panel-section">
           <summary>
             <span>Shadow Effect</span>
             <span class="mini-label">Selected layer</span>
@@ -910,7 +910,7 @@
           </div>
         </details>
 
-        <details class="panel-section" open>
+        <details class="panel-section">
           <summary>
             <span>Appearance</span>
             <span class="mini-label">Card-wide controls</span>
@@ -979,7 +979,7 @@
           </div>
         </details>
 
-        <details class="panel-section" open>
+        <details class="panel-section">
           <summary>
             <span>Backgrounds</span>
             <span class="mini-label" id="backgroundSourceLabel">Institute active</span>
@@ -2893,20 +2893,21 @@
         if (!img) return;
         const naturalWidth = Number(img.width) || 1;
         const naturalHeight = Number(img.height) || 1;
-        const fitScale = Math.min(metrics.cardWidth / naturalWidth, metrics.cardHeight / naturalHeight);
+        const stretchScaleX = metrics.cardWidth / naturalWidth;
+        const stretchScaleY = metrics.cardHeight / naturalHeight;
         img.set({
-          originX: 'center',
-          originY: 'center',
-          left: metrics.cardLeft + (metrics.cardWidth / 2),
-          top: metrics.cardTop + (metrics.cardHeight / 2),
+          originX: 'left',
+          originY: 'top',
+          left: metrics.cardLeft,
+          top: metrics.cardTop,
           selectable: false,
           evented: false,
           opacity: state.view.bgOpacity / 100,
-          scaleX: fitScale,
-          scaleY: fitScale,
+          scaleX: stretchScaleX,
+          scaleY: stretchScaleY,
           clipPath: new fabric.Rect({
-            originX: 'center',
-            originY: 'center',
+            originX: 'left',
+            originY: 'top',
             left: 0,
             top: 0,
             width: metrics.cardWidth,
