@@ -1469,7 +1469,7 @@
     function getFamilyNameLabel(value) {
       const label = escapeValue(value);
       if (!label) return "Father's Name";
-      if (/spouse/i.test(label)) return 'Spouse Name';
+      if (/spouse/i.test(label)) return 'Spouse';
       if (/father/i.test(label)) return "Father's Name";
       return label;
     }
