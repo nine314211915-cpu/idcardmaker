@@ -1227,6 +1227,8 @@
       sides: { front: {}, back: {} },
       backgroundImage: null,
       photoImage: null,
+      photoSourceUrl: '',
+      photoLoadToken: 0,
       pendingCustomObjects: [],
       pendingPhotoSnapshot: null,
       currentSide: 'front',
@@ -1464,6 +1466,66 @@
 
     function getCanvasHeight() {
       return getCanvasSize().height;
+    }
+
+    function getPhotoFrameMetrics() {
+      const frame = state.sides && state.sides.front ? state.sides.front.photoFrame : null;
+      if (!frame) {
+        const metrics = getLayoutMetrics();
+        return {
+          left: metrics.photoLeft,
+          top: metrics.photoTop,
+          width: metrics.photoWidth,
+          height: metrics.photoHeight,
+          rx: 16,
+          ry: 16,
+        };
+      }
+      return {
+        left: frame.left || 0,
+        top: frame.top || 0,
+        width: frame.getScaledWidth ? frame.getScaledWidth() : (frame.width || 0),
+        height: frame.getScaledHeight ? frame.getScaledHeight() : (frame.height || 0),
+        rx: frame.rx || 0,
+        ry: frame.ry || 0,
+      };
+    }
+
+    function syncPhotoLabelToFrame() {
+      const label = state.sides && state.sides.front ? state.sides.front.photoLabel : null;
+      if (!label) return;
+      const frameMetrics = getPhotoFrameMetrics();
+      label.set({
+        left: frameMetrics.left + Math.max(12, (frameMetrics.width - 110) / 2),
+        top: frameMetrics.top + Math.round(frameMetrics.height / 2) - 20,
+      });
+      label.setCoords();
+    }
+
+    function syncPhotoImageToFrame() {
+      if (!state.photoImage) return;
+      const frameMetrics = getPhotoFrameMetrics();
+      const naturalWidth = Number(state.photoImage.width) || 1;
+      const naturalHeight = Number(state.photoImage.height) || 1;
+      state.photoImage.set({
+        left: frameMetrics.left,
+        top: frameMetrics.top,
+        visible: state.currentSide === 'front',
+        clipPath: new fabric.Rect({
+          originX: 'left',
+          originY: 'top',
+          absolutePositioned: true,
+          left: frameMetrics.left,
+          top: frameMetrics.top,
+          width: frameMetrics.width,
+          height: frameMetrics.height,
+          rx: frameMetrics.rx,
+          ry: frameMetrics.ry,
+        }),
+      });
+      state.photoImage.scaleX = frameMetrics.width / naturalWidth;
+      state.photoImage.scaleY = frameMetrics.height / naturalHeight;
+      state.photoImage.setCoords();
     }
 
     function getFamilyNameLabel(value) {
@@ -2101,12 +2163,20 @@
       });
       canvas.on('object:moving', (event) => {
         if (!event.target) return;
+        if (event.target === state.sides.front.photoFrame) {
+          syncPhotoLabelToFrame();
+          syncPhotoImageToFrame();
+        }
         applySnapGuides(event.target);
         canvas.requestRenderAll();
         syncObjectInspector(event.target);
       });
       canvas.on('mouse:up', () => clearSnapGuides());
       canvas.on('object:modified', (event) => {
+        if (event.target === state.sides.front.photoFrame) {
+          syncPhotoLabelToFrame();
+          syncPhotoImageToFrame();
+        }
         pushHistoryState();
         syncObjectInspector(event.target || canvas.getActiveObject());
         refreshLayerList();
@@ -2195,6 +2265,7 @@
       };
 
       allEditableObjects().forEach((obj) => canvas.add(obj));
+      syncPhotoLabelToFrame();
       setSideVisibility('front');
       syncAppearanceControls();
       setCanvasZoom(state.view.zoom);
@@ -2625,6 +2696,8 @@
       }
       state.backgroundImage = null;
       state.photoImage = null;
+      state.photoSourceUrl = '';
+      state.photoLoadToken += 1;
       state.activeTemplateId = '';
       state.activeTemplateSpec = null;
       state.pendingCustomObjects = [];
@@ -2639,6 +2712,8 @@
         target.set({ ...patch });
         target.setCoords();
       });
+      syncPhotoLabelToFrame();
+      syncPhotoImageToFrame();
 
       if (spec.static) {
         if (spec.static.cardShell && managed.cardShell) managed.cardShell.set({ ...spec.static.cardShell });
@@ -2769,6 +2844,8 @@
       state.canvas.dispose();
       state.backgroundImage = null;
       state.photoImage = null;
+      state.photoSourceUrl = '';
+      state.photoLoadToken += 1;
       state.pendingCustomObjects = [];
       state.history.undoStack = [];
       state.history.redoStack = [];
@@ -2787,6 +2864,8 @@
       }
       state.backgroundImage = null;
       state.photoImage = null;
+      state.photoSourceUrl = '';
+      state.photoLoadToken += 1;
       state.history.undoStack = [];
       state.history.redoStack = [];
       buildCanvas();
@@ -2994,37 +3073,47 @@
 
     function loadCanvasPhoto(url) {
       if (!state.canvas) return;
-      const metrics = getLayoutMetrics();
-      const templatePhoto = state.activeTemplateSpec && state.activeTemplateSpec.photoPlacement
-        ? state.activeTemplateSpec.photoPlacement
-        : null;
-      const photoLeft = templatePhoto && typeof templatePhoto.left === 'number' ? templatePhoto.left : metrics.photoLeft;
-      const photoTop = templatePhoto && typeof templatePhoto.top === 'number' ? templatePhoto.top : metrics.photoTop;
-      const photoWidth = templatePhoto && typeof templatePhoto.width === 'number' ? templatePhoto.width : metrics.photoWidth;
-      const photoHeight = templatePhoto && typeof templatePhoto.height === 'number' ? templatePhoto.height : metrics.photoHeight;
+      const cleanUrl = escapeValue(url);
       if (state.photoImage) {
-        state.canvas.remove(state.photoImage);
-        state.photoImage = null;
+        state.photoImage.set('visible', state.currentSide === 'front');
       }
-      state.sides.front.photoLabel.set('visible', !url);
-      if (!url) {
+      state.sides.front.photoLabel.set('visible', !cleanUrl);
+      if (!cleanUrl) {
+        state.photoSourceUrl = '';
+        state.photoLoadToken += 1;
+        if (state.photoImage) {
+          state.canvas.remove(state.photoImage);
+          state.photoImage = null;
+        }
         state.canvas.requestRenderAll();
         refreshLayerList();
         return;
       }
-      fabric.Image.fromURL(`${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`, (img) => {
+
+      if (state.photoImage && state.photoSourceUrl === cleanUrl) {
+        syncPhotoImageToFrame();
+        state.canvas.requestRenderAll();
+        refreshLayerList();
+        return;
+      }
+
+      const loadToken = state.photoLoadToken + 1;
+      state.photoLoadToken = loadToken;
+      state.photoSourceUrl = cleanUrl;
+
+      fabric.Image.fromURL(cacheBustedUrl(cleanUrl), (img) => {
         if (!img) return;
+        if (loadToken !== state.photoLoadToken || state.photoSourceUrl !== cleanUrl) return;
+        if (state.photoImage) {
+          state.canvas.remove(state.photoImage);
+        }
         img.set({
-          left: photoLeft,
-          top: photoTop,
           name: 'Card Photo',
-          visible: state.currentSide === 'front',
           selectable: true,
           evented: true,
         });
-        img.scaleToWidth(photoWidth);
-        img.scaleToHeight(photoHeight);
         state.photoImage = img;
+        syncPhotoImageToFrame();
         state.canvas.add(img);
         state.canvas.moveTo(img, 100);
         if (state.pendingPhotoSnapshot) {
@@ -3429,6 +3518,8 @@
       applySerializedObject(state.photoImage, snapshot.photo, false);
       applySerializedState(state.sides.front, snapshot.front || {}, true);
       applySerializedState(state.sides.back, snapshot.back || {}, true);
+      syncPhotoLabelToFrame();
+      syncPhotoImageToFrame();
       restoreCustomObjects(snapshot.custom || [], snapshot.currentSide || 'front');
       applyAppearanceControls();
       state.canvas.requestRenderAll();
@@ -3447,6 +3538,8 @@
       applySerializedObject(state.photoImage, snapshot.photo, false);
       applySerializedState(state.sides.front, snapshot.front || {}, false);
       applySerializedState(state.sides.back, snapshot.back || {}, false);
+      syncPhotoLabelToFrame();
+      syncPhotoImageToFrame();
       restoreCustomObjects(snapshot.custom || [], snapshot.currentSide || 'front');
       applyAppearanceControls();
       state.canvas.requestRenderAll();
