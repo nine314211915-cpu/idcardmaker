@@ -225,18 +225,13 @@
       display: flex;
       align-items: flex-start;
       justify-content: center;
-      background:
-        linear-gradient(45deg, rgba(0,0,0,0.04) 25%, transparent 25%),
-        linear-gradient(-45deg, rgba(0,0,0,0.04) 25%, transparent 25%),
-        linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.04) 75%),
-        linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.04) 75%);
-      background-size: 20px 20px;
-      background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+      background: #edf2f7;
     }
     .canvas-shell {
       width: 960px;
       height: 540px;
       background: #fff;
+      border: 1px solid #d9e2ec;
       box-shadow: 0 18px 40px rgba(0,0,0,0.18);
       border-radius: 14px;
       overflow: hidden;
@@ -1123,8 +1118,8 @@
                 <input id="contactInput" placeholder="9876543210">
               </div>
               <div class="field">
-                <label for="fatherNameInput">Father / Guardian</label>
-                <input id="fatherNameInput" placeholder="Guardian name">
+                <label for="fatherNameInput" id="fatherNameFieldLabel">Father's / Spouse Name</label>
+                <input id="fatherNameInput" placeholder="Enter father's or spouse name">
               </div>
             </div>
             <div class="field-grid two">
@@ -1471,6 +1466,14 @@
       return getCanvasSize().height;
     }
 
+    function getFamilyNameLabel(value) {
+      const label = escapeValue(value);
+      if (!label) return "Father's Name";
+      if (/spouse/i.test(label)) return 'Spouse Name';
+      if (/father/i.test(label)) return "Father's Name";
+      return label;
+    }
+
     function currentPayload() {
       const profileType = field('profileTypeInput').value || 'student';
       return {
@@ -1486,6 +1489,7 @@
         dob: escapeValue(field('dobInput').value),
         valid_upto: escapeValue(field('validUptoInput').value),
         contact: escapeValue(field('contactInput').value),
+        father_name_label: getFamilyNameLabel((state.record || {}).father_name_label),
         father_name: escapeValue(field('fatherNameInput').value),
         address: escapeValue(field('addressInput').value),
         facility_location: escapeValue(field('facilityInput').value),
@@ -1507,6 +1511,8 @@
       field('dobInput').value = record.dob || '';
       field('validUptoInput').value = record.valid_upto || '';
       field('contactInput').value = record.contact || '';
+      field('fatherNameFieldLabel').textContent = getFamilyNameLabel(record.father_name_label);
+      field('fatherNameInput').placeholder = `Enter ${getFamilyNameLabel(record.father_name_label).toLowerCase()}`;
       field('fatherNameInput').value = record.father_name || '';
       field('addressInput').value = record.address || '';
       field('facilityInput').value = record.facility_location || record.department || '';
@@ -2066,7 +2072,7 @@
       canvasElement.width = metrics.width;
       canvasElement.height = metrics.height;
       const canvas = new fabric.Canvas('cardCanvas', {
-        backgroundColor: '#f7fafc',
+        backgroundColor: '#ffffff',
         preserveObjectStacking: true,
         selection: true,
         fireRightClick: true,
@@ -2888,16 +2894,17 @@
     function renderRecordOnCanvas() {
       if (!state.canvas) return;
       const payload = currentPayload();
+      const familyLabel = getFamilyNameLabel(payload.father_name_label);
       const courseOrDesignation = payload.profile_type === 'student'
         ? (payload.training_year || payload.course || 'Student')
         : (payload.designation || payload.facility_location || 'Employee');
       const frontDetails = [
-        `DOB: ${payload.dob || '-'}`,
+        `Date Of Birth: ${payload.dob || '-'}`,
         `Blood Group: ${payload.blood_group || '-'}`,
         `Contact: ${payload.contact || '-'}`,
         `Batch: ${payload.batch_session || '-'}`,
         `Valid Upto: ${payload.valid_upto || '-'}`,
-        `Guardian: ${payload.father_name || '-'}`,
+        `${familyLabel}: ${payload.father_name || '-'}`,
       ].join('\n');
       const backAddress = [
         `Institute: ${payload.institute_name || '-'}`,
@@ -3551,6 +3558,37 @@
         if (event.target === field('templateModal')) closeTemplateModal();
       });
       document.addEventListener('keydown', (event) => {
+        const targetTag = event.target && event.target.tagName ? event.target.tagName.toLowerCase() : '';
+        const isTypingTarget = ['input', 'textarea', 'select'].includes(targetTag) || !!(event.target && event.target.isContentEditable);
+        const active = getActiveObject();
+        const arrowMoveMap = {
+          ArrowLeft: { left: -1, top: 0 },
+          ArrowRight: { left: 1, top: 0 },
+          ArrowUp: { left: 0, top: -1 },
+          ArrowDown: { left: 0, top: 1 },
+        };
+
+        if (
+          arrowMoveMap[event.key]
+          && active
+          && !active.isEditing
+          && !isTypingTarget
+        ) {
+          event.preventDefault();
+          const step = event.shiftKey ? 10 : 1;
+          const delta = arrowMoveMap[event.key];
+          active.set({
+            left: (active.left || 0) + (delta.left * step),
+            top: (active.top || 0) + (delta.top * step),
+          });
+          active.setCoords();
+          state.canvas.requestRenderAll();
+          syncObjectInspector(active);
+          refreshLayerList();
+          pushHistoryState();
+          return;
+        }
+
         if (event.ctrlKey || event.metaKey) {
           const key = event.key.toLowerCase();
           if (key === 'z') {
@@ -3571,7 +3609,6 @@
             duplicateSelection();
           }
         } else if (event.key === 'Delete' || event.key === 'Backspace') {
-          const active = getActiveObject();
           if (active && !active.isEditing) {
             deleteSelected();
           }
