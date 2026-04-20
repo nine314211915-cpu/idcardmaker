@@ -417,9 +417,16 @@
       border-color: #7cb0db;
       background: #ebf5ff;
     }
+    .layer-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
     .layer-meta {
       display: grid;
       gap: 2px;
+      min-width: 0;
     }
     .layer-name {
       font-weight: 700;
@@ -428,6 +435,21 @@
     .layer-side {
       color: var(--muted);
       font-size: 11px;
+    }
+    .layer-toggle {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 8px;
+      min-width: 34px;
+      height: 30px;
+      padding: 0 8px;
+      cursor: pointer;
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1;
+    }
+    .layer-toggle:hover {
+      background: #f2f6fa;
     }
     .footer-bar {
       display: flex;
@@ -1580,6 +1602,15 @@
       return state.canvas.getObjects().filter((obj) => !isManagedObject(obj) && !obj.excludeFromExport);
     }
 
+    function applyLayerVisibility(obj, shouldShowForSide = true) {
+      if (!obj) return;
+      obj.set('visible', shouldShowForSide && !obj.layerHidden);
+    }
+
+    function isObjectVisibleForLayerList(obj) {
+      return !!(obj && obj.visible !== false && !obj.layerHidden);
+    }
+
     function visibleSideObjects() {
       return [
         ...Object.values(state.sides[state.currentSide] || {}).filter(Boolean),
@@ -1635,17 +1666,44 @@
       const items = getAllLayerObjects().map(({ key, obj, side }, index) => {
         const isActive = active === obj ? 'active' : '';
         const label = obj.name || key;
+        const isVisible = isObjectVisibleForLayerList(obj);
         return `
           <div class="layer-item ${isActive}" data-layer-index="${index}">
             <div class="layer-meta">
               <span class="layer-name">${humanizeLayerName(label)}</span>
               <span class="layer-side">${side}</span>
             </div>
-            <span class="layer-side">${obj.visible === false ? 'hidden' : 'visible'}</span>
+            <div class="layer-actions">
+              <span class="layer-side">${isVisible ? 'visible' : 'hidden'}</span>
+              <button class="layer-toggle" type="button" data-layer-toggle="${index}" aria-label="${isVisible ? 'Hide layer' : 'Show layer'}">${isVisible ? 'Hide' : 'Show'}</button>
+            </div>
           </div>
         `;
       }).join('');
       list.innerHTML = items || '<div class="prop-type">No layers yet.</div>';
+      list.querySelectorAll('[data-layer-toggle]').forEach((node) => {
+        node.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const { obj, side } = getAllLayerObjects()[Number(node.dataset.layerToggle)] || {};
+          if (!obj || !state.canvas) return;
+          obj.layerHidden = !obj.layerHidden;
+          const shouldShowForSide = side === 'shared' || side === state.currentSide;
+          applyLayerVisibility(obj, shouldShowForSide);
+          if (obj === state.photoImage) {
+            state.sides.front.photoLabel.set('visible', !isObjectVisibleForLayerList(state.photoImage));
+          }
+          if (state.canvas.getActiveObject() === obj && obj.visible === false) {
+            state.canvas.discardActiveObject();
+            syncObjectInspector(null);
+            updateActiveObjectBadge('');
+          } else if (obj.visible !== false) {
+            syncObjectInspector(obj);
+          }
+          state.canvas.requestRenderAll();
+          pushHistoryState();
+          refreshLayerList();
+        });
+      });
       list.querySelectorAll('[data-layer-index]').forEach((node) => {
         node.addEventListener('click', () => {
           const { obj } = getAllLayerObjects()[Number(node.dataset.layerIndex)] || {};
@@ -1658,6 +1716,12 @@
           }
           if (Object.values(state.sides.front).includes(obj) && state.currentSide !== 'front') {
             setSideVisibility('front');
+          }
+          if (obj.layerHidden) {
+            obj.layerHidden = false;
+            const layerEntry = getAllLayerObjects()[Number(node.dataset.layerIndex)];
+            const shouldShowForSide = !layerEntry || layerEntry.side === 'shared' || layerEntry.side === state.currentSide;
+            applyLayerVisibility(obj, shouldShowForSide);
           }
           state.canvas.setActiveObject(obj);
           state.canvas.requestRenderAll();
@@ -2566,14 +2630,15 @@
     }
 
     function setSideVisibility(side) {
-      Object.values(state.sides.front).forEach((obj) => obj.set('visible', side === 'front'));
-      Object.values(state.sides.back).forEach((obj) => obj.set('visible', side === 'back'));
+      Object.values(state.sides.front).forEach((obj) => applyLayerVisibility(obj, side === 'front'));
+      Object.values(state.sides.back).forEach((obj) => applyLayerVisibility(obj, side === 'back'));
       getCustomObjects().forEach((obj) => {
         const sideTag = obj.sideTag || 'shared';
-        obj.set('visible', sideTag === 'shared' || sideTag === side);
+        applyLayerVisibility(obj, sideTag === 'shared' || sideTag === side);
       });
       if (state.photoImage) {
-        state.photoImage.set('visible', side === 'front');
+        applyLayerVisibility(state.photoImage, side === 'front');
+        state.sides.front.photoLabel.set('visible', side === 'front' && !isObjectVisibleForLayerList(state.photoImage));
       }
       state.currentSide = side;
       updateSideBadge();
@@ -3163,7 +3228,7 @@
 
     function serializeCustomObjects() {
       return getCustomObjects().map((obj) => obj.toObject([
-        'name', 'sideTag', 'fontWeight', 'fontStyle', 'underline', 'charSpacing',
+        'name', 'sideTag', 'fontWeight', 'fontStyle', 'underline', 'charSpacing', 'layerHidden',
       ]));
     }
 
@@ -3184,6 +3249,7 @@
         charSpacing: obj.charSpacing || 0,
         angle: obj.angle || 0,
         opacity: obj.opacity == null ? 1 : obj.opacity,
+        layerHidden: !!obj.layerHidden,
       };
       if (includeText) serialized.text = obj.text || '';
       return serialized;
@@ -3214,6 +3280,7 @@
         charSpacing: value.charSpacing,
         angle: value.angle,
         opacity: value.opacity,
+        layerHidden: !!value.layerHidden,
       };
       if (includeText && Object.prototype.hasOwnProperty.call(value, 'text')) {
         nextState.text = value.text;
