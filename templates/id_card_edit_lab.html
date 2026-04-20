@@ -1227,7 +1227,7 @@
       clipboard: null,
       canvas: null,
       backgroundLibrary: [],
-      batchBackground: null,
+      batchBackgrounds: { front: null, back: null },
       staticObjects: {},
       sides: { front: {}, back: {} },
       backgroundImage: null,
@@ -1333,13 +1333,44 @@
       return escapeValue(field('backgroundSelect').value);
     }
 
+    function normalizeBackgroundState(backgroundValue) {
+      const toEntry = (value) => {
+        if (!value || !escapeValue(value.url)) return null;
+        return {
+          mode: escapeValue(value.mode) || 'batch',
+          id: escapeValue(value.id),
+          name: escapeValue(value.name) || 'Batch background',
+          url: escapeValue(value.url),
+        };
+      };
+      if (backgroundValue && (backgroundValue.front || backgroundValue.back)) {
+        return {
+          front: toEntry(backgroundValue.front),
+          back: toEntry(backgroundValue.back),
+        };
+      }
+      const shared = toEntry(backgroundValue);
+      return { front: shared, back: shared ? { ...shared } : null };
+    }
+
+    function currentBackgroundOverride() {
+      return (state.batchBackgrounds && state.batchBackgrounds[state.currentSide]) || null;
+    }
+
+    function setCurrentBackgroundOverride(entry) {
+      if (!state.batchBackgrounds) {
+        state.batchBackgrounds = { front: null, back: null };
+      }
+      state.batchBackgrounds[state.currentSide] = entry ? { ...entry } : null;
+    }
+
     function getEffectiveBackgroundConfig() {
-      const batchBackground = state.batchBackground || null;
+      const batchBackground = currentBackgroundOverride();
       if (batchBackground && escapeValue(batchBackground.url)) {
         return {
           source: 'batch',
           id: escapeValue(batchBackground.id),
-          name: escapeValue(batchBackground.name) || 'Batch background',
+          name: escapeValue(batchBackground.name) || `${state.currentSide} batch background`,
           url: escapeValue(batchBackground.url),
         };
       }
@@ -1384,8 +1415,9 @@
       const activeMeta = field('backgroundActiveMeta');
       if (!select || !sourceLabel || !activeMeta) return;
       const options = ['<option value="">Use institute active background</option>'];
+      const currentOverride = currentBackgroundOverride();
       state.backgroundLibrary.forEach((item) => {
-        const selected = state.batchBackground && state.batchBackground.id === item.id
+        const selected = currentOverride && currentOverride.id === item.id
           ? ' selected'
           : '';
         options.push(`<option value="${escapeHtml(item.id)}"${selected}>${escapeHtml(item.name)} (${escapeHtml(item.orientation)})</option>`);
@@ -1394,14 +1426,14 @@
 
       const activeConfig = getEffectiveBackgroundConfig();
       if (activeConfig.source === 'batch') {
-        sourceLabel.textContent = 'Batch design';
-        activeMeta.textContent = `Current background: ${activeConfig.name} (saved with batch design)`;
+        sourceLabel.textContent = `${state.currentSide} batch`;
+        activeMeta.textContent = `Current ${state.currentSide} background: ${activeConfig.name} (saved with batch design)`;
       } else if (activeConfig.source === 'institute') {
-        sourceLabel.textContent = 'Institute active';
-        activeMeta.textContent = `Current background: ${activeConfig.name}`;
+        sourceLabel.textContent = `${state.currentSide} institute`;
+        activeMeta.textContent = `Current ${state.currentSide} background: ${activeConfig.name}`;
       } else {
-        sourceLabel.textContent = 'No background';
-        activeMeta.textContent = 'Current background: none';
+        sourceLabel.textContent = `${state.currentSide} none`;
+        activeMeta.textContent = `Current ${state.currentSide} background: none`;
       }
     }
 
@@ -1412,19 +1444,17 @@
         background_url: escapeValue(data && data.background_url),
         active_background_id: escapeValue(data && data.active_background_id),
       };
-      if (state.batchBackground && state.batchBackground.id) {
-        const matchingEntry = getBackgroundLibraryEntry(state.batchBackground.id);
-        if (matchingEntry) {
-          state.batchBackground = {
-            mode: 'batch',
-            id: matchingEntry.id,
-            name: matchingEntry.name,
-            url: matchingEntry.url,
-          };
-        } else {
-          state.batchBackground = null;
-        }
-      }
+      ['front', 'back'].forEach((side) => {
+        const currentEntry = state.batchBackgrounds && state.batchBackgrounds[side];
+        if (!currentEntry || !currentEntry.id) return;
+        const matchingEntry = getBackgroundLibraryEntry(currentEntry.id);
+        state.batchBackgrounds[side] = matchingEntry ? {
+          mode: 'batch',
+          id: matchingEntry.id,
+          name: matchingEntry.name,
+          url: matchingEntry.url,
+        } : null;
+      });
       refreshBackgroundPanel();
       loadCanvasBackground();
     }
@@ -2572,12 +2602,12 @@
       state.activeTemplateId = spec.id || '';
       state.activeTemplateSpec = spec;
       if (escapeValue(spec.backgroundUrl || spec.background_url)) {
-        state.batchBackground = {
+        setCurrentBackgroundOverride({
           mode: 'batch',
           id: '',
           name: escapeValue(spec.label) || 'Template background',
           url: escapeValue(spec.backgroundUrl || spec.background_url),
-        };
+        });
       }
       state.view = {
         ...state.view,
@@ -2673,6 +2703,8 @@
       }
       state.currentSide = side;
       updateSideBadge();
+      refreshBackgroundPanel();
+      loadCanvasBackground();
       if (state.canvas) {
         state.canvas.discardActiveObject();
         state.canvas.requestRenderAll();
@@ -3001,7 +3033,7 @@
       if (!institute) {
         state.settings = null;
         state.backgroundLibrary = [];
-        state.batchBackground = null;
+        state.batchBackgrounds = { front: null, back: null };
         refreshBackgroundPanel();
         return;
       }
@@ -3030,7 +3062,7 @@
       state.availableRecords = [];
       state.currentRecordIndex = -1;
       state.record = null;
-      state.batchBackground = null;
+      state.batchBackgrounds = { front: null, back: null };
       field('serialInput').value = '';
       updateBatchBrowserBadge();
       refreshBackgroundPanel();
@@ -3130,12 +3162,12 @@
         state.currentRecordIndex = foundIndex >= 0 ? foundIndex : 0;
         syncCurrentRecord();
         if (designData && designData.design) {
-          state.batchBackground = designData.design.background || null;
+          state.batchBackgrounds = normalizeBackgroundState(designData.design.background);
           state.pendingPhotoSnapshot = designData.design.photo || null;
           applyBatchDesignSnapshot(designData.design);
           renderRecordOnCanvas();
         } else {
-          state.batchBackground = null;
+          state.batchBackgrounds = { front: null, back: null };
           state.pendingPhotoSnapshot = null;
           refreshBackgroundPanel();
           pushHistoryState(true);
@@ -3238,7 +3270,10 @@
     function captureCanvasState() {
       return {
         currentSide: state.currentSide,
-        background: state.batchBackground ? { ...state.batchBackground } : null,
+        background: {
+          front: state.batchBackgrounds && state.batchBackgrounds.front ? { ...state.batchBackgrounds.front } : null,
+          back: state.batchBackgrounds && state.batchBackgrounds.back ? { ...state.batchBackgrounds.back } : null,
+        },
         view: { ...state.view },
         static: serializeObjectMap(state.staticObjects, false),
         photo: serializeCanvasObject(state.photoImage, false),
@@ -3251,7 +3286,10 @@
     function captureBatchDesignState() {
       return {
         currentSide: state.currentSide,
-        background: state.batchBackground ? { ...state.batchBackground } : null,
+        background: {
+          front: state.batchBackgrounds && state.batchBackgrounds.front ? { ...state.batchBackgrounds.front } : null,
+          back: state.batchBackgrounds && state.batchBackgrounds.back ? { ...state.batchBackgrounds.back } : null,
+        },
         view: { ...state.view },
         static: serializeObjectMap(state.staticObjects, false),
         photo: serializeCanvasObject(state.photoImage, false),
@@ -3376,7 +3414,7 @@
     function applyHistorySnapshot(snapshot) {
       if (!snapshot || !state.canvas) return;
       state.history.isApplying = true;
-      state.batchBackground = snapshot.background || null;
+      state.batchBackgrounds = normalizeBackgroundState(snapshot.background);
       state.view = { ...state.view, ...(snapshot.view || {}) };
       syncAppearanceControls();
       refreshBackgroundPanel();
@@ -3394,7 +3432,7 @@
     function applyBatchDesignSnapshot(snapshot) {
       if (!snapshot || !state.canvas) return;
       state.history.isApplying = true;
-      state.batchBackground = snapshot.background || null;
+      state.batchBackgrounds = normalizeBackgroundState(snapshot.background);
       state.view = { ...state.view, ...(snapshot.view || {}) };
       syncAppearanceControls();
       refreshBackgroundPanel();
@@ -3559,33 +3597,33 @@
         setStatus('Selected background was not found in the institute library.', false, true);
         return;
       }
-      state.batchBackground = {
-        mode: 'batch',
-        id: entry.id,
-        name: entry.name,
-        url: entry.url,
-      };
+      setCurrentBackgroundOverride({
+          mode: 'batch',
+          id: entry.id,
+          name: entry.name,
+          url: entry.url,
+      });
       refreshBackgroundPanel();
       loadCanvasBackground();
       pushHistoryState();
-      setStatus(`Applied ${entry.name} to this batch design.`, true);
+      setStatus(`Applied ${entry.name} to the ${state.currentSide} side design.`, true);
     }
 
     function useInstituteActiveBackground() {
-      state.batchBackground = null;
+      setCurrentBackgroundOverride(null);
       refreshBackgroundPanel();
       loadCanvasBackground();
       pushHistoryState();
-      setStatus('Using the institute active background for this batch.', true);
+      setStatus(`Using the institute active background for the ${state.currentSide} side.`, true);
     }
 
     function clearBatchBackgroundOverride() {
-      state.batchBackground = null;
+      setCurrentBackgroundOverride(null);
       field('backgroundSelect').value = '';
       refreshBackgroundPanel();
       loadCanvasBackground();
       pushHistoryState();
-      setStatus('Batch background override cleared.', true);
+      setStatus(`${state.currentSide} side background override cleared.`, true);
     }
 
     async function activateSelectedBackground() {
@@ -3637,8 +3675,12 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Unable to delete background.');
-        if (state.batchBackground && state.batchBackground.id === backgroundId) {
-          state.batchBackground = null;
+        if (state.batchBackgrounds) {
+          ['front', 'back'].forEach((side) => {
+            if (state.batchBackgrounds[side] && state.batchBackgrounds[side].id === backgroundId) {
+              state.batchBackgrounds[side] = null;
+            }
+          });
         }
         applyBackgroundApiState(data);
         pushHistoryState();
@@ -3676,12 +3718,12 @@
         if (!res.ok) throw new Error(data.error || 'Unable to upload background.');
         applyBackgroundApiState(data);
         if (data.background) {
-          state.batchBackground = {
+          setCurrentBackgroundOverride({
             mode: 'batch',
             id: escapeValue(data.background.id),
             name: escapeValue(data.background.name),
             url: escapeValue(data.background.url),
-          };
+          });
         }
         fileInput.value = '';
         field('backgroundUploadName').value = '';
@@ -3721,12 +3763,12 @@
         if (!res.ok) throw new Error(data.error || 'Unable to link background.');
         applyBackgroundApiState(data);
         if (data.background) {
-          state.batchBackground = {
+          setCurrentBackgroundOverride({
             mode: 'batch',
             id: escapeValue(data.background.id),
             name: escapeValue(data.background.name),
             url: escapeValue(data.background.url),
-          };
+          });
         }
         field('backgroundLinkName').value = '';
         field('backgroundLinkUrl').value = '';
@@ -3792,7 +3834,7 @@
         applyOrientation(event.target.value);
       });
       field('instituteInput').addEventListener('change', async () => {
-        state.batchBackground = null;
+        state.batchBackgrounds = { front: null, back: null };
         refreshBackgroundPanel();
         await loadSettingsForInstitute(escapeValue(field('instituteInput').value));
         await loadBatchOptions();
@@ -3805,11 +3847,11 @@
         const selectedId = escapeValue(field('backgroundSelect').value);
         const entry = getBackgroundLibraryEntry(selectedId);
         if (!entry && !selectedId) {
-          field('backgroundActiveMeta').textContent = 'Current background: institute active background';
+          field('backgroundActiveMeta').textContent = `Current ${state.currentSide} background: institute active background`;
           return;
         }
         if (entry) {
-          field('backgroundActiveMeta').textContent = `Selected background: ${entry.name} (${entry.orientation})`;
+          field('backgroundActiveMeta').textContent = `Selected ${state.currentSide} background: ${entry.name} (${entry.orientation})`;
         }
       });
     }
