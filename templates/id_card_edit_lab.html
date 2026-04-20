@@ -631,7 +631,7 @@
       </div>
       <div class="top-group">
         <button class="tool-btn" type="button" onclick="openTemplateModal()">Templates</button>
-        <button class="tool-btn" type="button" onclick="newCard()">New</button>
+        <button class="tool-btn" type="button" onclick="saveCurrentTemplate()">Save Template</button>
       </div>
       <div class="top-group">
         <button class="tool-btn" type="button" onclick="showPreviousRecord()">Previous</button>
@@ -1198,6 +1198,15 @@
           <strong>Hospital Staff Graphic</strong>
         </div>
       </div>
+      <div class="inline-actions" style="justify-content:space-between; margin-top:16px;">
+        <div>
+          <strong>Saved Institute Templates</strong>
+          <div class="mini-label">Reusable templates saved from the current editor layout for this institute.</div>
+        </div>
+      </div>
+      <div class="template-grid" id="savedTemplatesGrid">
+        <div class="prop-type">No saved templates yet.</div>
+      </div>
     </div>
   </div>
 
@@ -1230,6 +1239,7 @@
       photoImage: null,
       photoSourceUrl: '',
       photoLoadToken: 0,
+      savedTemplates: [],
       pendingCustomObjects: [],
       pendingPhotoSnapshot: null,
       currentSide: 'front',
@@ -1701,6 +1711,21 @@
         emergency: state.sides.back.emergency,
         backFooter: state.sides.back.backFooter,
       };
+    }
+
+    function renderSavedTemplateGrid() {
+      const grid = field('savedTemplatesGrid');
+      if (!grid) return;
+      if (!state.savedTemplates.length) {
+        grid.innerHTML = '<div class="prop-type">No saved templates yet.</div>';
+        return;
+      }
+      grid.innerHTML = state.savedTemplates.map((item) => `
+        <div class="template-item" onclick="loadSavedTemplate('${escapeHtml(item.id)}')">
+          <div class="template-preview" style="background:linear-gradient(135deg, #17324d 0%, ${escapeHtml(item.accent || '#8b0000')} 100%);"></div>
+          <strong>${escapeHtml(item.label)}</strong>
+        </div>
+      `).join('');
     }
 
     function createFabricObjectFromSpec(spec) {
@@ -2648,6 +2673,7 @@
     }
 
     function openTemplateModal() {
+      loadSavedTemplates();
       field('templateModal').classList.add('open');
     }
 
@@ -2659,6 +2685,80 @@
       resetCanvasLayout();
       closeTemplateModal();
       setStatus('Reset to a fresh card layout.', true);
+    }
+
+    async function loadSavedTemplates() {
+      const institute = escapeValue(field('instituteInput').value);
+      if (!institute) {
+        state.savedTemplates = [];
+        renderSavedTemplateGrid();
+        return;
+      }
+      try {
+        const res = await fetch(`/api/id-card-edit/templates?institute=${encodeURIComponent(institute)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to load saved templates.');
+        state.savedTemplates = Array.isArray(data.templates) ? data.templates : [];
+      } catch (error) {
+        state.savedTemplates = [];
+        setStatus(error.message || 'Unable to load saved templates.', false, true);
+      }
+      renderSavedTemplateGrid();
+    }
+
+    async function loadSavedTemplate(templateId) {
+      const institute = escapeValue(field('instituteInput').value);
+      if (!institute) {
+        setStatus('Select an institute before loading a saved template.', false, true);
+        return;
+      }
+      if (!templateId) return;
+      setStatus('Loading saved template...');
+      try {
+        const res = await fetch(`/api/id-card-edit/templates/${encodeURIComponent(templateId)}?institute=${encodeURIComponent(institute)}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to load saved template.');
+        const template = data.template || {};
+        const design = template.design;
+        if (!design) throw new Error('Saved template design is missing.');
+        state.batchBackgrounds = normalizeBackgroundState(design.background);
+        state.pendingPhotoSnapshot = design.photo || null;
+        applyBatchDesignSnapshot(design);
+        if (state.record) renderRecordOnCanvas();
+        closeTemplateModal();
+        setStatus(`Applied template ${template.label || templateId}.`, true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to load saved template.', false, true);
+      }
+    }
+
+    async function saveCurrentTemplate() {
+      const institute = escapeValue(field('instituteInput').value);
+      if (!institute) {
+        setStatus('Select an institute before saving a template.', false, true);
+        return;
+      }
+      const label = window.prompt('Template name');
+      const cleanLabel = escapeValue(label);
+      if (!cleanLabel) return;
+      setStatus('Saving template...');
+      try {
+        const res = await fetch('/api/id-card-edit/templates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            institute,
+            label: cleanLabel,
+            design: captureBatchDesignState(),
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to save template.');
+        await loadSavedTemplates();
+        setStatus(`Saved template ${cleanLabel}.`, true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to save template.', false, true);
+      }
     }
 
     async function loadGraphicTemplate(templateId) {
@@ -4002,6 +4102,8 @@
       });
       field('instituteInput').addEventListener('change', async () => {
         state.batchBackgrounds = { front: null, back: null };
+        state.savedTemplates = [];
+        renderSavedTemplateGrid();
         refreshBackgroundPanel();
         await loadSettingsForInstitute(escapeValue(field('instituteInput').value));
         await loadBatchOptions();

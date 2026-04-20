@@ -4538,6 +4538,26 @@ def sanitize_editor_design_payload(payload):
     }
 
 
+def sanitize_editor_templates(data):
+    cleaned = {}
+    if not isinstance(data, dict):
+        return cleaned
+    for template_id, payload in data.items():
+        key = str(template_id or "").strip()
+        if not key or not isinstance(payload, dict):
+            continue
+        design = payload.get("design")
+        if not isinstance(design, dict) or not design:
+            continue
+        cleaned[key] = {
+            "id": key,
+            "label": str(payload.get("label") or key).strip() or key,
+            "updated_at": str(payload.get("updated_at") or "").strip(),
+            "design": design,
+        }
+    return cleaned
+
+
 @app.route("/api/retrieve-card")
 def retrieve_card():
     try:
@@ -4675,6 +4695,88 @@ def id_card_edit_institute_design():
         "status": "saved",
         "institute": institute,
         "updated_at": settings["institute_editor_design"]["updated_at"],
+    })
+
+
+@app.route("/api/id-card-edit/templates", methods=["GET", "POST"])
+@admin_required
+def id_card_edit_templates():
+    if request.method == "GET":
+        institute = canonicalize_institute_name(request.args.get("institute"))
+        if not institute:
+            return jsonify({"error": "Institute is required"}), 400
+        settings = load_settings(institute)
+        templates = sanitize_editor_templates(settings.get("editor_templates", {}))
+        template_list = sorted(
+            (
+                {
+                    "id": item["id"],
+                    "label": item["label"],
+                    "updated_at": item["updated_at"],
+                    "accent": ((item.get("design") or {}).get("view") or {}).get("accent", ""),
+                }
+                for item in templates.values()
+            ),
+            key=lambda item: (item.get("updated_at") or "", item.get("label") or ""),
+            reverse=True,
+        )
+        return jsonify({
+            "institute": institute,
+            "templates": template_list,
+        })
+
+    payload = request.get_json(silent=True) or {}
+    institute = canonicalize_institute_name(payload.get("institute"))
+    label = str(payload.get("label") or "").strip()
+    design = payload.get("design")
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    if not label:
+        return jsonify({"error": "Template name is required"}), 400
+    if not isinstance(design, dict) or not design:
+        return jsonify({"error": "Design payload is required"}), 400
+
+    settings = load_settings(institute)
+    templates = sanitize_editor_templates(settings.get("editor_templates", {}))
+    template_id = secure_filename(label).lower() or f"template-{uuid.uuid4().hex[:8]}"
+    if template_id in templates:
+        template_id = f"{template_id}-{uuid.uuid4().hex[:4]}"
+    templates[template_id] = {
+        "id": template_id,
+        "label": label,
+        "updated_at": current_timestamp_display(),
+        "design": design,
+    }
+    settings["editor_templates"] = templates
+    save_settings(settings, institute)
+    return jsonify({
+        "status": "saved",
+        "institute": institute,
+        "template": {
+            "id": template_id,
+            "label": label,
+            "updated_at": templates[template_id]["updated_at"],
+        },
+    })
+
+
+@app.route("/api/id-card-edit/templates/<template_id>")
+@admin_required
+def id_card_edit_template_detail(template_id):
+    institute = canonicalize_institute_name(request.args.get("institute"))
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    key = str(template_id or "").strip()
+    if not key:
+        return jsonify({"error": "Template is required"}), 400
+    settings = load_settings(institute)
+    templates = sanitize_editor_templates(settings.get("editor_templates", {}))
+    template = templates.get(key)
+    if not template:
+        return jsonify({"error": "Template not found"}), 404
+    return jsonify({
+        "institute": institute,
+        "template": template,
     })
 
 
