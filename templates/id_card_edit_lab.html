@@ -1028,6 +1028,16 @@
 
         <section class="panel-section">
           <div class="section-head">
+            <span>Core Fields</span>
+            <span class="mini-label">Add or remove mapped fields</span>
+          </div>
+          <div class="section-body">
+            <div class="layer-list" id="coreFieldsList"></div>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <div class="section-head">
             <span>Layers</span>
             <span class="mini-label">Click to focus</span>
           </div>
@@ -1217,6 +1227,22 @@
       landscape: { width: 856, height: 540 },
       portrait: { width: 540, height: 856 },
     };
+    const CORE_FIELD_DEFS = [
+      { key: 'photo', label: 'Photo', side: 'front' },
+      { key: 'institute', label: 'Institute', side: 'front' },
+      { key: 'type', label: 'Card Type', side: 'front' },
+      { key: 'name', label: 'Name', side: 'front' },
+      { key: 'role', label: 'Role / Course', side: 'front' },
+      { key: 'details', label: 'Details', side: 'front' },
+      { key: 'serial', label: 'Serial', side: 'front' },
+      { key: 'footer', label: 'Footer', side: 'front' },
+      { key: 'backTitle', label: 'Back Title', side: 'back' },
+      { key: 'backSubtitle', label: 'Back Subtitle', side: 'back' },
+      { key: 'addressBlock', label: 'Address Block', side: 'back' },
+      { key: 'noteBlock', label: 'Notes Block', side: 'back' },
+      { key: 'emergency', label: 'Emergency Note', side: 'back' },
+      { key: 'backFooter', label: 'Back Footer', side: 'back' },
+    ];
     const SNAP_MARGIN = 8;
     const SUPABASE_ENABLED = {{ 'true' if supabase_enabled else 'false' }};
     const DATA_SOURCE_LABEL = {{ data_source_label|tojson }};
@@ -1239,6 +1265,7 @@
       photoImage: null,
       photoSourceUrl: '',
       photoLoadToken: 0,
+      coreFieldState: {},
       savedTemplates: [],
       pendingCustomObjects: [],
       pendingPhotoSnapshot: null,
@@ -1690,6 +1717,28 @@
       }
     }
 
+    function defaultCoreFieldState() {
+      return CORE_FIELD_DEFS.reduce((acc, item) => {
+        acc[item.key] = true;
+        return acc;
+      }, {});
+    }
+
+    function normalizeCoreFieldState(value) {
+      return {
+        ...defaultCoreFieldState(),
+        ...(value && typeof value === 'object' ? value : {}),
+      };
+    }
+
+    function getCoreFieldDef(key) {
+      return CORE_FIELD_DEFS.find((item) => item.key === key) || null;
+    }
+
+    function isCoreFieldEnabled(key) {
+      return !!normalizeCoreFieldState(state.coreFieldState)[key];
+    }
+
     function getManagedObjectMap() {
       return {
         cardShell: state.staticObjects.card,
@@ -1711,6 +1760,37 @@
         emergency: state.sides.back.emergency,
         backFooter: state.sides.back.backFooter,
       };
+    }
+
+    function getCoreFieldKeyForObject(obj) {
+      if (!obj) return '';
+      return String(obj.coreFieldKey || '').trim();
+    }
+
+    function isObjectAllowedByCoreField(obj) {
+      const coreKey = getCoreFieldKeyForObject(obj);
+      if (!coreKey) return true;
+      return isCoreFieldEnabled(coreKey);
+    }
+
+    function refreshCoreFieldsPanel() {
+      const list = field('coreFieldsList');
+      if (!list) return;
+      list.innerHTML = CORE_FIELD_DEFS.map((item) => {
+        const enabled = isCoreFieldEnabled(item.key);
+        return `
+          <div class="layer-item">
+            <div class="layer-meta">
+              <span class="layer-name">${escapeHtml(item.label)}</span>
+              <span class="layer-side">${escapeHtml(item.side)}</span>
+            </div>
+            <div class="layer-actions">
+              <button class="layer-toggle" type="button" onclick="${enabled ? `focusCoreField('${item.key}')` : `addCoreField('${item.key}')`}">${enabled ? 'Focus' : 'Add'}</button>
+              <button class="layer-toggle" type="button" onclick="${enabled ? `removeCoreField('${item.key}')` : `focusCoreField('${item.key}')`}" ${enabled ? '' : 'disabled'}>${enabled ? 'Remove' : 'Remove'}</button>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     function renderSavedTemplateGrid() {
@@ -1759,7 +1839,7 @@
 
     function applyLayerVisibility(obj, shouldShowForSide = true) {
       if (!obj) return;
-      obj.set('visible', shouldShowForSide && !obj.layerHidden);
+      obj.set('visible', shouldShowForSide && !obj.layerHidden && isObjectAllowedByCoreField(obj));
     }
 
     function isObjectVisibleForLayerList(obj) {
@@ -1789,12 +1869,12 @@
         if (obj) layers.push({ key, obj, side: 'shared' });
       });
       Object.entries(state.sides.front || {}).forEach(([key, obj]) => {
-        if (obj) layers.push({ key, obj, side: 'front' });
+        if (obj && isObjectAllowedByCoreField(obj)) layers.push({ key, obj, side: 'front' });
       });
       Object.entries(state.sides.back || {}).forEach(([key, obj]) => {
-        if (obj) layers.push({ key, obj, side: 'back' });
+        if (obj && isObjectAllowedByCoreField(obj)) layers.push({ key, obj, side: 'back' });
       });
-      if (state.photoImage) {
+      if (state.photoImage && isObjectAllowedByCoreField(state.photoImage)) {
         layers.push({ key: 'photoImage', obj: state.photoImage, side: 'front' });
       }
       getCustomObjects().slice().reverse().forEach((obj, index) => {
@@ -1884,6 +1964,67 @@
           refreshLayerList();
         });
       });
+    }
+
+    function syncCoreFieldVisibility() {
+      Object.values(state.sides.front || {}).forEach((obj) => {
+        const coreKey = getCoreFieldKeyForObject(obj);
+        const shouldShowForSide = state.currentSide === 'front';
+        if (coreKey) applyLayerVisibility(obj, shouldShowForSide);
+      });
+      Object.values(state.sides.back || {}).forEach((obj) => {
+        const coreKey = getCoreFieldKeyForObject(obj);
+        const shouldShowForSide = state.currentSide === 'back';
+        if (coreKey) applyLayerVisibility(obj, shouldShowForSide);
+      });
+      if (state.photoImage) {
+        applyLayerVisibility(state.photoImage, state.currentSide === 'front');
+      }
+      if (state.sides.front && state.sides.front.photoLabel) {
+        const shouldShowPhotoLabel = isCoreFieldEnabled('photo')
+          && state.currentSide === 'front'
+          && (!state.photoImage || !isObjectVisibleForLayerList(state.photoImage))
+          && !state.sides.front.photoLabel.layerHidden;
+        state.sides.front.photoLabel.set('visible', shouldShowPhotoLabel);
+      }
+      refreshCoreFieldsPanel();
+      refreshLayerList();
+      if (state.canvas) state.canvas.requestRenderAll();
+    }
+
+    function addCoreField(key) {
+      if (!getCoreFieldDef(key)) return;
+      state.coreFieldState = normalizeCoreFieldState(state.coreFieldState);
+      state.coreFieldState[key] = true;
+      syncCoreFieldVisibility();
+      pushHistoryState();
+      setStatus(`${getCoreFieldDef(key).label} added to the card.`, true);
+    }
+
+    function removeCoreField(key) {
+      if (!getCoreFieldDef(key)) return;
+      state.coreFieldState = normalizeCoreFieldState(state.coreFieldState);
+      state.coreFieldState[key] = false;
+      if (state.canvas) {
+        const active = state.canvas.getActiveObject();
+        if (active && getCoreFieldKeyForObject(active) === key) {
+          state.canvas.discardActiveObject();
+          syncObjectInspector(null);
+          updateActiveObjectBadge('none');
+        }
+      }
+      syncCoreFieldVisibility();
+      pushHistoryState();
+      setStatus(`${getCoreFieldDef(key).label} removed from the card.`, true);
+    }
+
+    function focusCoreField(key) {
+      if (!isCoreFieldEnabled(key)) return;
+      if (key === 'photo') {
+        focusLayer('photo');
+        return;
+      }
+      focusLayer(key);
     }
 
     function addGuideLine(coords) {
@@ -2169,6 +2310,7 @@
         height: metrics.height,
       });
       state.canvas = canvas;
+      state.coreFieldState = normalizeCoreFieldState(state.coreFieldState);
 
       canvas.on('selection:created', () => {
         const active = canvas.getActiveObject();
@@ -2239,54 +2381,54 @@
       state.sides.front = {
         photoFrame: new fabric.Rect({
           left: metrics.photoLeft, top: metrics.photoTop, width: metrics.photoWidth, height: metrics.photoHeight, rx: 16, ry: 16,
-          fill: '#eef3f8', stroke: '#d0dae5', strokeWidth: 2, selectable: true, name: 'Photo Frame',
+          fill: '#eef3f8', stroke: '#d0dae5', strokeWidth: 2, selectable: true, name: 'Photo Frame', coreFieldKey: 'photo',
         }),
         photoLabel: buildEditableTextbox('PHOTO', {
           left: metrics.photoLeft + 42, top: metrics.photoTop + Math.round(metrics.photoHeight / 2) - 20, width: 110, fontSize: 22, fill: '#6b7c8f',
-          fontWeight: '700', textAlign: 'center', name: 'Photo Label',
+          fontWeight: '700', textAlign: 'center', name: 'Photo Label', coreFieldKey: 'photo',
         }),
         institute: buildEditableTextbox('Institute Name', {
-          left: metrics.titleLeft, top: metrics.titleTop, width: metrics.titleWidth, fontSize: 30, fill: '#ffffff', fontWeight: '700', name: 'institute',
+          left: metrics.titleLeft, top: metrics.titleTop, width: metrics.titleWidth, fontSize: 30, fill: '#ffffff', fontWeight: '700', name: 'institute', coreFieldKey: 'institute',
         }),
         type: buildEditableTextbox('IDENTITY CARD', {
           left: metrics.typeLeft, top: metrics.typeTop, width: metrics.typeWidth, fontSize: 16, fill: '#ffffff', fontWeight: '700',
-          charSpacing: 120, name: 'type',
+          charSpacing: 120, name: 'type', coreFieldKey: 'type',
         }),
         name: buildEditableTextbox('Full Name', {
-          left: metrics.nameLeft, top: metrics.nameTop, width: metrics.nameWidth, fontSize: 34, fill: '#17324d', fontWeight: '700', name: 'name',
+          left: metrics.nameLeft, top: metrics.nameTop, width: metrics.nameWidth, fontSize: 34, fill: '#17324d', fontWeight: '700', name: 'name', coreFieldKey: 'name',
         }),
         role: buildEditableTextbox('Course / Designation', {
-          left: metrics.roleLeft, top: metrics.roleTop, width: metrics.roleWidth, fontSize: 24, fill: '#8b0000', fontWeight: '700', name: 'role',
+          left: metrics.roleLeft, top: metrics.roleTop, width: metrics.roleWidth, fontSize: 24, fill: '#8b0000', fontWeight: '700', name: 'role', coreFieldKey: 'role',
         }),
         details: buildEditableTextbox('', {
-          left: metrics.detailsLeft, top: metrics.detailsTop, width: metrics.detailsWidth, fontSize: 17, lineHeight: 1.45, fill: '#27435f', name: 'details',
+          left: metrics.detailsLeft, top: metrics.detailsTop, width: metrics.detailsWidth, fontSize: 17, lineHeight: 1.45, fill: '#27435f', name: 'details', coreFieldKey: 'details',
         }),
         serial: buildEditableTextbox('Serial: -', {
-          left: metrics.serialLeft, top: metrics.serialTop, width: metrics.serialWidth, fontSize: 18, fill: '#17324d', fontWeight: '700', name: 'serial',
+          left: metrics.serialLeft, top: metrics.serialTop, width: metrics.serialWidth, fontSize: 18, fill: '#17324d', fontWeight: '700', name: 'serial', coreFieldKey: 'serial',
         }),
         footer: buildEditableTextbox('Medical ID Editor', {
-          left: metrics.footerLeft, top: metrics.footerTop, width: metrics.footerWidth, fontSize: 15, fill: '#59728c', name: 'footer',
+          left: metrics.footerLeft, top: metrics.footerTop, width: metrics.footerWidth, fontSize: 15, fill: '#59728c', name: 'footer', coreFieldKey: 'footer',
         }),
       };
 
       state.sides.back = {
         backTitle: buildEditableTextbox('Important Information', {
-          left: metrics.backTitleLeft, top: metrics.backTitleTop, width: metrics.backTitleWidth, fontSize: 28, fontWeight: '700', fill: '#17324d', name: 'backTitle',
+          left: metrics.backTitleLeft, top: metrics.backTitleTop, width: metrics.backTitleWidth, fontSize: 28, fontWeight: '700', fill: '#17324d', name: 'backTitle', coreFieldKey: 'backTitle',
         }),
         backSubtitle: buildEditableTextbox('Keep this card safely and carry it when required.', {
-          left: metrics.backSubtitleLeft, top: metrics.backSubtitleTop, width: metrics.backSubtitleWidth, fontSize: 18, fill: '#8b0000', fontWeight: '700', name: 'backSubtitle',
+          left: metrics.backSubtitleLeft, top: metrics.backSubtitleTop, width: metrics.backSubtitleWidth, fontSize: 18, fill: '#8b0000', fontWeight: '700', name: 'backSubtitle', coreFieldKey: 'backSubtitle',
         }),
         addressBlock: buildEditableTextbox('', {
-          left: metrics.addressLeft, top: metrics.addressTop, width: metrics.addressWidth, fontSize: 18, lineHeight: 1.45, fill: '#17324d', name: 'addressBlock',
+          left: metrics.addressLeft, top: metrics.addressTop, width: metrics.addressWidth, fontSize: 18, lineHeight: 1.45, fill: '#17324d', name: 'addressBlock', coreFieldKey: 'addressBlock',
         }),
         noteBlock: buildEditableTextbox('', {
-          left: metrics.notesLeft, top: metrics.notesTop, width: metrics.notesWidth, fontSize: 16, lineHeight: 1.5, fill: '#27435f', name: 'noteBlock',
+          left: metrics.notesLeft, top: metrics.notesTop, width: metrics.notesWidth, fontSize: 16, lineHeight: 1.5, fill: '#27435f', name: 'noteBlock', coreFieldKey: 'noteBlock',
         }),
         emergency: buildEditableTextbox('If found, return to the issuing institute office.', {
-          left: metrics.emergencyLeft, top: metrics.emergencyTop, width: metrics.emergencyWidth, fontSize: 17, fontWeight: '700', fill: '#8b0000', name: 'emergency',
+          left: metrics.emergencyLeft, top: metrics.emergencyTop, width: metrics.emergencyWidth, fontSize: 17, fontWeight: '700', fill: '#8b0000', name: 'emergency', coreFieldKey: 'emergency',
         }),
         backFooter: buildEditableTextbox('This card is the property of the institute.', {
-          left: metrics.backFooterLeft, top: metrics.backFooterTop, width: metrics.backFooterWidth, fontSize: 15, fill: '#59728c', name: 'backFooter',
+          left: metrics.backFooterLeft, top: metrics.backFooterTop, width: metrics.backFooterWidth, fontSize: 15, fill: '#59728c', name: 'backFooter', coreFieldKey: 'backFooter',
         }),
       };
 
@@ -2536,8 +2678,13 @@
         setStatus('Select a layer first.', false, true);
         return;
       }
+      const coreFieldKey = getCoreFieldKeyForObject(active);
+      if (coreFieldKey) {
+        removeCoreField(coreFieldKey);
+        return;
+      }
       if (isManagedObject(active)) {
-        setStatus('Core card layers cannot be deleted. Move or restyle them instead.', false, true);
+        setStatus('Protected card structure cannot be deleted.', false, true);
         return;
       }
       state.canvas.remove(active);
@@ -2881,10 +3028,10 @@
       });
       if (state.photoImage) {
         applyLayerVisibility(state.photoImage, side === 'front');
-        state.sides.front.photoLabel.set('visible', side === 'front' && !isObjectVisibleForLayerList(state.photoImage));
       }
       state.currentSide = side;
       updateSideBadge();
+      syncCoreFieldVisibility();
       refreshBackgroundPanel();
       loadCanvasBackground();
       if (state.canvas) {
@@ -2919,7 +3066,15 @@
 
     function focusLayer(name) {
       if (!state.canvas) return;
+      if (getCoreFieldDef(name) && !isCoreFieldEnabled(name)) {
+        setStatus(`${getCoreFieldDef(name).label} is not on the card right now. Add it from Core Fields first.`, false, true);
+        return;
+      }
       if (name === 'photo' && state.photoImage) {
+        if (!isCoreFieldEnabled('photo')) {
+          setStatus('Photo is not on the card right now. Add it from Core Fields first.', false, true);
+          return;
+        }
         if (state.currentSide !== 'front') setSideVisibility('front');
         state.canvas.setActiveObject(state.photoImage);
         state.canvas.requestRenderAll();
@@ -3175,6 +3330,15 @@
     function loadCanvasPhoto(url) {
       if (!state.canvas) return;
       const cleanUrl = escapeValue(url);
+      if (!isCoreFieldEnabled('photo')) {
+        state.photoSourceUrl = cleanUrl;
+        if (state.photoImage) {
+          state.photoImage.set('visible', false);
+          state.canvas.requestRenderAll();
+        }
+        syncCoreFieldVisibility();
+        return;
+      }
       if (state.photoImage) {
         state.photoImage.set('visible', state.currentSide === 'front');
       }
@@ -3210,6 +3374,7 @@
         }
         img.set({
           name: 'Card Photo',
+          coreFieldKey: 'photo',
           selectable: true,
           evented: true,
         });
@@ -3231,7 +3396,9 @@
         state.settings = null;
         state.backgroundLibrary = [];
         state.batchBackgrounds = { front: null, back: null };
+        state.coreFieldState = defaultCoreFieldState();
         refreshBackgroundPanel();
+        refreshCoreFieldsPanel();
         return;
       }
       try {
@@ -3260,9 +3427,11 @@
       state.currentRecordIndex = -1;
       state.record = null;
       state.batchBackgrounds = { front: null, back: null };
+      state.coreFieldState = defaultCoreFieldState();
       field('serialInput').value = '';
       updateBatchBrowserBadge();
       refreshBackgroundPanel();
+      refreshCoreFieldsPanel();
     }
 
     async function loadBatchOptions() {
@@ -3371,8 +3540,10 @@
           renderRecordOnCanvas();
         } else {
           state.batchBackgrounds = { front: null, back: null };
+          state.coreFieldState = defaultCoreFieldState();
           state.pendingPhotoSnapshot = null;
           refreshBackgroundPanel();
+          refreshCoreFieldsPanel();
           pushHistoryState(true);
         }
         if (batchDesignData && batchDesignData.design) {
@@ -3503,6 +3674,7 @@
     function captureCanvasState() {
       return {
         currentSide: state.currentSide,
+        coreFields: { ...normalizeCoreFieldState(state.coreFieldState) },
         background: {
           front: state.batchBackgrounds && state.batchBackgrounds.front ? { ...state.batchBackgrounds.front } : null,
           back: state.batchBackgrounds && state.batchBackgrounds.back ? { ...state.batchBackgrounds.back } : null,
@@ -3519,6 +3691,7 @@
     function captureBatchDesignState() {
       return {
         currentSide: state.currentSide,
+        coreFields: { ...normalizeCoreFieldState(state.coreFieldState) },
         background: {
           front: state.batchBackgrounds && state.batchBackgrounds.front ? { ...state.batchBackgrounds.front } : null,
           back: state.batchBackgrounds && state.batchBackgrounds.back ? { ...state.batchBackgrounds.back } : null,
@@ -3647,6 +3820,7 @@
     function applyHistorySnapshot(snapshot) {
       if (!snapshot || !state.canvas) return;
       state.history.isApplying = true;
+      state.coreFieldState = normalizeCoreFieldState(snapshot.coreFields);
       state.batchBackgrounds = normalizeBackgroundState(snapshot.background);
       state.view = { ...state.view, ...(snapshot.view || {}) };
       syncAppearanceControls();
@@ -3657,6 +3831,7 @@
       applySerializedState(state.sides.back, snapshot.back || {}, true);
       syncPhotoLabelToFrame();
       syncPhotoImageToFrame();
+      syncCoreFieldVisibility();
       restoreCustomObjects(snapshot.custom || [], snapshot.currentSide || 'front');
       applyAppearanceControls();
       state.canvas.requestRenderAll();
@@ -3667,6 +3842,7 @@
     function applyBatchDesignSnapshot(snapshot) {
       if (!snapshot || !state.canvas) return;
       state.history.isApplying = true;
+      state.coreFieldState = normalizeCoreFieldState(snapshot.coreFields);
       state.batchBackgrounds = normalizeBackgroundState(snapshot.background);
       state.view = { ...state.view, ...(snapshot.view || {}) };
       syncAppearanceControls();
@@ -3677,6 +3853,7 @@
       applySerializedState(state.sides.back, snapshot.back || {}, false);
       syncPhotoLabelToFrame();
       syncPhotoImageToFrame();
+      syncCoreFieldVisibility();
       restoreCustomObjects(snapshot.custom || [], snapshot.currentSide || 'front');
       applyAppearanceControls();
       state.canvas.requestRenderAll();
