@@ -1779,17 +1779,21 @@
     function refreshCoreFieldsPanel() {
       const list = field('coreFieldsList');
       if (!list) return;
+      const activeObject = state.canvas ? state.canvas.getActiveObject() : null;
+      const activeCoreFieldKey = getCoreFieldKeyForObject(activeObject);
       list.innerHTML = CORE_FIELD_DEFS.map((item) => {
         const enabled = isCoreFieldEnabled(item.key);
+        const activeClass = activeCoreFieldKey === item.key ? 'active' : '';
+        const rowAction = enabled ? `focusCoreField('${item.key}')` : `addCoreField('${item.key}')`;
         return `
-          <div class="layer-item">
+          <div class="layer-item ${activeClass}" onclick="${rowAction}">
             <div class="layer-meta">
               <span class="layer-name">${escapeHtml(item.label)}</span>
               <span class="layer-side">${escapeHtml(item.side)}</span>
             </div>
             <div class="layer-actions">
-              <button class="layer-toggle" type="button" onclick="${enabled ? `focusCoreField('${item.key}')` : `addCoreField('${item.key}')`}">${enabled ? 'Focus' : 'Add'}</button>
-              <button class="layer-toggle" type="button" onclick="${enabled ? `removeCoreField('${item.key}')` : `focusCoreField('${item.key}')`}" ${enabled ? '' : 'disabled'}>${enabled ? 'Remove' : 'Remove'}</button>
+              <button class="layer-toggle" type="button" onclick="event.stopPropagation(); ${enabled ? `focusCoreField('${item.key}')` : `addCoreField('${item.key}')`}">${enabled ? 'Focus' : 'Add'}</button>
+              <button class="layer-toggle" type="button" onclick="event.stopPropagation(); ${enabled ? `removeCoreField('${item.key}')` : `focusCoreField('${item.key}')`}" ${enabled ? '' : 'disabled'}>${enabled ? 'Remove' : 'Remove'}</button>
             </div>
           </div>
         `;
