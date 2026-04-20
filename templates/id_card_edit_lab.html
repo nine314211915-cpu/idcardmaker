@@ -1236,6 +1236,7 @@
       { key: 'type', label: 'Card Type', side: 'front' },
       { key: 'name', label: 'Name', side: 'front' },
       { key: 'role', label: 'Role / Course', side: 'front' },
+      { key: 'employeeId', label: 'Employee ID', side: 'front', profiles: ['employee', 'lecturer'] },
       { key: 'details', label: 'Details', side: 'front' },
       { key: 'serial', label: 'Serial', side: 'front' },
       { key: 'footer', label: 'Footer', side: 'front' },
@@ -1269,6 +1270,7 @@
       photoSourceUrl: '',
       photoLoadToken: 0,
       coreFieldState: {},
+      activeCoreFieldMenu: '',
       savedTemplates: [],
       pendingCustomObjects: [],
       pendingPhotoSnapshot: null,
@@ -1738,7 +1740,18 @@
       return CORE_FIELD_DEFS.find((item) => item.key === key) || null;
     }
 
+    function currentProfileType() {
+      return escapeValue(field('profileTypeInput') && field('profileTypeInput').value) || 'student';
+    }
+
+    function isCoreFieldRelevantForProfile(def, profileType = currentProfileType()) {
+      if (!def || !Array.isArray(def.profiles) || !def.profiles.length) return true;
+      return def.profiles.includes(profileType);
+    }
+
     function isCoreFieldEnabled(key) {
+      const def = getCoreFieldDef(key);
+      if (def && !isCoreFieldRelevantForProfile(def)) return false;
       return !!normalizeCoreFieldState(state.coreFieldState)[key];
     }
 
@@ -1753,6 +1766,7 @@
         type: state.sides.front.type,
         name: state.sides.front.name,
         role: state.sides.front.role,
+        employeeId: state.sides.front.employeeId,
         details: state.sides.front.details,
         serial: state.sides.front.serial,
         footer: state.sides.front.footer,
@@ -1780,8 +1794,8 @@
       const list = field('coreFieldsList');
       if (!list) return;
       const activeObject = state.canvas ? state.canvas.getActiveObject() : null;
-      const activeCoreFieldKey = getCoreFieldKeyForObject(activeObject);
-      list.innerHTML = CORE_FIELD_DEFS.map((item) => {
+      const activeCoreFieldKey = getCoreFieldKeyForObject(activeObject) || state.activeCoreFieldMenu;
+      list.innerHTML = CORE_FIELD_DEFS.filter((item) => isCoreFieldRelevantForProfile(item)).map((item) => {
         const enabled = isCoreFieldEnabled(item.key);
         const activeClass = activeCoreFieldKey === item.key ? 'active' : '';
         const rowAction = enabled ? `focusCoreField('${item.key}')` : `addCoreField('${item.key}')`;
@@ -1998,6 +2012,13 @@
           && !state.sides.front.photoLabel.layerHidden;
         state.sides.front.photoLabel.set('visible', shouldShowPhotoLabel);
       }
+      if (state.sides.front && state.sides.front.employeeId) {
+        const shouldShowEmployeeId = currentProfileType() !== 'student'
+          && state.currentSide === 'front'
+          && isCoreFieldEnabled('employeeId')
+          && !state.sides.front.employeeId.layerHidden;
+        state.sides.front.employeeId.set('visible', shouldShowEmployeeId);
+      }
       refreshCoreFieldsPanel();
       refreshLayerList();
       if (state.canvas) state.canvas.requestRenderAll();
@@ -2007,6 +2028,7 @@
       if (!getCoreFieldDef(key)) return;
       state.coreFieldState = normalizeCoreFieldState(state.coreFieldState);
       state.coreFieldState[key] = true;
+      state.activeCoreFieldMenu = key;
       syncCoreFieldVisibility();
       pushHistoryState();
       setStatus(`${getCoreFieldDef(key).label} added to the card.`, true);
@@ -2016,6 +2038,7 @@
       if (!getCoreFieldDef(key)) return;
       state.coreFieldState = normalizeCoreFieldState(state.coreFieldState);
       state.coreFieldState[key] = false;
+      if (state.activeCoreFieldMenu === key) state.activeCoreFieldMenu = '';
       if (state.canvas) {
         const active = state.canvas.getActiveObject();
         if (active && getCoreFieldKeyForObject(active) === key) {
@@ -2031,6 +2054,8 @@
 
     function focusCoreField(key) {
       if (!isCoreFieldEnabled(key)) return;
+      state.activeCoreFieldMenu = key;
+      refreshCoreFieldsPanel();
       if (key === 'photo') {
         focusLayer('photo');
         return;
@@ -2325,19 +2350,25 @@
 
       canvas.on('selection:created', () => {
         const active = canvas.getActiveObject();
+        state.activeCoreFieldMenu = getCoreFieldKeyForObject(active) || state.activeCoreFieldMenu;
         updateActiveObjectBadge(active && active.name ? active.name : 'custom');
         syncObjectInspector(active);
+        refreshCoreFieldsPanel();
         refreshLayerList();
       });
       canvas.on('selection:updated', () => {
         const active = canvas.getActiveObject();
+        state.activeCoreFieldMenu = getCoreFieldKeyForObject(active) || state.activeCoreFieldMenu;
         updateActiveObjectBadge(active && active.name ? active.name : 'custom');
         syncObjectInspector(active);
+        refreshCoreFieldsPanel();
         refreshLayerList();
       });
       canvas.on('selection:cleared', () => {
+        state.activeCoreFieldMenu = '';
         updateActiveObjectBadge('none');
         syncObjectInspector(null);
+        refreshCoreFieldsPanel();
         refreshLayerList();
       });
       canvas.on('object:moving', (event) => {
@@ -2410,6 +2441,9 @@
         }),
         role: buildEditableTextbox('Course / Designation', {
           left: metrics.roleLeft, top: metrics.roleTop, width: metrics.roleWidth, fontSize: 24, fill: '#8b0000', fontWeight: '700', name: 'role', coreFieldKey: 'role',
+        }),
+        employeeId: buildEditableTextbox('Employee ID: -', {
+          left: metrics.detailsLeft, top: metrics.detailsTop - 34, width: metrics.detailsWidth, fontSize: 16, fill: '#27435f', fontWeight: '700', name: 'employeeId', coreFieldKey: 'employeeId',
         }),
         details: buildEditableTextbox('', {
           left: metrics.detailsLeft, top: metrics.detailsTop, width: metrics.detailsWidth, fontSize: 17, lineHeight: 1.45, fill: '#27435f', name: 'details', coreFieldKey: 'details',
@@ -3211,6 +3245,7 @@
         fontFamily: state.view.bodyFont,
       });
       [
+        state.sides.front.employeeId,
         state.sides.front.details,
         state.sides.front.serial,
         state.sides.front.footer,
@@ -3228,6 +3263,7 @@
           fontFamily: obj.name === 'backTitle' ? state.view.nameFont : state.view.bodyFont,
         });
       });
+      state.sides.front.employeeId.set('fill', state.view.textColor);
       state.sides.front.serial.set('fill', state.view.textColor);
       state.sides.front.details.set('fill', state.view.textColor);
       state.sides.back.backTitle.set('fill', state.view.textColor);
@@ -3244,15 +3280,16 @@
     function renderRecordOnCanvas() {
       if (!state.canvas) return;
       const payload = currentPayload();
+      const profileType = payload.profile_type || 'student';
       const familyLabel = getFamilyNameLabel(payload.father_name_label);
-      const courseOrDesignation = payload.profile_type === 'student'
+      const courseOrDesignation = profileType === 'student'
         ? (payload.training_year || payload.course || 'Student')
         : (payload.designation || payload.facility_location || 'Employee');
       const frontDetails = [
         `Date Of Birth: ${payload.dob || '-'}`,
-        `Blood Group: ${payload.blood_group || '-'}`,
+        ...(profileType === 'student' ? [`Blood Group: ${payload.blood_group || '-'}`] : []),
         `Contact: ${payload.contact || '-'}`,
-        `Batch: ${payload.batch_session || '-'}`,
+        ...(profileType === 'student' ? [`Batch: ${payload.batch_session || '-'}`] : []),
         `Valid Upto: ${payload.valid_upto || '-'}`,
         `${familyLabel}: ${payload.father_name || '-'}`,
       ].join('\n');
@@ -3270,10 +3307,16 @@
       ].join('\n');
 
       state.sides.front.institute.set('text', payload.institute_name || 'Institute Name');
-      state.sides.front.type.set('text', `${(payload.profile_type || 'student').toUpperCase()} ID CARD`);
+      state.sides.front.type.set('text', `${profileType.toUpperCase()} ID CARD`);
       state.sides.front.name.set('text', payload.name || 'Full Name');
       state.sides.front.role.set('text', courseOrDesignation);
+      state.sides.front.employeeId.set({
+        text: `Employee ID: ${payload.employee_id || '-'}`,
+        visible: profileType !== 'student' && isCoreFieldEnabled('employeeId'),
+        top: getLayoutMetrics().detailsTop - 34,
+      });
       state.sides.front.details.set('text', frontDetails);
+      state.sides.front.details.set('top', getLayoutMetrics().detailsTop + (profileType !== 'student' && isCoreFieldEnabled('employeeId') ? 10 : 0));
       state.sides.front.serial.set('text', `Serial: ${payload.serial_no || '-'}`);
       state.sides.front.footer.set('text', payload.address || 'Address will appear here');
 
