@@ -190,35 +190,32 @@
       background: var(--canvas-bg);
     }
     .canvas-meta {
-      padding: 8px 14px;
+      padding: 6px 12px;
       border-bottom: 1px solid #ccd5df;
       background: rgba(255,255,255,0.8);
       display: flex;
       justify-content: space-between;
-      gap: 10px;
-      flex-wrap: wrap;
+      gap: 8px;
+      flex-wrap: nowrap;
       align-items: center;
     }
     .canvas-meta h1 {
       margin: 0;
-      font-size: 18px;
-    }
-    .canvas-meta p {
-      margin: 2px 0 0;
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.3;
+      font-size: 17px;
+      line-height: 1.1;
+      white-space: nowrap;
     }
     .canvas-meta-main {
-      flex: 1 1 280px;
-      min-width: 220px;
+      flex: 0 0 auto;
+      min-width: 0;
     }
     .canvas-meta-side {
-      flex: 1 1 320px;
-      min-width: 260px;
-      display: grid;
-      justify-items: end;
-      gap: 6px;
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
     }
     .canvas-stage {
       padding: 10px 20px 20px;
@@ -268,11 +265,13 @@
     }
     .canvas-meta .status-box {
       margin-bottom: 0;
-      width: min(100%, 460px);
-      padding: 7px 10px;
-      font-size: 12px;
-      line-height: 1.3;
-      border-radius: 10px;
+      width: auto;
+      max-width: 420px;
+      padding: 5px 9px;
+      min-height: 0;
+      font-size: 11px;
+      line-height: 1.2;
+      border-radius: 9px;
     }
     .status-box.ok {
       background: #eaf8ef;
@@ -500,10 +499,12 @@
         overflow: visible;
       }
       .canvas-meta-side {
-        justify-items: start;
+        justify-content: flex-start;
+        flex-wrap: wrap;
       }
       .canvas-meta .status-box {
         width: 100%;
+        max-width: none;
       }
       .rail-title {
         width: 100%;
@@ -685,7 +686,7 @@
           <button class="rail-btn" type="button" onclick="addRect()">Rect</button>
           <button class="rail-btn" type="button" onclick="addCircle()">Circle</button>
           <button class="rail-btn" type="button" onclick="addLine()">Line</button>
-          <button class="rail-btn" type="button" onclick="addPhotoPlaceholder()">Photo</button>
+          <button class="rail-btn" type="button" onclick="addImageAssetPlaceholder()">Asset</button>
           <button class="rail-btn" type="button" onclick="addBarcode()">Barcode</button>
           <button class="rail-btn" type="button" onclick="addQRCode()">QR</button>
           <button class="rail-btn" type="button" onclick="toggleDrawing(this)">Draw</button>
@@ -705,7 +706,7 @@
           <button class="rail-btn" type="button" onclick="focusLayer('name')">Name</button>
           <button class="rail-btn" type="button" onclick="focusLayer('role')">Role</button>
           <button class="rail-btn" type="button" onclick="focusLayer('details')">Details</button>
-          <button class="rail-btn" type="button" onclick="focusLayer('photo')">Photo</button>
+          <button class="rail-btn" type="button" onclick="focusLayer('photo')">Card Photo</button>
           <button class="rail-btn" type="button" onclick="focusLayer('backTitle')">Back</button>
           <div class="rail-title">Style</div>
           <button class="rail-btn" type="button" onclick="applyPreset('official')">Official</button>
@@ -952,8 +953,8 @@
             <div class="field">
               <label for="bgOpacityRange">Background Opacity</label>
               <div class="slider-row">
-                <input id="bgOpacityRange" type="range" min="0" max="60" value="24">
-                <span class="slider-value" id="bgOpacityValue">24%</span>
+                <input id="bgOpacityRange" type="range" min="0" max="100" value="100">
+                <span class="slider-value" id="bgOpacityValue">100%</span>
               </div>
             </div>
             <div class="field">
@@ -1239,7 +1240,7 @@
         orientation: 'landscape',
         zoom: 100,
         fitScale: 1,
-        bgOpacity: 24,
+        bgOpacity: 100,
         nameSize: 34,
         roleSize: 24,
         accent: '#8b0000',
@@ -2076,11 +2077,11 @@
       state.sides.front = {
         photoFrame: new fabric.Rect({
           left: metrics.photoLeft, top: metrics.photoTop, width: metrics.photoWidth, height: metrics.photoHeight, rx: 16, ry: 16,
-          fill: '#eef3f8', stroke: '#d0dae5', strokeWidth: 2, selectable: true, name: 'photo',
+          fill: '#eef3f8', stroke: '#d0dae5', strokeWidth: 2, selectable: true, name: 'Photo Frame',
         }),
         photoLabel: buildEditableTextbox('PHOTO', {
           left: metrics.photoLeft + 42, top: metrics.photoTop + Math.round(metrics.photoHeight / 2) - 20, width: 110, fontSize: 22, fill: '#6b7c8f',
-          fontWeight: '700', textAlign: 'center', name: 'photo',
+          fontWeight: '700', textAlign: 'center', name: 'Photo Label',
         }),
         institute: buildEditableTextbox('Institute Name', {
           left: metrics.titleLeft, top: metrics.titleTop, width: metrics.titleWidth, fontSize: 30, fill: '#ffffff', fontWeight: '700', name: 'institute',
@@ -2189,7 +2190,7 @@
       }));
     }
 
-    function addPhotoPlaceholder() {
+    function addImageAssetPlaceholder() {
       const group = new fabric.Group([
         new fabric.Rect({
           width: 110,
@@ -2199,7 +2200,7 @@
           rx: 8,
           ry: 8,
         }),
-        new fabric.Text('PHOTO', {
+        new fabric.Text('IMAGE', {
           fontSize: 16,
           fontWeight: '700',
           originX: 'center',
@@ -2210,7 +2211,7 @@
       ], {
         left: 120,
         top: 140,
-        name: 'Photo Placeholder',
+        name: 'Image Asset',
       });
       registerCanvasObject(group);
     }
@@ -2601,7 +2602,7 @@
       } else if (template === 'corporate') {
         state.view.accent = '#2c3e50';
         state.view.textColor = '#1e2c3b';
-        state.view.bgOpacity = 8;
+        state.view.bgOpacity = 100;
         syncAppearanceControls();
         applyAppearanceControls();
       } else if (template === 'colorful') {
@@ -2749,7 +2750,7 @@
       if (mode === 'official') {
         state.view.accent = '#8b0000';
         state.view.textColor = '#17324d';
-        state.view.bgOpacity = 24;
+        state.view.bgOpacity = 100;
         state.view.nameSize = 34;
         state.view.roleSize = 24;
         state.view.nameFont = 'Georgia';
@@ -2757,7 +2758,7 @@
       } else if (mode === 'blue') {
         state.view.accent = '#0f4c81';
         state.view.textColor = '#16324a';
-        state.view.bgOpacity = 18;
+        state.view.bgOpacity = 100;
         state.view.nameSize = 33;
         state.view.roleSize = 23;
         state.view.nameFont = 'Trebuchet MS';
@@ -2765,7 +2766,7 @@
       } else {
         state.view.accent = '#7c3b00';
         state.view.textColor = '#22313f';
-        state.view.bgOpacity = 10;
+        state.view.bgOpacity = 100;
         state.view.nameSize = 32;
         state.view.roleSize = 22;
         state.view.nameFont = 'Times New Roman';
@@ -2887,7 +2888,7 @@
         if (!img) return;
         const naturalWidth = Number(img.width) || 1;
         const naturalHeight = Number(img.height) || 1;
-        const coverScale = Math.max(metrics.cardWidth / naturalWidth, metrics.cardHeight / naturalHeight);
+        const fitScale = Math.min(metrics.cardWidth / naturalWidth, metrics.cardHeight / naturalHeight);
         img.set({
           originX: 'center',
           originY: 'center',
@@ -2896,8 +2897,8 @@
           selectable: false,
           evented: false,
           opacity: state.view.bgOpacity / 100,
-          scaleX: coverScale,
-          scaleY: coverScale,
+          scaleX: fitScale,
+          scaleY: fitScale,
           clipPath: new fabric.Rect({
             originX: 'center',
             originY: 'center',
@@ -2943,7 +2944,7 @@
         img.set({
           left: photoLeft,
           top: photoTop,
-          name: 'photo',
+          name: 'Card Photo',
           visible: state.currentSide === 'front',
           selectable: true,
           evented: true,
@@ -3716,7 +3717,7 @@
 
       field('zoomRange').addEventListener('input', (event) => setCanvasZoom(event.target.value));
       field('bgOpacityRange').addEventListener('input', (event) => {
-        state.view.bgOpacity = Number(event.target.value) || 24;
+        state.view.bgOpacity = Number(event.target.value) || 100;
         updateSliderValue('bgOpacityValue', state.view.bgOpacity, '%');
         applyAppearanceControls();
         pushHistoryState();
