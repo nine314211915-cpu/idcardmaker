@@ -1228,6 +1228,9 @@
       portrait: { width: 540, height: 856 },
     };
     const CORE_FIELD_DEFS = [
+      { key: 'cardShell', label: 'Card Shell', side: 'shared' },
+      { key: 'accentBar', label: 'Accent Bar', side: 'shared' },
+      { key: 'headerBar', label: 'Header Bar', side: 'shared' },
       { key: 'photo', label: 'Photo', side: 'front' },
       { key: 'institute', label: 'Institute', side: 'front' },
       { key: 'type', label: 'Card Type', side: 'front' },
@@ -1866,7 +1869,7 @@
     function getAllLayerObjects() {
       const layers = [];
       Object.entries(state.staticObjects || {}).forEach(([key, obj]) => {
-        if (obj) layers.push({ key, obj, side: 'shared' });
+        if (obj && isObjectAllowedByCoreField(obj)) layers.push({ key, obj, side: 'shared' });
       });
       Object.entries(state.sides.front || {}).forEach(([key, obj]) => {
         if (obj && isObjectAllowedByCoreField(obj)) layers.push({ key, obj, side: 'front' });
@@ -1967,6 +1970,10 @@
     }
 
     function syncCoreFieldVisibility() {
+      Object.values(state.staticObjects || {}).forEach((obj) => {
+        const coreKey = getCoreFieldKeyForObject(obj);
+        if (coreKey) applyLayerVisibility(obj, true);
+      });
       Object.values(state.sides.front || {}).forEach((obj) => {
         const coreKey = getCoreFieldKeyForObject(obj);
         const shouldShowForSide = state.currentSide === 'front';
@@ -2365,15 +2372,15 @@
       const shared = {};
       shared.card = new fabric.Rect({
         left: metrics.cardLeft, top: metrics.cardTop, width: metrics.cardWidth, height: metrics.cardHeight, rx: 28, ry: 28,
-        fill: '#ffffff', stroke: '#d8e1ea', strokeWidth: 2, selectable: true, evented: true, name: 'cardShell',
+        fill: '#ffffff', stroke: '#d8e1ea', strokeWidth: 2, selectable: true, evented: true, name: 'cardShell', coreFieldKey: 'cardShell',
       });
       shared.accent = new fabric.Rect({
         left: metrics.cardLeft, top: metrics.cardTop, width: metrics.cardWidth, height: metrics.headerHeight, rx: 28, ry: 28,
-        fill: state.view.accent, selectable: true, evented: true, name: 'accentBar',
+        fill: state.view.accent, selectable: true, evented: true, name: 'accentBar', coreFieldKey: 'accentBar',
       });
       shared.headerBar = new fabric.Rect({
         left: metrics.cardLeft, top: metrics.headerStripTop, width: metrics.cardWidth, height: metrics.headerStripHeight,
-        fill: '#17324d', selectable: true, evented: true, name: 'headerBar',
+        fill: '#17324d', selectable: true, evented: true, name: 'headerBar', coreFieldKey: 'headerBar',
       });
       canvas.add(shared.card, shared.accent, shared.headerBar);
       state.staticObjects = shared;
@@ -3084,6 +3091,10 @@
         return;
       }
       if (state.staticObjects && state.staticObjects[name]) {
+        if (!isObjectAllowedByCoreField(state.staticObjects[name])) {
+          setStatus(`${humanizeLayerName(name)} is not on the card right now. Add it from Core Fields first.`, false, true);
+          return;
+        }
         state.canvas.setActiveObject(state.staticObjects[name]);
         state.canvas.requestRenderAll();
         updateActiveObjectBadge(name);
