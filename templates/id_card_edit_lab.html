@@ -1579,8 +1579,22 @@
       return label;
     }
 
+    function isEmployeeStyleInstitute(instituteName) {
+      const name = escapeValue(instituteName).toLowerCase();
+      return /\b(collector|department|office|hospital|chc|phc|district|medical officer|cmho)\b/.test(name);
+    }
+
+    function isTrueStudentPayload(payload) {
+      const profileType = escapeValue(payload && payload.profile_type).toLowerCase() || 'student';
+      if (profileType !== 'student') return false;
+      if (escapeValue(payload && payload.employee_id)) return false;
+      if (isEmployeeStyleInstitute(payload && payload.institute_name)) return false;
+      return true;
+    }
+
     function currentPayload() {
       const profileType = field('profileTypeInput').value || 'student';
+      const roleText = escapeValue(field('courseInput').value);
       return {
         ...(state.record || {}),
         institute_name: escapeValue(field('instituteInput').value),
@@ -1600,8 +1614,9 @@
         facility_location: escapeValue(field('facilityInput').value),
         facility_sub_location: escapeValue(field('subFacilityInput').value),
         department: escapeValue(field('facilityInput').value),
-        course: profileType === 'student' ? escapeValue(field('courseInput').value) : '',
-        designation: profileType === 'student' ? '' : escapeValue(field('courseInput').value),
+        course: profileType === 'student' ? roleText : '',
+        designation: profileType === 'student' ? escapeValue((state.record || {}).designation) : roleText,
+        role_text: roleText,
       };
     }
 
@@ -1741,7 +1756,8 @@
     }
 
     function currentProfileType() {
-      return escapeValue(field('profileTypeInput') && field('profileTypeInput').value) || 'student';
+      const payload = currentPayload();
+      return isTrueStudentPayload(payload) ? 'student' : (payload.profile_type === 'student' ? 'employee' : payload.profile_type);
     }
 
     function isCoreFieldRelevantForProfile(def, profileType = currentProfileType()) {
@@ -3280,16 +3296,17 @@
     function renderRecordOnCanvas() {
       if (!state.canvas) return;
       const payload = currentPayload();
-      const profileType = payload.profile_type || 'student';
+      const isTrueStudent = isTrueStudentPayload(payload);
+      const profileType = isTrueStudent ? 'student' : (payload.profile_type === 'student' ? 'employee' : (payload.profile_type || 'employee'));
       const familyLabel = getFamilyNameLabel(payload.father_name_label);
-      const courseOrDesignation = profileType === 'student'
+      const courseOrDesignation = isTrueStudent
         ? (payload.training_year || payload.course || 'Student')
-        : (payload.designation || payload.facility_location || 'Employee');
+        : (payload.designation || payload.role_text || payload.facility_location || 'Employee');
       const frontDetails = [
         `Date Of Birth: ${payload.dob || '-'}`,
-        ...(profileType === 'student' ? [`Blood Group: ${payload.blood_group || '-'}`] : []),
+        `Blood Group: ${payload.blood_group || '-'}`,
         `Contact: ${payload.contact || '-'}`,
-        ...(profileType === 'student' ? [`Batch: ${payload.batch_session || '-'}`] : []),
+        ...(isTrueStudent ? [`Batch: ${payload.batch_session || '-'}`] : []),
         `Valid Upto: ${payload.valid_upto || '-'}`,
         `${familyLabel}: ${payload.father_name || '-'}`,
       ].join('\n');
@@ -3312,11 +3329,11 @@
       state.sides.front.role.set('text', courseOrDesignation);
       state.sides.front.employeeId.set({
         text: `Employee ID: ${payload.employee_id || '-'}`,
-        visible: profileType !== 'student' && isCoreFieldEnabled('employeeId'),
+        visible: !isTrueStudent && isCoreFieldEnabled('employeeId'),
         top: getLayoutMetrics().detailsTop - 34,
       });
       state.sides.front.details.set('text', frontDetails);
-      state.sides.front.details.set('top', getLayoutMetrics().detailsTop + (profileType !== 'student' && isCoreFieldEnabled('employeeId') ? 10 : 0));
+      state.sides.front.details.set('top', getLayoutMetrics().detailsTop + (!isTrueStudent && isCoreFieldEnabled('employeeId') ? 10 : 0));
       state.sides.front.serial.set('text', `Serial: ${payload.serial_no || '-'}`);
       state.sides.front.footer.set('text', payload.address || 'Address will appear here');
 
