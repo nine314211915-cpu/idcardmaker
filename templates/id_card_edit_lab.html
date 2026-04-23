@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ID Card Editor Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Montserrat:wght@400;600;700;800&family=Oswald:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&family=Poppins:wght@400;500;600;700&family=Public+Sans:wght@400;500;600;700&family=Roboto+Condensed:wght@400;700&family=Merriweather:wght@400;700&family=Lora:wght@400;600;700&family=Libre+Baskerville:wght@400;700&family=Nunito:wght@400;600;700;800&family=Barlow:wght@400;500;600;700&family=Archivo:wght@400;600;700&family=DM+Sans:wght@400;500;700&family=Raleway:wght@400;600;700;800&family=Bebas+Neue&family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
   <style>
     :root {
@@ -116,6 +119,66 @@
     }
     .tool-btn.active {
       background: #2f80c3;
+    }
+    .header-dropdown {
+      position: relative;
+    }
+    .header-dropdown-menu {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      min-width: 260px;
+      padding: 12px;
+      border-radius: 14px;
+      background: rgba(24, 35, 45, 0.98);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.28);
+      display: none;
+      z-index: 120;
+    }
+    .header-dropdown.open .header-dropdown-menu {
+      display: grid;
+      gap: 10px;
+    }
+    .dropdown-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: rgba(255,255,255,0.68);
+      font-weight: 700;
+    }
+    .dropdown-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .dropdown-btn {
+      min-height: 34px;
+      border-radius: 9px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      padding: 7px 10px;
+      cursor: pointer;
+    }
+    .dropdown-btn:hover {
+      background: rgba(255,255,255,0.16);
+    }
+    .color-swatches {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .color-swatch {
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      border: 2px solid rgba(255,255,255,0.22);
+      cursor: pointer;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12);
+    }
+    .color-swatch.light {
+      border-color: rgba(255,255,255,0.5);
     }
     .zoom-badge,
     .status-chip {
@@ -640,6 +703,67 @@
         <button class="tool-btn" type="button" onclick="saveCurrentTemplate()">Save Template</button>
       </div>
       <div class="top-group">
+        <div class="header-dropdown" id="coreFieldsDropdown">
+          <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('coreFieldsDropdown')">Core Fields</button>
+          <div class="header-dropdown-menu">
+            <div class="dropdown-title">Mapped Fields</div>
+            <div id="headerCoreFieldsList" class="dropdown-actions"></div>
+          </div>
+        </div>
+      </div>
+      <div class="top-group">
+        <div class="header-dropdown" id="textMenuDropdown">
+          <button class="tool-btn" id="textMenuToggle" type="button" onclick="toggleHeaderDropdown('textMenuDropdown')">Text Menu</button>
+          <div class="header-dropdown-menu">
+            <div class="dropdown-title">Text Tools</div>
+            <div class="dropdown-actions">
+              <button class="dropdown-btn" type="button" onclick="addText(); closeHeaderDropdowns();">Add Text</button>
+              <button class="dropdown-btn" type="button" onclick="toggleTextStyle('bold'); closeHeaderDropdowns();">Bold</button>
+              <button class="dropdown-btn" type="button" onclick="toggleTextStyle('italic'); closeHeaderDropdowns();">Italic</button>
+              <button class="dropdown-btn" type="button" onclick="toggleTextStyle('underline'); closeHeaderDropdowns();">Underline</button>
+            </div>
+            <div class="dropdown-title">Align</div>
+            <div class="dropdown-actions">
+              <button class="dropdown-btn" type="button" onclick="applyTextAlignment('left'); closeHeaderDropdowns();">Left</button>
+              <button class="dropdown-btn" type="button" onclick="applyTextAlignment('center'); closeHeaderDropdowns();">Center</button>
+              <button class="dropdown-btn" type="button" onclick="applyTextAlignment('right'); closeHeaderDropdowns();">Right</button>
+            </div>
+            <div class="dropdown-title">Quick Colors</div>
+            <div class="color-swatches">
+              <button class="color-swatch" type="button" style="background:#17324d" onclick="applyTextMenuColor('#17324d')" title="Navy"></button>
+              <button class="color-swatch" type="button" style="background:#8b0000" onclick="applyTextMenuColor('#8b0000')" title="Red"></button>
+              <button class="color-swatch" type="button" style="background:#0f766e" onclick="applyTextMenuColor('#0f766e')" title="Teal"></button>
+              <button class="color-swatch" type="button" style="background:#166534" onclick="applyTextMenuColor('#166534')" title="Green"></button>
+              <button class="color-swatch" type="button" style="background:#1d4ed8" onclick="applyTextMenuColor('#1d4ed8')" title="Blue"></button>
+              <button class="color-swatch" type="button" style="background:#b45309" onclick="applyTextMenuColor('#b45309')" title="Amber"></button>
+              <button class="color-swatch" type="button" style="background:#6b7280" onclick="applyTextMenuColor('#6b7280')" title="Gray"></button>
+              <button class="color-swatch" type="button" style="background:#111827" onclick="applyTextMenuColor('#111827')" title="Black"></button>
+              <button class="color-swatch light" type="button" style="background:#ffffff" onclick="applyTextMenuColor('#ffffff')" title="White"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="top-group">
+        <div class="header-dropdown" id="arrangeDropdown">
+          <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('arrangeDropdown')">Arrange</button>
+          <div class="header-dropdown-menu">
+            <div class="dropdown-title">Layer Order</div>
+            <div class="dropdown-actions">
+              <button class="dropdown-btn" type="button" onclick="bringToFront(); closeHeaderDropdowns();">Bring Front</button>
+              <button class="dropdown-btn" type="button" onclick="bringForward(); closeHeaderDropdowns();">Forward</button>
+              <button class="dropdown-btn" type="button" onclick="sendBackwards(); closeHeaderDropdowns();">Backward</button>
+              <button class="dropdown-btn" type="button" onclick="sendToBack(); closeHeaderDropdowns();">Send Back</button>
+            </div>
+            <div class="dropdown-title">Selection</div>
+            <div class="dropdown-actions">
+              <button class="dropdown-btn" type="button" onclick="duplicateSelection(); closeHeaderDropdowns();">Duplicate</button>
+              <button class="dropdown-btn" type="button" onclick="toggleLockSelected(); closeHeaderDropdowns();">Lock / Unlock</button>
+              <button class="dropdown-btn" type="button" onclick="deleteSelected(); closeHeaderDropdowns();">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="top-group">
         <button class="tool-btn" type="button" onclick="showPreviousRecord()">Previous</button>
         <span class="status-chip" id="batchBrowserBadge">Card: -- / --</span>
         <button class="tool-btn" type="button" onclick="showNextRecord()">Next</button>
@@ -813,7 +937,24 @@
                 <label for="propFont">Font</label>
                 <select id="propFont">
                   <option value="Segoe UI">Segoe UI</option>
+                  <option value="Inter">Inter</option>
+                  <option value="Public Sans">Public Sans</option>
+                  <option value="Poppins">Poppins</option>
+                  <option value="Montserrat">Montserrat</option>
+                  <option value="Nunito">Nunito</option>
+                  <option value="Barlow">Barlow</option>
+                  <option value="Archivo">Archivo</option>
+                  <option value="DM Sans">DM Sans</option>
+                  <option value="Raleway">Raleway</option>
+                  <option value="Roboto Condensed">Roboto Condensed</option>
+                  <option value="Oswald">Oswald</option>
+                  <option value="Bebas Neue">Bebas Neue</option>
                   <option value="Georgia">Georgia</option>
+                  <option value="Merriweather">Merriweather</option>
+                  <option value="Lora">Lora</option>
+                  <option value="Libre Baskerville">Libre Baskerville</option>
+                  <option value="Playfair Display">Playfair Display</option>
+                  <option value="Cormorant Garamond">Cormorant Garamond</option>
                   <option value="Trebuchet MS">Trebuchet MS</option>
                   <option value="Times New Roman">Times New Roman</option>
                   <option value="Verdana">Verdana</option>
@@ -932,21 +1073,57 @@
               <div class="field">
                 <label for="nameFontFamilyInput">Name Font</label>
                 <select id="nameFontFamilyInput">
+                  <option value="Playfair Display">Playfair Display</option>
+                  <option value="Montserrat">Montserrat</option>
+                  <option value="Poppins">Poppins</option>
+                  <option value="Public Sans">Public Sans</option>
+                  <option value="Inter">Inter</option>
+                  <option value="Raleway">Raleway</option>
+                  <option value="Nunito">Nunito</option>
+                  <option value="Barlow">Barlow</option>
+                  <option value="Archivo">Archivo</option>
+                  <option value="DM Sans">DM Sans</option>
                   <option value="Georgia">Georgia</option>
                   <option value="Segoe UI">Segoe UI</option>
+                  <option value="Merriweather">Merriweather</option>
+                  <option value="Lora">Lora</option>
+                  <option value="Libre Baskerville">Libre Baskerville</option>
+                  <option value="Cormorant Garamond">Cormorant Garamond</option>
+                  <option value="Oswald">Oswald</option>
+                  <option value="Bebas Neue">Bebas Neue</option>
+                  <option value="Roboto Condensed">Roboto Condensed</option>
                   <option value="Trebuchet MS">Trebuchet MS</option>
                   <option value="Times New Roman">Times New Roman</option>
                   <option value="Verdana">Verdana</option>
+                  <option value="Arial">Arial</option>
                 </select>
               </div>
               <div class="field">
                 <label for="bodyFontFamilyInput">Body Font</label>
                 <select id="bodyFontFamilyInput">
+                  <option value="Public Sans">Public Sans</option>
+                  <option value="Inter">Inter</option>
+                  <option value="Poppins">Poppins</option>
+                  <option value="Montserrat">Montserrat</option>
+                  <option value="Nunito">Nunito</option>
+                  <option value="Barlow">Barlow</option>
+                  <option value="Archivo">Archivo</option>
+                  <option value="DM Sans">DM Sans</option>
+                  <option value="Raleway">Raleway</option>
+                  <option value="Roboto Condensed">Roboto Condensed</option>
                   <option value="Segoe UI">Segoe UI</option>
                   <option value="Georgia">Georgia</option>
+                  <option value="Merriweather">Merriweather</option>
+                  <option value="Lora">Lora</option>
+                  <option value="Libre Baskerville">Libre Baskerville</option>
+                  <option value="Oswald">Oswald</option>
+                  <option value="Bebas Neue">Bebas Neue</option>
+                  <option value="Playfair Display">Playfair Display</option>
+                  <option value="Cormorant Garamond">Cormorant Garamond</option>
                   <option value="Trebuchet MS">Trebuchet MS</option>
                   <option value="Arial">Arial</option>
                   <option value="Verdana">Verdana</option>
+                  <option value="Times New Roman">Times New Roman</option>
                 </select>
               </div>
             </div>
@@ -1720,6 +1897,18 @@
       field('activeObjectBadge').textContent = `Active: ${name || 'none'}`;
     }
 
+    function closeHeaderDropdowns() {
+      document.querySelectorAll('.header-dropdown.open').forEach((el) => el.classList.remove('open'));
+    }
+
+    function toggleHeaderDropdown(id) {
+      const target = field(id);
+      if (!target) return;
+      const shouldOpen = !target.classList.contains('open');
+      closeHeaderDropdowns();
+      if (shouldOpen) target.classList.add('open');
+    }
+
     function updateSideBadge() {
       field('currentSideBadge').textContent = `Side: ${state.currentSide}`;
       field('frontTab').classList.toggle('active', state.currentSide === 'front');
@@ -1898,6 +2087,23 @@
           </div>
         `;
       }).join('');
+      refreshHeaderCoreFieldsMenu(activeCoreFieldKey);
+    }
+
+    function refreshHeaderCoreFieldsMenu(activeCoreFieldKey = '') {
+      const list = field('headerCoreFieldsList');
+      if (!list) return;
+      list.innerHTML = CORE_FIELD_DEFS
+        .filter((item) => isCoreFieldRelevantForProfile(item))
+        .map((item) => {
+          const enabled = isCoreFieldEnabled(item.key);
+          const isActive = activeCoreFieldKey === item.key;
+          const label = enabled ? `Focus ${item.label}` : `Add ${item.label}`;
+          const action = enabled ? `focusCoreField('${item.key}')` : `addCoreField('${item.key}')`;
+          const activeStyle = isActive ? ' style="background:rgba(47,128,195,0.28);border-color:rgba(95,170,230,0.6);"' : '';
+          return `<button class="dropdown-btn" type="button"${activeStyle} onclick="${action}; closeHeaderDropdowns();">${escapeHtml(label)}</button>`;
+        })
+        .join('');
     }
 
     function renderSavedTemplateGrid() {
@@ -2929,6 +3135,28 @@
           active.set('underline', !active.underline);
         }
       });
+    }
+
+    function applyTextAlignment(alignment) {
+      applyActiveObjectChanges((active) => {
+        if (typeof active.text !== 'string') return;
+        active.set('textAlign', alignment || 'left');
+      });
+    }
+
+    function applyTextMenuColor(color) {
+      const cleaned = escapeValue(color);
+      if (!cleaned) return;
+      const active = getActiveObject();
+      if (active && typeof active.text === 'string') {
+        applyActiveObjectChanges((obj) => obj.set('fill', cleaned));
+      } else {
+        state.view.textColor = cleaned;
+        field('textColorInput').value = cleaned;
+        applyAppearanceControls();
+        pushHistoryState();
+      }
+      closeHeaderDropdowns();
     }
 
     function clearShapeFill() {
@@ -4141,6 +4369,7 @@
       document.addEventListener('click', (event) => {
         if (!event.target.closest('.context-menu')) hideContextMenu();
         if (event.target === field('templateModal')) closeTemplateModal();
+        if (!event.target.closest('.header-dropdown')) closeHeaderDropdowns();
       });
       document.addEventListener('keydown', (event) => {
         const targetTag = event.target && event.target.tagName ? event.target.tagName.toLowerCase() : '';
