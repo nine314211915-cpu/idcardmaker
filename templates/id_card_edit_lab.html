@@ -3511,7 +3511,11 @@
       const institute = escapeValue(field('instituteInput').value);
       const batchSelector = field('batchSelector');
       batchSelector.innerHTML = '<option value="">Select batch</option>';
+      batchSelector.value = '';
       resetBatchRecords();
+      if (state.canvas) {
+        resetCanvasLayout();
+      }
       if (!institute) return;
       try {
         const res = await fetch(`/api/batches?institute=${encodeURIComponent(institute)}`);
@@ -3523,6 +3527,7 @@
           const label = `${batch.batch_name || id || 'Unnamed batch'} | ${batch.submitted_at || batch.created_at || '-'}`;
           return `<option value="${id}">${label}</option>`;
         }).join('');
+        batchSelector.value = '';
       } catch (error) {
         setStatus(error.message || 'Unable to load batches.', false, true);
       }
