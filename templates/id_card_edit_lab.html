@@ -1414,6 +1414,14 @@
           url: escapeValue(batchBackground.url),
         };
       }
+      if (!currentBatchId()) {
+        return {
+          source: 'none',
+          id: '',
+          name: 'None',
+          url: '',
+        };
+      }
       const instituteUrl = state.settings && state.settings.background_url ? escapeValue(state.settings.background_url) : '';
       const activeEntry = getBackgroundLibraryEntry(state.settings && state.settings.active_background_id);
       return {
