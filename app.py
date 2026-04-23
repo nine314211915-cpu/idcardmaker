@@ -751,6 +751,81 @@ def build_facility_structure_payload():
     return structure
 
 
+def build_facility_selector_context():
+    return {
+        "facility_location_institutes": list(FACILITY_LOCATION_INSTITUTES),
+        "facility_structure": build_facility_structure_payload(),
+    }
+
+
+def normalize_scope_value(value):
+    return str(value or "").strip()
+
+
+def is_facility_scope_institute(institute):
+    return canonicalize_institute_name(institute) in FACILITY_LOCATION_INSTITUTES
+
+
+def record_matches_facility_scope(record, facility_location="", facility_sub_location=""):
+    target_location = normalize_scope_value(facility_location)
+    target_sub_location = normalize_scope_value(facility_sub_location)
+    if not target_location and not target_sub_location:
+        return True
+    record_location = normalize_scope_value((record or {}).get("facility_location") or (record or {}).get("department"))
+    record_sub_location = normalize_scope_value((record or {}).get("facility_sub_location"))
+    if target_location and record_location != target_location:
+        return False
+    if target_sub_location and record_sub_location != target_sub_location:
+        return False
+    return True
+
+
+def filter_records_by_facility_scope(records, facility_location="", facility_sub_location=""):
+    if not facility_location and not facility_sub_location:
+        return list(records or [])
+    return [
+        record
+        for record in (records or [])
+        if record_matches_facility_scope(record, facility_location, facility_sub_location)
+    ]
+
+
+def extract_batch_scope_fields(records):
+    records = records or []
+    if not records:
+        return {
+            "facility_location": "",
+            "facility_sub_location": "",
+            "location_label": "",
+            "background_scope_label": "",
+            "background_scope": "",
+        }
+    first_record = records[0] or {}
+    facility_location = normalize_scope_value(first_record.get("facility_location") or first_record.get("department"))
+    facility_sub_location = normalize_scope_value(first_record.get("facility_sub_location"))
+    return {
+        "facility_location": facility_location,
+        "facility_sub_location": facility_sub_location,
+        "location_label": build_batch_location_label(records),
+        "background_scope_label": normalize_scope_value(first_record.get("background_scope_label")),
+        "background_scope": normalize_scope_value(first_record.get("background_scope")),
+    }
+
+
+def batch_matches_facility_scope(batch, facility_location="", facility_sub_location=""):
+    target_location = normalize_scope_value(facility_location)
+    target_sub_location = normalize_scope_value(facility_sub_location)
+    if not target_location and not target_sub_location:
+        return True
+    batch_location = normalize_scope_value((batch or {}).get("facility_location"))
+    batch_sub_location = normalize_scope_value((batch or {}).get("facility_sub_location"))
+    if target_location and batch_location != target_location:
+        return False
+    if target_sub_location and batch_sub_location != target_sub_location:
+        return False
+    return True
+
+
 def clamp_int(value, fallback, minimum, maximum):
     try:
         parsed = int(float(value))
@@ -1929,22 +2004,26 @@ def enrich_batches_for_overview(batches):
         item = dict(batch or {})
         batch_id = str(item.get("id", "") or "").strip()
         institute = canonicalize_institute_name(item.get("institute_name"))
-        location_label = ""
-        background_scope_label = ""
-        background_scope = ""
+        scope_meta = {
+            "facility_location": "",
+            "facility_sub_location": "",
+            "location_label": "",
+            "background_scope_label": "",
+            "background_scope": "",
+        }
         if batch_id and institute:
             try:
                 batch_records = list_supabase_records(institute, batch_id)
-                location_label = build_batch_location_label(batch_records)
-                if batch_records:
-                    first_record = batch_records[0] or {}
-                    background_scope_label = str(first_record.get("background_scope_label") or "").strip()
-                    background_scope = str(first_record.get("background_scope") or "").strip()
+                scope_meta = extract_batch_scope_fields(batch_records)
             except Exception:
-                location_label = ""
-        item["location_label"] = location_label
-        item["background_scope_label"] = background_scope_label
-        item["background_scope"] = background_scope
+                scope_meta = {
+                    "facility_location": "",
+                    "facility_sub_location": "",
+                    "location_label": "",
+                    "background_scope_label": "",
+                    "background_scope": "",
+                }
+        item.update(scope_meta)
         enriched.append(item)
     return enriched
 
@@ -2974,6 +3053,8 @@ def make_asset_slug(value):
 def get_filtered_records():
     institute = canonicalize_institute_name(request.args.get("institute"))
     batch_id = (request.args.get("batch_id") or "").strip()
+    facility_location = normalize_scope_value(request.args.get("facility_location"))
+    facility_sub_location = normalize_scope_value(request.args.get("facility_sub_location"))
     if is_supabase_enabled():
         records = list_supabase_records(institute, batch_id or None)
     else:
@@ -2982,6 +3063,7 @@ def get_filtered_records():
             records = [record for record in records if not str(record.get("batch_id") or "").strip()]
         elif batch_id:
             records = [record for record in records if str(record.get("batch_id") or "").strip() == batch_id]
+    records = filter_records_by_facility_scope(records, facility_location, facility_sub_location)
     records = [decorate_record_display(record) for record in records]
     return records, institute
 
@@ -3390,6 +3472,7 @@ def build_id_card_edit_context():
         "known_institutes": known_institutes,
         "supabase_enabled": supabase_enabled,
         "data_source_label": "Supabase" if supabase_enabled else "Local JSON",
+        **build_facility_selector_context(),
     }
 
 
@@ -3413,7 +3496,7 @@ def certificate():
 def admin():
     if not session.get("admin_authenticated"):
         return render_template("admin_login.html")
-    return render_template("admin.html")
+    return render_template("admin.html", **build_facility_selector_context())
 
 
 @app.route("/admin/print-cards")
@@ -4238,18 +4321,25 @@ def batch_records():
 @admin_required
 def get_batches():
     institute = canonicalize_institute_name(request.args.get("institute"))
+    facility_location = normalize_scope_value(request.args.get("facility_location"))
+    facility_sub_location = normalize_scope_value(request.args.get("facility_sub_location"))
     if not institute:
         return jsonify({"batches": [], "institute": ""})
     try:
         batches = []
         seen_ids = set()
+        local_records = load_records(institute) if not is_supabase_enabled() else []
         if is_supabase_enabled():
             try:
                 for batch in list_supabase_batches(institute):
                     batch_id = str((batch or {}).get("id") or "").strip()
                     if batch_id and batch_id not in seen_ids:
                         seen_ids.add(batch_id)
-                        batches.append(batch)
+                        scope_meta = extract_batch_scope_fields(list_supabase_records(institute, batch_id))
+                        item = dict(batch or {})
+                        item.update(scope_meta)
+                        if batch_matches_facility_scope(item, facility_location, facility_sub_location):
+                            batches.append(item)
             except Exception:
                 batches = []
                 seen_ids = set()
@@ -4257,7 +4347,19 @@ def get_batches():
             batch_id = str((batch or {}).get("id") or "").strip()
             if batch_id and batch_id not in seen_ids:
                 seen_ids.add(batch_id)
-                batches.append(batch)
+                if is_supabase_enabled():
+                    batch_records = list_supabase_records(institute, batch_id)
+                else:
+                    batch_records = [
+                        record
+                        for record in local_records
+                        if normalize_scope_value(record.get("batch_id")) == batch_id
+                    ]
+                scope_meta = extract_batch_scope_fields(batch_records)
+                item = dict(batch or {})
+                item.update(scope_meta)
+                if batch_matches_facility_scope(item, facility_location, facility_sub_location):
+                    batches.append(item)
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to load batches"}), 500
     return jsonify({"batches": batches, "institute": institute})
@@ -4267,11 +4369,19 @@ def get_batches():
 @admin_required
 def batch_overview():
     institute = canonicalize_institute_name(request.args.get("institute"))
+    facility_location = normalize_scope_value(request.args.get("facility_location"))
+    facility_sub_location = normalize_scope_value(request.args.get("facility_sub_location"))
     if not is_supabase_enabled():
         return jsonify({"batches": [], "warning": "Supabase is not configured"})
     try:
         batches = list_supabase_batches(institute) if institute else list_all_supabase_batches()
         batches = enrich_batches_for_overview(batches)
+        if facility_location or facility_sub_location:
+            batches = [
+                batch
+                for batch in batches
+                if batch_matches_facility_scope(batch, facility_location, facility_sub_location)
+            ]
     except Exception as exc:
         return jsonify({"error": str(exc) or "Unable to load batch overview"}), 500
     return jsonify({"batches": batches, "institute": institute or ""})

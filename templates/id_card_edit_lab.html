@@ -623,6 +623,12 @@
           <option value="{{ institute }}" {% if institute == initial_institute %}selected{% endif %}>{{ institute }}</option>
           {% endfor %}
         </select>
+        <select id="facilityLocationSelector" style="display:none">
+          <option value="">Select block</option>
+        </select>
+        <select id="facilitySubLocationSelector" style="display:none">
+          <option value="">Select location</option>
+        </select>
         <select id="batchSelector">
           <option value="">Select batch</option>
         </select>
@@ -1222,8 +1228,10 @@
 
   <input id="genericImageInput" type="file" accept="image/*" class="hidden">
 
-  <script>
-    const CARD_SIZES = {
+<script>
+  const FACILITY_LOCATION_INSTITUTES = {{ facility_location_institutes|tojson }};
+  const FACILITY_STRUCTURE = {{ facility_structure|tojson }};
+  const CARD_SIZES = {
       landscape: { width: 856, height: 540 },
       portrait: { width: 540, height: 856 },
     };
@@ -1349,6 +1357,60 @@
 
     function currentBatchId() {
       return escapeValue(field('batchSelector').value);
+    }
+
+    function currentFacilityLocation() {
+      return escapeValue(field('facilityLocationSelector').value);
+    }
+
+    function currentFacilitySubLocation() {
+      return escapeValue(field('facilitySubLocationSelector').value);
+    }
+
+    function isFacilityScopeInstitute(institute = escapeValue(field('instituteInput').value)) {
+      return FACILITY_LOCATION_INSTITUTES.includes(escapeValue(institute));
+    }
+
+    function populateSelectOptions(selectId, items, placeholder, selectedValue = '') {
+      const select = field(selectId);
+      if (!select) return;
+      const options = [`<option value="">${escapeHtml(placeholder)}</option>`];
+      (items || []).forEach((item) => {
+        const value = escapeValue(item);
+        if (!value) return;
+        const selected = value === selectedValue ? ' selected' : '';
+        options.push(`<option value="${escapeHtml(value)}"${selected}>${escapeHtml(value)}</option>`);
+      });
+      select.innerHTML = options.join('');
+    }
+
+    function syncFacilitySelectors(options = {}) {
+      const {
+        preserveLocation = true,
+        preserveSubLocation = true,
+        preferredLocation = '',
+        preferredSubLocation = '',
+      } = options;
+      const institute = escapeValue(field('instituteInput').value);
+      const locationSelect = field('facilityLocationSelector');
+      const subLocationSelect = field('facilitySubLocationSelector');
+      if (!locationSelect || !subLocationSelect) return;
+      if (!isFacilityScopeInstitute(institute)) {
+        populateSelectOptions('facilityLocationSelector', [], 'Select block');
+        populateSelectOptions('facilitySubLocationSelector', [], 'Select location');
+        locationSelect.style.display = 'none';
+        subLocationSelect.style.display = 'none';
+        return;
+      }
+      const structure = FACILITY_STRUCTURE[institute] || { blocks: [], sub_locations: {} };
+      const nextLocation = preferredLocation || (preserveLocation ? currentFacilityLocation() : '');
+      populateSelectOptions('facilityLocationSelector', structure.blocks || [], 'Select block', nextLocation);
+      locationSelect.style.display = '';
+      const activeLocation = currentFacilityLocation();
+      const subLocations = activeLocation ? (((structure.sub_locations || {})[activeLocation]) || []) : [];
+      const nextSubLocation = preferredSubLocation || (preserveSubLocation ? currentFacilitySubLocation() : '');
+      populateSelectOptions('facilitySubLocationSelector', subLocations, 'Select location', nextSubLocation);
+      subLocationSelect.style.display = '';
     }
 
     function normalizeBackgroundLibrary(items) {
@@ -3517,6 +3579,8 @@
 
     async function loadBatchOptions() {
       const institute = escapeValue(field('instituteInput').value);
+      const facilityLocation = currentFacilityLocation();
+      const facilitySubLocation = currentFacilitySubLocation();
       const batchSelector = field('batchSelector');
       batchSelector.innerHTML = '<option value="">Select batch</option>';
       batchSelector.value = '';
@@ -3526,7 +3590,7 @@
       }
       if (!institute) return;
       try {
-        const res = await fetch(`/api/batches?institute=${encodeURIComponent(institute)}`);
+        const res = await fetch(`/api/batches?institute=${encodeURIComponent(institute)}&facility_location=${encodeURIComponent(facilityLocation)}&facility_sub_location=${encodeURIComponent(facilitySubLocation)}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Unable to load batches.');
         const batches = Array.isArray(data.batches) ? data.batches : [];
@@ -3590,12 +3654,14 @@
     async function loadBatchRecords(preferredSerial = '') {
       const institute = escapeValue(field('instituteInput').value);
       const batchId = escapeValue(field('batchSelector').value);
+      const facilityLocation = currentFacilityLocation();
+      const facilitySubLocation = currentFacilitySubLocation();
       resetBatchRecords();
       if (!institute || !batchId) return;
       try {
         const [, recordsRes, batchDesignRes, instituteDesignRes] = await Promise.all([
           loadSettingsForInstitute(institute),
-          fetch(`/api/records?institute=${encodeURIComponent(institute)}&batch_id=${encodeURIComponent(batchId)}`),
+          fetch(`/api/records?institute=${encodeURIComponent(institute)}&batch_id=${encodeURIComponent(batchId)}&facility_location=${encodeURIComponent(facilityLocation)}&facility_sub_location=${encodeURIComponent(facilitySubLocation)}`),
           fetch(`/api/id-card-edit/batch-design?institute=${encodeURIComponent(institute)}&batch_id=${encodeURIComponent(batchId)}`),
           fetch(`/api/id-card-edit/institute-design?institute=${encodeURIComponent(institute)}`),
         ]);
@@ -4367,8 +4433,18 @@
         state.batchBackgrounds = { front: null, back: null };
         state.savedTemplates = [];
         renderSavedTemplateGrid();
+        syncFacilitySelectors({ preserveLocation: false, preserveSubLocation: false });
         refreshBackgroundPanel();
         await loadSettingsForInstitute(escapeValue(field('instituteInput').value));
+        await loadBatchOptions();
+        renderRecordOnCanvas();
+      });
+      field('facilityLocationSelector').addEventListener('change', async () => {
+        syncFacilitySelectors({ preserveLocation: true, preserveSubLocation: false });
+        await loadBatchOptions();
+        renderRecordOnCanvas();
+      });
+      field('facilitySubLocationSelector').addEventListener('change', async () => {
         await loadBatchOptions();
         renderRecordOnCanvas();
       });
@@ -4393,6 +4469,7 @@
       bindFieldUpdates();
       bindInspectorControls();
       bindGlobalEditorEvents();
+      syncFacilitySelectors({ preserveLocation: false, preserveSubLocation: false });
       syncAppearanceControls();
       applyCanvasScale();
       renderRecordOnCanvas();

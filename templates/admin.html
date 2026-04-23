@@ -1059,6 +1059,12 @@
     <option value="Govt. ANM Training Center, Jhunjhunu">Govt. ANM Training Center, Jhunjhunu</option>
     <option value="Other">Other</option>
   </select>
+  <select class="filter-select" id="facilityLocationFilter" onchange="handleAdminFacilityLocationChange()" style="display:none">
+    <option value="">Select Block</option>
+  </select>
+  <select class="filter-select" id="facilitySubLocationFilter" onchange="loadRecords()" style="display:none">
+    <option value="">Select Location</option>
+  </select>
   <select class="filter-select" id="batchFilter" onchange="loadRecords()">
     <option value="">Select Batch</option>
   </select>
@@ -1289,6 +1295,8 @@ const FACILITY_INSTITUTE_DISPLAY_NAMES = {
   'Govt. Primary Health Centre (PHC), Jhunjhunu': 'Govt. Primary Health Centre (PHC)',
   'Govt. Health Sub Centre, Jhunjhunu': 'Govt. Health Sub Centre'
 };
+const FACILITY_LOCATION_INSTITUTES = {{ facility_location_institutes|tojson }};
+const FACILITY_STRUCTURE = {{ facility_structure|tojson }};
 
 function getDisplayInstituteName(institute) {
   const cleanedInstitute = String(institute || '').trim();
@@ -1300,6 +1308,8 @@ const ADMIN_UI_STATE_KEY = 'admin_ui_state_v1';
 function saveAdminUiState() {
   const payload = {
     instituteFilter: document.getElementById('instituteFilter').value,
+    facilityLocationFilter: document.getElementById('facilityLocationFilter').value,
+    facilitySubLocationFilter: document.getElementById('facilitySubLocationFilter').value,
     batchFilter: document.getElementById('batchFilter').value,
   };
   try {
@@ -1323,6 +1333,63 @@ function getSelectedBatch() {
   return document.getElementById('batchFilter').value;
 }
 
+function getSelectedFacilityLocation() {
+  return document.getElementById('facilityLocationFilter').value;
+}
+
+function getSelectedFacilitySubLocation() {
+  return document.getElementById('facilitySubLocationFilter').value;
+}
+
+function isFacilityInstitute(institute = getSelectedInstitute()) {
+  return FACILITY_LOCATION_INSTITUTES.includes(institute || '');
+}
+
+function populateSelectOptions(selectId, items, placeholder, selectedValue = '') {
+  const select = document.getElementById(selectId);
+  const options = [`<option value="">${escapeHtml(placeholder)}</option>`];
+  (items || []).forEach((item) => {
+    const value = String(item || '').trim();
+    if (!value) return;
+    const selected = value === selectedValue ? ' selected' : '';
+    options.push(`<option value="${escapeHtml(value)}"${selected}>${escapeHtml(value)}</option>`);
+  });
+  select.innerHTML = options.join('');
+}
+
+function syncAdminFacilityFilters(options = {}) {
+  const {
+    preserveLocation = true,
+    preserveSubLocation = true,
+    preferredLocation = '',
+    preferredSubLocation = '',
+  } = options;
+  const institute = getSelectedInstitute();
+  const locationSelect = document.getElementById('facilityLocationFilter');
+  const subLocationSelect = document.getElementById('facilitySubLocationFilter');
+  if (!isFacilityInstitute(institute)) {
+    locationSelect.style.display = 'none';
+    subLocationSelect.style.display = 'none';
+    populateSelectOptions('facilityLocationFilter', [], 'Select Block');
+    populateSelectOptions('facilitySubLocationFilter', [], 'Select Location');
+    return;
+  }
+  const structure = FACILITY_STRUCTURE[institute] || { blocks: [], sub_locations: {} };
+  const nextLocation = preferredLocation || (preserveLocation ? getSelectedFacilityLocation() : '');
+  populateSelectOptions('facilityLocationFilter', structure.blocks || [], 'Select Block', nextLocation);
+  locationSelect.style.display = '';
+  const activeLocation = locationSelect.value;
+  const subLocations = activeLocation ? ((structure.sub_locations || {})[activeLocation] || []) : [];
+  const nextSubLocation = preferredSubLocation || (preserveSubLocation ? getSelectedFacilitySubLocation() : '');
+  populateSelectOptions('facilitySubLocationFilter', subLocations, 'Select Location', nextSubLocation);
+  subLocationSelect.style.display = '';
+}
+
+function handleAdminFacilityLocationChange() {
+  syncAdminFacilityFilters({ preserveLocation: true, preserveSubLocation: false });
+  loadRecords();
+}
+
 function isDepartmentInstitute() {
   const institute = getSelectedInstitute();
   return !!institute && !COLLEGE_INSTITUTES.includes(institute);
@@ -1334,9 +1401,16 @@ function getFilteredRecords() {
 
 function getVisibleOverviewBatches() {
   const selectedInstitute = getSelectedInstitute();
-  return selectedInstitute
+  const selectedLocation = getSelectedFacilityLocation();
+  const selectedSubLocation = getSelectedFacilitySubLocation();
+  return (selectedInstitute
     ? batchOverviewItems.filter(batch => (batch.institute_name || '') === selectedInstitute)
-    : batchOverviewItems.slice();
+    : batchOverviewItems.slice()
+  ).filter((batch) => {
+    if (selectedLocation && (batch.facility_location || '') !== selectedLocation) return false;
+    if (selectedSubLocation && (batch.facility_sub_location || '') !== selectedSubLocation) return false;
+    return true;
+  });
 }
 
 function openPrintCards() {
@@ -1376,8 +1450,14 @@ function setOverviewSelection(batchId, checked) {
   renderBatchOverview();
 }
 
-function openBatchFromOverview(institute, batchId) {
+function openBatchFromOverview(institute, batchId, facilityLocation = '', facilitySubLocation = '') {
   document.getElementById('instituteFilter').value = institute || '';
+  syncAdminFacilityFilters({
+    preserveLocation: false,
+    preserveSubLocation: false,
+    preferredLocation: facilityLocation || '',
+    preferredSubLocation: facilitySubLocation || '',
+  });
   document.getElementById('batchFilter').dataset.pendingValue = batchId || '';
   selectedOverviewBatchIds = batchId ? [batchId] : [];
   loadRecords();
@@ -1465,7 +1545,7 @@ function renderBatchOverview() {
                   ${escapeHtml(batchName)}${locationLabel ? ` <span style="color:var(--red)">| ${escapeHtml(locationLabel)}</span>` : ''}${scopeLabel ? ` <span class="badge-scope">${escapeHtml(scopeLabel)}</span>` : ''} <span style="color:var(--muted)">| ${escapeHtml(batchTime)}</span>
                 </span>
                 ${selectControl}
-                <button class="btn-xs" type="button" onclick="openBatchFromOverview(${JSON.stringify(institute)}, ${JSON.stringify(batchId)})">Open</button>
+                <button class="btn-xs" type="button" onclick="openBatchFromOverview(${JSON.stringify(institute)}, ${JSON.stringify(batchId)}, ${JSON.stringify(batch.facility_location || '')}, ${JSON.stringify(batch.facility_sub_location || '')})">Open</button>
               </div>
             </li>
           `;
@@ -1479,7 +1559,9 @@ function renderBatchOverview() {
 async function loadBatchOverview() {
   try {
     const institute = encodeURIComponent(getSelectedInstitute() || '');
-    const res = await fetch(`/api/batch-overview?institute=${institute}`);
+    const location = encodeURIComponent(getSelectedFacilityLocation() || '');
+    const subLocation = encodeURIComponent(getSelectedFacilitySubLocation() || '');
+    const res = await fetch(`/api/batch-overview?institute=${institute}&facility_location=${location}&facility_sub_location=${subLocation}`);
     const data = await readJsonResponse(res, 'Unable to load batch overview');
     batchOverviewItems = Array.isArray(data.batches) ? data.batches : [];
   } catch (e) {
@@ -1704,6 +1786,7 @@ async function downloadActivityLogs() {
 async function loadBatches() {
   const batchFilter = document.getElementById('batchFilter');
   const institute = getSelectedInstitute();
+  syncAdminFacilityFilters();
   if (!institute) {
     batchFilter.innerHTML = '<option value="">Select Batch</option>';
     selectedOverviewBatchIds = [];
@@ -1711,7 +1794,9 @@ async function loadBatches() {
     return;
   }
   try {
-    const res = await fetch(`/api/batches?institute=${encodeURIComponent(institute)}`);
+    const location = encodeURIComponent(getSelectedFacilityLocation() || '');
+    const subLocation = encodeURIComponent(getSelectedFacilitySubLocation() || '');
+    const res = await fetch(`/api/batches?institute=${encodeURIComponent(institute)}&facility_location=${location}&facility_sub_location=${subLocation}`);
     const data = await readJsonResponse(res, 'Unable to load batches');
     const batches = Array.isArray(data.batches) ? data.batches : [];
     const previousValue = batchFilter.dataset.pendingValue || batchFilter.value;
@@ -1931,7 +2016,9 @@ async function loadRecords() {
   try {
     const institute = encodeURIComponent(getSelectedInstitute());
     const batch = encodeURIComponent(getSelectedBatch());
-    const res = await fetch(`/api/records?institute=${institute}&batch_id=${batch}`);
+    const location = encodeURIComponent(getSelectedFacilityLocation() || '');
+    const subLocation = encodeURIComponent(getSelectedFacilitySubLocation() || '');
+    const res = await fetch(`/api/records?institute=${institute}&batch_id=${batch}&facility_location=${location}&facility_sub_location=${subLocation}`);
     const data = await readJsonResponse(res, 'Unable to load records');
     allRecords = data.records || [];
     const filtered = getFilteredRecords();
@@ -2358,10 +2445,18 @@ function exportZip() {
 
 const persistedAdminUiState = loadAdminUiState();
 document.getElementById('batchFilter').innerHTML = '<option value="">Select Batch</option>';
+if (typeof persistedAdminUiState.instituteFilter === 'string') {
+  document.getElementById('instituteFilter').value = persistedAdminUiState.instituteFilter;
+}
+syncAdminFacilityFilters({
+  preserveLocation: false,
+  preserveSubLocation: false,
+  preferredLocation: typeof persistedAdminUiState.facilityLocationFilter === 'string' ? persistedAdminUiState.facilityLocationFilter : '',
+  preferredSubLocation: typeof persistedAdminUiState.facilitySubLocationFilter === 'string' ? persistedAdminUiState.facilitySubLocationFilter : '',
+});
 if (typeof persistedAdminUiState.batchFilter === 'string') {
   document.getElementById('batchFilter').dataset.pendingValue = persistedAdminUiState.batchFilter;
 }
-document.getElementById('instituteFilter').value = '';
 bindPhotoCellActions();
 loadSettings();
 loadRecords();
