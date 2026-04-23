@@ -3330,10 +3330,8 @@
       state.sides.front.employeeId.set({
         text: `Employee ID: ${payload.employee_id || '-'}`,
         visible: !isTrueStudent && isCoreFieldEnabled('employeeId'),
-        top: getLayoutMetrics().detailsTop - 34,
       });
       state.sides.front.details.set('text', frontDetails);
-      state.sides.front.details.set('top', getLayoutMetrics().detailsTop + (!isTrueStudent && isCoreFieldEnabled('employeeId') ? 10 : 0));
       state.sides.front.serial.set('text', `Serial: ${payload.serial_no || '-'}`);
       state.sides.front.footer.set('text', payload.address || 'Address will appear here');
 
