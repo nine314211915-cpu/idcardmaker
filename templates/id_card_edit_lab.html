@@ -3972,6 +3972,19 @@
     function applyHistorySnapshot(snapshot) {
       if (!snapshot || !state.canvas) return;
       state.history.isApplying = true;
+      const targetOrientation = ['landscape', 'portrait'].includes(((snapshot.view || {}).orientation || '').toLowerCase())
+        ? ((snapshot.view || {}).orientation || '').toLowerCase()
+        : state.view.orientation;
+      if (targetOrientation !== state.view.orientation) {
+        state.view.orientation = targetOrientation;
+        clearSnapGuides();
+        state.canvas.dispose();
+        state.backgroundImage = null;
+        state.photoImage = null;
+        state.photoSourceUrl = '';
+        state.photoLoadToken += 1;
+        buildCanvas();
+      }
       state.coreFieldState = normalizeCoreFieldState(snapshot.coreFields);
       state.batchBackgrounds = normalizeBackgroundState(snapshot.background);
       state.view = { ...state.view, ...(snapshot.view || {}) };
@@ -3994,6 +4007,19 @@
     function applyBatchDesignSnapshot(snapshot) {
       if (!snapshot || !state.canvas) return;
       state.history.isApplying = true;
+      const targetOrientation = ['landscape', 'portrait'].includes(((snapshot.view || {}).orientation || '').toLowerCase())
+        ? ((snapshot.view || {}).orientation || '').toLowerCase()
+        : state.view.orientation;
+      if (targetOrientation !== state.view.orientation) {
+        state.view.orientation = targetOrientation;
+        clearSnapGuides();
+        state.canvas.dispose();
+        state.backgroundImage = null;
+        state.photoImage = null;
+        state.photoSourceUrl = '';
+        state.photoLoadToken += 1;
+        buildCanvas();
+      }
       state.coreFieldState = normalizeCoreFieldState(snapshot.coreFields);
       state.batchBackgrounds = normalizeBackgroundState(snapshot.background);
       state.view = { ...state.view, ...(snapshot.view || {}) };
