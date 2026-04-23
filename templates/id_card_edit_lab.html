@@ -152,6 +152,10 @@
       flex-wrap: wrap;
       gap: 8px;
     }
+    .dropdown-stack {
+      display: grid;
+      gap: 8px;
+    }
     .dropdown-btn {
       min-height: 34px;
       border-radius: 9px;
@@ -162,6 +166,40 @@
       cursor: pointer;
     }
     .dropdown-btn:hover {
+      background: rgba(255,255,255,0.16);
+    }
+    .dropdown-layer-row {
+      display: grid;
+      gap: 6px;
+      padding: 8px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .dropdown-layer-row.active {
+      background: rgba(47,128,195,0.18);
+      border-color: rgba(95,170,230,0.55);
+    }
+    .dropdown-layer-label {
+      font-size: 12px;
+      color: #fff;
+    }
+    .dropdown-mini-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .dropdown-mini-btn {
+      min-height: 28px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      padding: 5px 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .dropdown-mini-btn:hover {
       background: rgba(255,255,255,0.16);
     }
     .color-swatches {
@@ -764,6 +802,15 @@
         </div>
       </div>
       <div class="top-group">
+        <div class="header-dropdown" id="layersDropdown">
+          <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('layersDropdown')">Layers</button>
+          <div class="header-dropdown-menu">
+            <div class="dropdown-title">Current Layers</div>
+            <div id="headerLayersList" class="dropdown-stack"></div>
+          </div>
+        </div>
+      </div>
+      <div class="top-group">
         <button class="tool-btn" type="button" onclick="showPreviousRecord()">Previous</button>
         <span class="status-chip" id="batchBrowserBadge">Card: -- / --</span>
         <button class="tool-btn" type="button" onclick="showNextRecord()">Next</button>
@@ -781,12 +828,6 @@
       <div class="top-group">
         <button class="tool-btn" type="button" onclick="undoCanvas()">Undo</button>
         <button class="tool-btn" type="button" onclick="redoCanvas()">Redo</button>
-      </div>
-      <div class="top-group">
-        <button class="tool-btn" type="button" onclick="bringToFront()">Bring Front</button>
-        <button class="tool-btn" type="button" onclick="bringForward()">Forward</button>
-        <button class="tool-btn" type="button" onclick="sendBackwards()">Backward</button>
-        <button class="tool-btn" type="button" onclick="sendToBack()">Send Back</button>
       </div>
       <div class="top-group">
         <button class="tool-btn" type="button" onclick="setCanvasZoom(state.view.zoom - 10)">-</button>
@@ -2106,6 +2147,98 @@
         .join('');
     }
 
+    function focusLayerByIndex(index) {
+      const { obj } = getAllLayerObjects()[Number(index)] || {};
+      if (!obj || !state.canvas) return;
+      if (obj === state.photoImage && state.currentSide !== 'front') {
+        setSideVisibility('front');
+      }
+      if (Object.values(state.sides.back).includes(obj) && state.currentSide !== 'back') {
+        setSideVisibility('back');
+      }
+      if (Object.values(state.sides.front).includes(obj) && state.currentSide !== 'front') {
+        setSideVisibility('front');
+      }
+      if (obj.layerHidden) {
+        obj.layerHidden = false;
+        const layerEntry = getAllLayerObjects()[Number(index)];
+        const shouldShowForSide = !layerEntry || layerEntry.side === 'shared' || layerEntry.side === state.currentSide;
+        applyLayerVisibility(obj, shouldShowForSide);
+      }
+      state.canvas.setActiveObject(obj);
+      state.canvas.requestRenderAll();
+      syncObjectInspector(obj);
+      refreshLayerList();
+    }
+
+    function toggleLayerHiddenByIndex(index) {
+      const { obj, side } = getAllLayerObjects()[Number(index)] || {};
+      if (!obj || !state.canvas) return;
+      obj.layerHidden = !obj.layerHidden;
+      const shouldShowForSide = side === 'shared' || side === state.currentSide;
+      applyLayerVisibility(obj, shouldShowForSide);
+      if (obj === state.photoImage) {
+        state.sides.front.photoLabel.set('visible', !isObjectVisibleForLayerList(state.photoImage));
+      }
+      if (state.canvas.getActiveObject() === obj && obj.visible === false) {
+        state.canvas.discardActiveObject();
+        syncObjectInspector(null);
+        updateActiveObjectBadge('');
+      } else if (obj.visible !== false) {
+        syncObjectInspector(obj);
+      }
+      state.canvas.requestRenderAll();
+      pushHistoryState();
+      refreshLayerList();
+    }
+
+    function toggleLayerLockByIndex(index) {
+      const { obj } = getAllLayerObjects()[Number(index)] || {};
+      if (!obj || !state.canvas) return;
+      const locked = !obj.selectable;
+      obj.set({
+        selectable: locked,
+        evented: locked,
+        lockMovementX: !locked,
+        lockMovementY: !locked,
+        lockScalingX: !locked,
+        lockScalingY: !locked,
+        lockRotation: !locked,
+      });
+      if (!locked && state.canvas.getActiveObject() === obj) {
+        state.canvas.discardActiveObject();
+        syncObjectInspector(null);
+        updateActiveObjectBadge('');
+      } else {
+        syncObjectInspector(obj);
+      }
+      state.canvas.requestRenderAll();
+      pushHistoryState();
+      refreshLayerList();
+    }
+
+    function refreshHeaderLayersMenu() {
+      const list = field('headerLayersList');
+      if (!list) return;
+      const active = state.canvas ? state.canvas.getActiveObject() : null;
+      list.innerHTML = getAllLayerObjects().map(({ key, obj }, index) => {
+        const isActive = active === obj;
+        const label = humanizeLayerName(obj.name || key);
+        const visibilityLabel = isObjectVisibleForLayerList(obj) ? 'Hide' : 'Show';
+        const lockLabel = obj.selectable ? 'Lock' : 'Unlock';
+        return `
+          <div class="dropdown-layer-row ${isActive ? 'active' : ''}">
+            <div class="dropdown-layer-label">${escapeHtml(label)}</div>
+            <div class="dropdown-mini-actions">
+              <button class="dropdown-mini-btn" type="button" onclick="focusLayerByIndex(${index}); closeHeaderDropdowns();">Focus</button>
+              <button class="dropdown-mini-btn" type="button" onclick="toggleLayerHiddenByIndex(${index})">${visibilityLabel}</button>
+              <button class="dropdown-mini-btn" type="button" onclick="toggleLayerLockByIndex(${index})">${lockLabel}</button>
+            </div>
+          </div>
+        `;
+      }).join('') || '<div class="prop-type">No layers yet.</div>';
+    }
+
     function renderSavedTemplateGrid() {
       const grid = field('savedTemplatesGrid');
       if (!grid) return;
@@ -2229,6 +2362,7 @@
         `;
       }).join('');
       list.innerHTML = items || '<div class="prop-type">No layers yet.</div>';
+      refreshHeaderLayersMenu();
       list.querySelectorAll('[data-layer-toggle]').forEach((node) => {
         node.addEventListener('click', (event) => {
           event.stopPropagation();
@@ -2254,27 +2388,7 @@
       });
       list.querySelectorAll('[data-layer-index]').forEach((node) => {
         node.addEventListener('click', () => {
-          const { obj } = getAllLayerObjects()[Number(node.dataset.layerIndex)] || {};
-          if (!obj || !state.canvas) return;
-          if (obj === state.photoImage && state.currentSide !== 'front') {
-            setSideVisibility('front');
-          }
-          if (Object.values(state.sides.back).includes(obj) && state.currentSide !== 'back') {
-            setSideVisibility('back');
-          }
-          if (Object.values(state.sides.front).includes(obj) && state.currentSide !== 'front') {
-            setSideVisibility('front');
-          }
-          if (obj.layerHidden) {
-            obj.layerHidden = false;
-            const layerEntry = getAllLayerObjects()[Number(node.dataset.layerIndex)];
-            const shouldShowForSide = !layerEntry || layerEntry.side === 'shared' || layerEntry.side === state.currentSide;
-            applyLayerVisibility(obj, shouldShowForSide);
-          }
-          state.canvas.setActiveObject(obj);
-          state.canvas.requestRenderAll();
-          syncObjectInspector(obj);
-          refreshLayerList();
+          focusLayerByIndex(Number(node.dataset.layerIndex));
         });
       });
     }
