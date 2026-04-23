@@ -830,10 +830,18 @@
         <button class="tool-btn" type="button" onclick="redoCanvas()">Redo</button>
       </div>
       <div class="top-group">
-        <button class="tool-btn" type="button" onclick="setCanvasZoom(state.view.zoom - 10)">-</button>
-        <span class="zoom-badge" id="zoomValue">100%</span>
-        <button class="tool-btn" type="button" onclick="setCanvasZoom(state.view.zoom + 10)">+</button>
-        <button class="tool-btn" type="button" onclick="fitCanvasToStage()">Fit</button>
+        <div class="header-dropdown" id="viewDropdown">
+          <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('viewDropdown')">View</button>
+          <div class="header-dropdown-menu">
+            <div class="dropdown-title">Zoom</div>
+            <div class="dropdown-actions">
+              <button class="dropdown-btn" type="button" onclick="setCanvasZoom(state.view.zoom - 10); closeHeaderDropdowns();">-</button>
+              <span class="zoom-badge" id="zoomValue">100%</span>
+              <button class="dropdown-btn" type="button" onclick="setCanvasZoom(state.view.zoom + 10); closeHeaderDropdowns();">+</button>
+              <button class="dropdown-btn" type="button" onclick="fitCanvasToStage(); closeHeaderDropdowns();">Fit</button>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="top-group">
         <button class="tool-btn" type="button" onclick="exportCard('png')">Export PNG</button>
