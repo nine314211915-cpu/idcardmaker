@@ -50,13 +50,18 @@
       color: #fff;
       border-bottom: 1px solid #18232d;
       padding: 10px 12px;
+      display: grid;
+      gap: 8px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .menu-row,
+    .quick-toolbar {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
       align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 50;
     }
     .top-group {
       display: flex;
@@ -73,6 +78,77 @@
     .top-label {
       font-size: 12px;
       color: rgba(255,255,255,0.72);
+    }
+    .quick-toolbar {
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.12);
+    }
+    .toolbar-spacer {
+      flex: 1 1 auto;
+      min-width: 16px;
+    }
+    .quick-cluster {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-right: 10px;
+      border-right: 1px solid rgba(255,255,255,0.16);
+    }
+    .quick-cluster:last-child {
+      border-right: 0;
+      padding-right: 0;
+    }
+    .toolbar-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: rgba(255,255,255,0.6);
+      font-weight: 700;
+    }
+    .quick-select,
+    .quick-input,
+    .quick-zoom-readout {
+      min-height: 32px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      padding: 6px 9px;
+    }
+    .quick-select {
+      min-width: 150px;
+    }
+    .quick-select option {
+      color: #111;
+    }
+    .quick-input {
+      width: 78px;
+      min-width: 78px;
+    }
+    .quick-input[type="color"] {
+      width: 44px;
+      min-width: 44px;
+      padding: 2px;
+    }
+    .quick-tool-btn {
+      min-width: 34px;
+      min-height: 32px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      padding: 6px 9px;
+      cursor: pointer;
+    }
+    .quick-tool-btn.active,
+    .quick-tool-btn:hover {
+      background: rgba(95,170,230,0.26);
+    }
+    .quick-zoom-readout {
+      min-width: 62px;
+      text-align: center;
+      font-weight: 700;
     }
     .topbar select,
     .topbar input {
@@ -713,139 +789,245 @@
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div class="top-group">
-        <a class="tool-btn soft" href="/admin">Back to Admin</a>
-        <span class="top-label">Parallel editor lab</span>
-      </div>
-      <div class="top-group">
-        <select id="instituteInput">
-          <option value="">Select institute</option>
-          {% for institute in known_institutes %}
-          <option value="{{ institute }}" {% if institute == initial_institute %}selected{% endif %}>{{ institute }}</option>
-          {% endfor %}
-        </select>
-        <select id="facilityLocationSelector" style="display:none">
-          <option value="">Select block</option>
-        </select>
-        <select id="facilitySubLocationSelector" style="display:none">
-          <option value="">Select location</option>
-        </select>
-        <select id="batchSelector">
-          <option value="">Select batch</option>
-        </select>
-        <button class="tool-btn" type="button" onclick="saveInstituteDesign()">Save Institute Design</button>
-        <button class="tool-btn primary" type="button" onclick="saveBatchDesign()">Save Batch Design</button>
-      </div>
-      <div class="top-group">
-        <button class="tool-btn" type="button" onclick="openTemplateModal()">Templates</button>
-        <button class="tool-btn" type="button" onclick="saveCurrentTemplate()">Save Template</button>
-      </div>
-      <div class="top-group">
-        <div class="header-dropdown" id="coreFieldsDropdown">
-          <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('coreFieldsDropdown')">Core Fields</button>
-          <div class="header-dropdown-menu">
-            <div class="dropdown-title">Mapped Fields</div>
-            <div id="headerCoreFieldsList" class="dropdown-actions"></div>
-          </div>
+      <div class="menu-row">
+        <div class="top-group">
+          <a class="tool-btn soft" href="/admin">Back to Admin</a>
+          <span class="top-label">Parallel editor lab</span>
         </div>
-      </div>
-      <div class="top-group">
-        <div class="header-dropdown" id="textMenuDropdown">
-          <button class="tool-btn" id="textMenuToggle" type="button" onclick="toggleHeaderDropdown('textMenuDropdown')">Text Menu</button>
-          <div class="header-dropdown-menu">
-            <div class="dropdown-title">Text Tools</div>
-            <div class="dropdown-actions">
-              <button class="dropdown-btn" type="button" onclick="addText(); closeHeaderDropdowns();">Add Text</button>
-              <button class="dropdown-btn" type="button" onclick="toggleTextStyle('bold'); closeHeaderDropdowns();">Bold</button>
-              <button class="dropdown-btn" type="button" onclick="toggleTextStyle('italic'); closeHeaderDropdowns();">Italic</button>
-              <button class="dropdown-btn" type="button" onclick="toggleTextStyle('underline'); closeHeaderDropdowns();">Underline</button>
-            </div>
-            <div class="dropdown-title">Align</div>
-            <div class="dropdown-actions">
-              <button class="dropdown-btn" type="button" onclick="applyTextAlignment('left'); closeHeaderDropdowns();">Left</button>
-              <button class="dropdown-btn" type="button" onclick="applyTextAlignment('center'); closeHeaderDropdowns();">Center</button>
-              <button class="dropdown-btn" type="button" onclick="applyTextAlignment('right'); closeHeaderDropdowns();">Right</button>
-            </div>
-            <div class="dropdown-title">Quick Colors</div>
-            <div class="color-swatches">
-              <button class="color-swatch" type="button" style="background:#17324d" onclick="applyTextMenuColor('#17324d')" title="Navy"></button>
-              <button class="color-swatch" type="button" style="background:#8b0000" onclick="applyTextMenuColor('#8b0000')" title="Red"></button>
-              <button class="color-swatch" type="button" style="background:#0f766e" onclick="applyTextMenuColor('#0f766e')" title="Teal"></button>
-              <button class="color-swatch" type="button" style="background:#166534" onclick="applyTextMenuColor('#166534')" title="Green"></button>
-              <button class="color-swatch" type="button" style="background:#1d4ed8" onclick="applyTextMenuColor('#1d4ed8')" title="Blue"></button>
-              <button class="color-swatch" type="button" style="background:#b45309" onclick="applyTextMenuColor('#b45309')" title="Amber"></button>
-              <button class="color-swatch" type="button" style="background:#6b7280" onclick="applyTextMenuColor('#6b7280')" title="Gray"></button>
-              <button class="color-swatch" type="button" style="background:#111827" onclick="applyTextMenuColor('#111827')" title="Black"></button>
-              <button class="color-swatch light" type="button" style="background:#ffffff" onclick="applyTextMenuColor('#ffffff')" title="White"></button>
+        <div class="top-group">
+          <div class="header-dropdown" id="fileDropdown">
+            <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('fileDropdown')">File</button>
+            <div class="header-dropdown-menu">
+              <div class="dropdown-title">Save</div>
+              <div class="dropdown-actions">
+                <button class="dropdown-btn" type="button" onclick="saveInstituteDesign(); closeHeaderDropdowns();">Save Institute Design</button>
+                <button class="dropdown-btn" type="button" onclick="saveBatchDesign(); closeHeaderDropdowns();">Save Batch Design</button>
+              </div>
+              <div class="dropdown-title">Templates</div>
+              <div class="dropdown-actions">
+                <button class="dropdown-btn" type="button" onclick="openTemplateModal(); closeHeaderDropdowns();">Templates</button>
+                <button class="dropdown-btn" type="button" onclick="saveCurrentTemplate(); closeHeaderDropdowns();">Save Template</button>
+              </div>
+              <div class="dropdown-title">Export</div>
+              <div class="dropdown-actions">
+                <button class="dropdown-btn" type="button" onclick="exportCard('png'); closeHeaderDropdowns();">Export PNG</button>
+                <button class="dropdown-btn" type="button" onclick="exportCard('pdf'); closeHeaderDropdowns();">Export PDF</button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="top-group">
-        <div class="header-dropdown" id="arrangeDropdown">
-          <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('arrangeDropdown')">Arrange</button>
-          <div class="header-dropdown-menu">
-            <div class="dropdown-title">Layer Order</div>
-            <div class="dropdown-actions">
-              <button class="dropdown-btn" type="button" onclick="bringToFront(); closeHeaderDropdowns();">Bring Front</button>
-              <button class="dropdown-btn" type="button" onclick="bringForward(); closeHeaderDropdowns();">Forward</button>
-              <button class="dropdown-btn" type="button" onclick="sendBackwards(); closeHeaderDropdowns();">Backward</button>
-              <button class="dropdown-btn" type="button" onclick="sendToBack(); closeHeaderDropdowns();">Send Back</button>
-            </div>
-            <div class="dropdown-title">Selection</div>
-            <div class="dropdown-actions">
-              <button class="dropdown-btn" type="button" onclick="duplicateSelection(); closeHeaderDropdowns();">Duplicate</button>
-              <button class="dropdown-btn" type="button" onclick="toggleLockSelected(); closeHeaderDropdowns();">Lock / Unlock</button>
-              <button class="dropdown-btn" type="button" onclick="deleteSelected(); closeHeaderDropdowns();">Delete</button>
+        <div class="top-group">
+          <div class="header-dropdown" id="editDropdown">
+            <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('editDropdown')">Edit</button>
+            <div class="header-dropdown-menu">
+              <div class="dropdown-title">Canvas Actions</div>
+              <div class="dropdown-actions">
+                <button class="dropdown-btn" type="button" onclick="undoCanvas(); closeHeaderDropdowns();">Undo</button>
+                <button class="dropdown-btn" type="button" onclick="redoCanvas(); closeHeaderDropdowns();">Redo</button>
+                <button class="dropdown-btn" type="button" onclick="copySelection(); closeHeaderDropdowns();">Copy</button>
+                <button class="dropdown-btn" type="button" onclick="pasteSelection(); closeHeaderDropdowns();">Paste</button>
+                <button class="dropdown-btn" type="button" onclick="deleteSelected(); closeHeaderDropdowns();">Delete</button>
+                <button class="dropdown-btn" type="button" onclick="resetCanvasLayout(); closeHeaderDropdowns();">Reset</button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="top-group">
-        <div class="header-dropdown" id="layersDropdown">
-          <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('layersDropdown')">Layers</button>
-          <div class="header-dropdown-menu">
-            <div class="dropdown-title">Current Layers</div>
-            <div id="headerLayersList" class="dropdown-stack"></div>
-          </div>
-        </div>
-      </div>
-      <div class="top-group">
-        <button class="tool-btn" type="button" onclick="showPreviousRecord()">Previous</button>
-        <span class="status-chip" id="batchBrowserBadge">Card: -- / --</span>
-        <button class="tool-btn" type="button" onclick="showNextRecord()">Next</button>
-      </div>
-      <div class="top-group">
-        <button class="tool-btn active" id="frontTab" type="button" onclick="switchSide('front')">Front Side</button>
-        <button class="tool-btn" id="backTab" type="button" onclick="switchSide('back')">Back Side</button>
-      </div>
-      <div class="top-group">
-        <select id="orientationSelect">
-          <option value="landscape">Landscape</option>
-          <option value="portrait">Portrait</option>
-        </select>
-      </div>
-      <div class="top-group">
-        <button class="tool-btn" type="button" onclick="undoCanvas()">Undo</button>
-        <button class="tool-btn" type="button" onclick="redoCanvas()">Redo</button>
-      </div>
-      <div class="top-group">
-        <div class="header-dropdown" id="viewDropdown">
-          <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('viewDropdown')">View</button>
-          <div class="header-dropdown-menu">
-            <div class="dropdown-title">Zoom</div>
-            <div class="dropdown-actions">
-              <button class="dropdown-btn" type="button" onclick="setCanvasZoom(state.view.zoom - 10); closeHeaderDropdowns();">-</button>
-              <span class="zoom-badge" id="zoomValue">100%</span>
-              <button class="dropdown-btn" type="button" onclick="setCanvasZoom(state.view.zoom + 10); closeHeaderDropdowns();">+</button>
-              <button class="dropdown-btn" type="button" onclick="fitCanvasToStage(); closeHeaderDropdowns();">Fit</button>
+        <div class="top-group">
+          <div class="header-dropdown" id="insertDropdown">
+            <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('insertDropdown')">Insert</button>
+            <div class="header-dropdown-menu">
+              <div class="dropdown-title">Objects</div>
+              <div class="dropdown-actions">
+                <button class="dropdown-btn" type="button" onclick="addText(); closeHeaderDropdowns();">Text</button>
+                <button class="dropdown-btn" type="button" onclick="openGenericImagePicker(); closeHeaderDropdowns();">Image</button>
+                <button class="dropdown-btn" type="button" onclick="addImageAssetPlaceholder(); closeHeaderDropdowns();">Asset</button>
+                <button class="dropdown-btn" type="button" onclick="addRect(); closeHeaderDropdowns();">Rect</button>
+                <button class="dropdown-btn" type="button" onclick="addCircle(); closeHeaderDropdowns();">Circle</button>
+                <button class="dropdown-btn" type="button" onclick="addLine(); closeHeaderDropdowns();">Line</button>
+                <button class="dropdown-btn" type="button" onclick="addBarcode(); closeHeaderDropdowns();">Barcode</button>
+                <button class="dropdown-btn" type="button" onclick="addQRCode(); closeHeaderDropdowns();">QR</button>
+              </div>
             </div>
           </div>
         </div>
+        <div class="top-group">
+          <div class="header-dropdown" id="coreFieldsDropdown">
+            <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('coreFieldsDropdown')">Core Fields</button>
+            <div class="header-dropdown-menu">
+              <div class="dropdown-title">Mapped Fields</div>
+              <div id="headerCoreFieldsList" class="dropdown-actions"></div>
+            </div>
+          </div>
+        </div>
+        <div class="top-group">
+          <div class="header-dropdown" id="textMenuDropdown">
+            <button class="tool-btn" id="textMenuToggle" type="button" onclick="toggleHeaderDropdown('textMenuDropdown')">Text</button>
+            <div class="header-dropdown-menu">
+              <div class="dropdown-title">Text Tools</div>
+              <div class="dropdown-actions">
+                <button class="dropdown-btn" type="button" onclick="addText(); closeHeaderDropdowns();">Add Text</button>
+                <button class="dropdown-btn" type="button" onclick="toggleTextStyle('bold'); closeHeaderDropdowns();">Bold</button>
+                <button class="dropdown-btn" type="button" onclick="toggleTextStyle('italic'); closeHeaderDropdowns();">Italic</button>
+                <button class="dropdown-btn" type="button" onclick="toggleTextStyle('underline'); closeHeaderDropdowns();">Underline</button>
+              </div>
+              <div class="dropdown-title">Align</div>
+              <div class="dropdown-actions">
+                <button class="dropdown-btn" type="button" onclick="applyTextAlignment('left'); closeHeaderDropdowns();">Left</button>
+                <button class="dropdown-btn" type="button" onclick="applyTextAlignment('center'); closeHeaderDropdowns();">Center</button>
+                <button class="dropdown-btn" type="button" onclick="applyTextAlignment('right'); closeHeaderDropdowns();">Right</button>
+              </div>
+              <div class="dropdown-title">Quick Colors</div>
+              <div class="color-swatches">
+                <button class="color-swatch" type="button" style="background:#17324d" onclick="applyTextMenuColor('#17324d')" title="Navy"></button>
+                <button class="color-swatch" type="button" style="background:#8b0000" onclick="applyTextMenuColor('#8b0000')" title="Red"></button>
+                <button class="color-swatch" type="button" style="background:#0f766e" onclick="applyTextMenuColor('#0f766e')" title="Teal"></button>
+                <button class="color-swatch" type="button" style="background:#166534" onclick="applyTextMenuColor('#166534')" title="Green"></button>
+                <button class="color-swatch" type="button" style="background:#1d4ed8" onclick="applyTextMenuColor('#1d4ed8')" title="Blue"></button>
+                <button class="color-swatch" type="button" style="background:#b45309" onclick="applyTextMenuColor('#b45309')" title="Amber"></button>
+                <button class="color-swatch" type="button" style="background:#6b7280" onclick="applyTextMenuColor('#6b7280')" title="Gray"></button>
+                <button class="color-swatch" type="button" style="background:#111827" onclick="applyTextMenuColor('#111827')" title="Black"></button>
+                <button class="color-swatch light" type="button" style="background:#ffffff" onclick="applyTextMenuColor('#ffffff')" title="White"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="top-group">
+          <div class="header-dropdown" id="arrangeDropdown">
+            <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('arrangeDropdown')">Arrange</button>
+            <div class="header-dropdown-menu">
+              <div class="dropdown-title">Layer Order</div>
+              <div class="dropdown-actions">
+                <button class="dropdown-btn" type="button" onclick="bringToFront(); closeHeaderDropdowns();">Bring Front</button>
+                <button class="dropdown-btn" type="button" onclick="bringForward(); closeHeaderDropdowns();">Forward</button>
+                <button class="dropdown-btn" type="button" onclick="sendBackwards(); closeHeaderDropdowns();">Backward</button>
+                <button class="dropdown-btn" type="button" onclick="sendToBack(); closeHeaderDropdowns();">Send Back</button>
+              </div>
+              <div class="dropdown-title">Selection</div>
+              <div class="dropdown-actions">
+                <button class="dropdown-btn" type="button" onclick="duplicateSelection(); closeHeaderDropdowns();">Duplicate</button>
+                <button class="dropdown-btn" type="button" onclick="toggleLockSelected(); closeHeaderDropdowns();">Lock / Unlock</button>
+                <button class="dropdown-btn" type="button" onclick="deleteSelected(); closeHeaderDropdowns();">Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="top-group">
+          <div class="header-dropdown" id="viewDropdown">
+            <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('viewDropdown')">View</button>
+            <div class="header-dropdown-menu">
+              <div class="dropdown-title">Zoom</div>
+              <div class="dropdown-actions">
+                <button class="dropdown-btn" type="button" onclick="setCanvasZoom(state.view.zoom - 10); closeHeaderDropdowns();">-</button>
+                <span class="zoom-badge" id="zoomValue">100%</span>
+                <button class="dropdown-btn" type="button" onclick="setCanvasZoom(state.view.zoom + 10); closeHeaderDropdowns();">+</button>
+                <button class="dropdown-btn" type="button" onclick="fitCanvasToStage(); closeHeaderDropdowns();">Fit</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="top-group">
+          <div class="header-dropdown" id="layersDropdown">
+            <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('layersDropdown')">Layers</button>
+            <div class="header-dropdown-menu">
+              <div class="dropdown-title">Current Layers</div>
+              <div id="headerLayersList" class="dropdown-stack"></div>
+            </div>
+          </div>
+        </div>
+        <div class="top-group">
+          <button class="tool-btn" type="button" onclick="showPreviousRecord()">Previous</button>
+          <span class="status-chip" id="batchBrowserBadge">Card: -- / --</span>
+          <button class="tool-btn" type="button" onclick="showNextRecord()">Next</button>
+        </div>
       </div>
-      <div class="top-group">
-        <button class="tool-btn" type="button" onclick="exportCard('png')">Export PNG</button>
-        <button class="tool-btn" type="button" onclick="exportCard('pdf')">Export PDF</button>
+      <div class="quick-toolbar">
+        <div class="quick-cluster">
+          <span class="toolbar-label">Data</span>
+          <select id="instituteInput">
+            <option value="">Select institute</option>
+            {% for institute in known_institutes %}
+            <option value="{{ institute }}" {% if institute == initial_institute %}selected{% endif %}>{{ institute }}</option>
+            {% endfor %}
+          </select>
+          <select id="facilityLocationSelector" style="display:none">
+            <option value="">Select block</option>
+          </select>
+          <select id="facilitySubLocationSelector" style="display:none">
+            <option value="">Select location</option>
+          </select>
+          <select id="batchSelector">
+            <option value="">Select batch</option>
+          </select>
+        </div>
+        <div class="quick-cluster">
+          <span class="toolbar-label">Save</span>
+          <button class="tool-btn" type="button" onclick="saveInstituteDesign()">Institute</button>
+          <button class="tool-btn primary" type="button" onclick="saveBatchDesign()">Batch</button>
+        </div>
+        <div class="quick-cluster">
+          <span class="toolbar-label">Card</span>
+          <button class="tool-btn active" id="frontTab" type="button" onclick="switchSide('front')">Front Side</button>
+          <button class="tool-btn" id="backTab" type="button" onclick="switchSide('back')">Back Side</button>
+          <select id="orientationSelect" class="quick-select">
+            <option value="landscape">Landscape</option>
+            <option value="portrait">Portrait</option>
+          </select>
+        </div>
+        <div class="quick-cluster">
+          <span class="toolbar-label">Text</span>
+          <select id="quickFontFamily" class="quick-select">
+            <option value="Segoe UI">Segoe UI</option>
+            <option value="Inter">Inter</option>
+            <option value="Public Sans">Public Sans</option>
+            <option value="Poppins">Poppins</option>
+            <option value="Montserrat">Montserrat</option>
+            <option value="Nunito">Nunito</option>
+            <option value="Barlow">Barlow</option>
+            <option value="Archivo">Archivo</option>
+            <option value="DM Sans">DM Sans</option>
+            <option value="Raleway">Raleway</option>
+            <option value="Roboto Condensed">Roboto Condensed</option>
+            <option value="Oswald">Oswald</option>
+            <option value="Bebas Neue">Bebas Neue</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Merriweather">Merriweather</option>
+            <option value="Lora">Lora</option>
+            <option value="Libre Baskerville">Libre Baskerville</option>
+            <option value="Playfair Display">Playfair Display</option>
+            <option value="Cormorant Garamond">Cormorant Garamond</option>
+            <option value="Trebuchet MS">Trebuchet MS</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Verdana">Verdana</option>
+            <option value="Arial">Arial</option>
+          </select>
+          <input id="quickFontSize" class="quick-input" type="number" min="8" max="120" value="16">
+          <input id="quickTextColor" class="quick-input" type="color" value="#17324d">
+          <button class="quick-tool-btn" id="quickBoldBtn" type="button" onclick="toggleTextStyle('bold')" title="Bold">B</button>
+          <button class="quick-tool-btn" id="quickItalicBtn" type="button" onclick="toggleTextStyle('italic')" title="Italic"><em>I</em></button>
+          <button class="quick-tool-btn" id="quickUnderlineBtn" type="button" onclick="toggleTextStyle('underline')" title="Underline"><u>U</u></button>
+        </div>
+        <div class="quick-cluster">
+          <span class="toolbar-label">Zoom</span>
+          <button class="quick-tool-btn" type="button" onclick="setCanvasZoom(state.view.zoom - 10)">-</button>
+          <span class="quick-zoom-readout" id="quickZoomValue">100%</span>
+          <button class="quick-tool-btn" type="button" onclick="setCanvasZoom(state.view.zoom + 10)">+</button>
+          <button class="quick-tool-btn" type="button" onclick="fitCanvasToStage()">Fit</button>
+        </div>
+        <div class="toolbar-spacer"></div>
+        <div class="quick-cluster">
+          <span class="toolbar-label">Quick Colors</span>
+          <div class="color-swatches">
+            <button class="color-swatch" type="button" style="background:#17324d" onclick="applyTextMenuColor('#17324d')" title="Navy"></button>
+            <button class="color-swatch" type="button" style="background:#8b0000" onclick="applyTextMenuColor('#8b0000')" title="Red"></button>
+            <button class="color-swatch" type="button" style="background:#0f766e" onclick="applyTextMenuColor('#0f766e')" title="Teal"></button>
+            <button class="color-swatch" type="button" style="background:#166534" onclick="applyTextMenuColor('#166534')" title="Green"></button>
+            <button class="color-swatch" type="button" style="background:#1d4ed8" onclick="applyTextMenuColor('#1d4ed8')" title="Blue"></button>
+            <button class="color-swatch" type="button" style="background:#b45309" onclick="applyTextMenuColor('#b45309')" title="Amber"></button>
+            <button class="color-swatch" type="button" style="background:#6b7280" onclick="applyTextMenuColor('#6b7280')" title="Gray"></button>
+            <button class="color-swatch" type="button" style="background:#111827" onclick="applyTextMenuColor('#111827')" title="Black"></button>
+            <button class="color-swatch light" type="button" style="background:#ffffff" onclick="applyTextMenuColor('#ffffff')" title="White"></button>
+          </div>
+        </div>
       </div>
       <input id="serialInput" value="{{ initial_serial }}" type="hidden">
     </header>
@@ -1978,7 +2160,11 @@
       field('nameFontFamilyInput').value = state.view.nameFont;
       field('bodyFontFamilyInput').value = state.view.bodyFont;
       field('orientationSelect').value = state.view.orientation;
+      field('quickFontFamily').value = field('propFont').value || 'Segoe UI';
+      field('quickFontSize').value = field('propFontSize').value || 16;
+      field('quickTextColor').value = field('propFill').value || '#17324d';
       updateSliderValue('zoomValue', state.view.zoom, '%');
+      updateSliderValue('quickZoomValue', state.view.zoom, '%');
       updateSliderValue('zoomRangeValue', state.view.zoom, '%');
       updateSliderValue('bgOpacityValue', state.view.bgOpacity, '%');
       updateSliderValue('nameSizeValue', state.view.nameSize);
@@ -2690,6 +2876,9 @@
       field('textBoldBtn').classList.toggle('active', !!(obj && obj.fontWeight === 'bold'));
       field('textItalicBtn').classList.toggle('active', !!(obj && obj.fontStyle === 'italic'));
       field('textUnderlineBtn').classList.toggle('active', !!(obj && obj.underline));
+      field('quickBoldBtn').classList.toggle('active', !!(obj && obj.fontWeight === 'bold'));
+      field('quickItalicBtn').classList.toggle('active', !!(obj && obj.fontStyle === 'italic'));
+      field('quickUnderlineBtn').classList.toggle('active', !!(obj && obj.underline));
       field('shapePropertiesPanel').classList.toggle('hidden', !isShape);
       field('shadowEnable').checked = !!(obj && obj.shadow);
       if (obj && obj.shadow) {
@@ -4458,12 +4647,28 @@
           if (typeof active.text === 'string') active.set('fontFamily', event.target.value);
         });
       });
+      field('quickFontFamily').addEventListener('change', (event) => {
+        field('propFont').value = event.target.value;
+        applyActiveObjectChanges((active) => {
+          if (typeof active.text === 'string') active.set('fontFamily', event.target.value);
+        });
+      });
       field('propFontSize').addEventListener('change', (event) => {
         applyActiveObjectChanges((active) => {
           if (typeof active.text === 'string') active.set('fontSize', Number(event.target.value) || active.fontSize || 16);
         });
       });
+      field('quickFontSize').addEventListener('change', (event) => {
+        field('propFontSize').value = event.target.value;
+        applyActiveObjectChanges((active) => {
+          if (typeof active.text === 'string') active.set('fontSize', Number(event.target.value) || active.fontSize || 16);
+        });
+      });
       field('propFill').addEventListener('input', (event) => {
+        applyActiveObjectChanges((active) => active.set('fill', event.target.value));
+      });
+      field('quickTextColor').addEventListener('input', (event) => {
+        field('propFill').value = event.target.value;
         applyActiveObjectChanges((active) => active.set('fill', event.target.value));
       });
       field('propAlign').addEventListener('change', (event) => {
