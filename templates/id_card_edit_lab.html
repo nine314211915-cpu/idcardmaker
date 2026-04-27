@@ -306,21 +306,11 @@
     }
     .workspace {
       display: grid;
-      grid-template-columns: 112px minmax(0, 1fr) 336px;
+      grid-template-columns: minmax(0, 1fr) 336px;
       min-height: 0;
       height: 100%;
       overflow: hidden;
     }
-    .left-rail {
-      background: linear-gradient(180deg, #304253 0%, #243241 100%);
-      position: relative;
-      border-right: 1px solid #1b2731;
-      min-height: 0;
-    }
-    .side-scroll-head {
-      height: 16px;
-    }
-    .left-rail-body,
     .right-panel-body {
       position: absolute;
       left: 0;
@@ -329,36 +319,6 @@
       overflow-y: auto;
       padding: 12px 10px;
       overscroll-behavior: contain;
-    }
-    .left-rail-body {
-      top: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .rail-title {
-      font-size: 11px;
-      text-transform: uppercase;
-      color: #f2c36b;
-      font-weight: 700;
-      text-shadow: 0 1px 0 rgba(0,0,0,0.18);
-      letter-spacing: .08em;
-      text-align: center;
-      margin: 4px 0 2px;
-    }
-    .rail-btn {
-      width: 100%;
-      min-height: 42px;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.08);
-      background: #21303d;
-      color: #fff;
-      cursor: pointer;
-      font-size: 12px;
-      padding: 8px 6px;
-    }
-    .rail-btn:hover {
-      background: #2b4357;
     }
     .canvas-zone {
       min-width: 0;
@@ -639,38 +599,40 @@
       gap: 10px;
       flex-wrap: wrap;
     }
-    @media (max-width: 1320px) {
+    @media (max-width: 1480px) {
       .workspace {
-        grid-template-columns: 74px minmax(0, 1fr) 300px;
+        grid-template-columns: minmax(720px, 1fr) 312px;
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+    }
+    @media (max-width: 1240px) {
+      .workspace {
+        grid-template-columns: minmax(680px, 1fr) 288px;
+      }
+      .canvas-stage {
+        padding: 8px 12px 14px;
       }
     }
     @media (max-width: 1120px) {
       .app-shell {
-        height: auto;
-        overflow: visible;
+        height: 100vh;
+        overflow: hidden;
       }
       .workspace {
-        grid-template-columns: 1fr;
-        height: auto;
-        overflow: visible;
-      }
-      .left-rail {
-        flex-direction: row;
-        flex-wrap: wrap;
-        border-right: 0;
-        border-bottom: 1px solid #1b2731;
-        min-height: auto;
-        position: static;
+        grid-template-columns: minmax(640px, 1fr) 272px;
+        height: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
       }
       .right-panel {
-        border-left: 0;
-        border-top: 1px solid var(--line);
-        position: static;
+        border-left: 1px solid var(--line);
+        border-top: 0;
+        position: relative;
       }
-      .left-rail-body,
       .right-panel-body {
-        position: static;
-        overflow: visible;
+        position: absolute;
+        overflow-y: auto;
       }
       .canvas-meta-side {
         justify-content: flex-start;
@@ -679,10 +641,6 @@
       .canvas-meta .status-box {
         width: 100%;
         max-width: none;
-      }
-      .rail-title {
-        width: 100%;
-        text-align: left;
       }
     }
     .hidden {
@@ -965,6 +923,12 @@
           <button class="tool-btn primary" type="button" onclick="saveBatchDesign()">Batch</button>
         </div>
         <div class="quick-cluster">
+          <span class="toolbar-label">Tools</span>
+          <button class="tool-btn active" id="quickSelectToolBtn" type="button" onclick="setToolMode('select', this)">Select</button>
+          <button class="tool-btn" id="quickDrawToolBtn" type="button" onclick="toggleDrawing(this)">Draw</button>
+          <button class="tool-btn" type="button" onclick="resetCanvasLayout()">Reset</button>
+        </div>
+        <div class="quick-cluster">
           <span class="toolbar-label">Card</span>
           <button class="tool-btn active" id="frontTab" type="button" onclick="switchSide('front')">Front Side</button>
           <button class="tool-btn" id="backTab" type="button" onclick="switchSide('back')">Back Side</button>
@@ -1013,6 +977,14 @@
           <button class="quick-tool-btn" type="button" onclick="setCanvasZoom(state.view.zoom + 10)">+</button>
           <button class="quick-tool-btn" type="button" onclick="fitCanvasToStage()">Fit</button>
         </div>
+        <div class="quick-cluster">
+          <span class="toolbar-label">Align</span>
+          <button class="quick-tool-btn" type="button" onclick="alignActive('left')" title="Align Left">L</button>
+          <button class="quick-tool-btn" type="button" onclick="alignActive('center')" title="Align Center">C</button>
+          <button class="quick-tool-btn" type="button" onclick="alignActive('right')" title="Align Right">R</button>
+          <button class="quick-tool-btn" type="button" onclick="nudgeActive(0, -5)" title="Move Up">Up</button>
+          <button class="quick-tool-btn" type="button" onclick="nudgeActive(0, 5)" title="Move Down">Down</button>
+        </div>
         <div class="toolbar-spacer"></div>
         <div class="quick-cluster">
           <span class="toolbar-label">Quick Colors</span>
@@ -1033,50 +1005,6 @@
     </header>
 
     <div class="workspace" id="editorWorkspace">
-      <aside class="left-rail" id="leftRail">
-        <div class="side-scroll-head" id="leftScrollHead">
-        </div>
-        <div class="left-rail-body" id="leftRailBody">
-          <div class="rail-title">Tools</div>
-          <button class="rail-btn" type="button" onclick="resetCanvasLayout()">Reset</button>
-          <button class="rail-btn" type="button" onclick="setToolMode('select', this)">Select</button>
-          <button class="rail-btn" type="button" onclick="addText()">Text</button>
-          <button class="rail-btn" type="button" onclick="openGenericImagePicker()">Image</button>
-          <button class="rail-btn" type="button" onclick="addRect()">Rect</button>
-          <button class="rail-btn" type="button" onclick="addCircle()">Circle</button>
-          <button class="rail-btn" type="button" onclick="addLine()">Line</button>
-          <button class="rail-btn" type="button" onclick="addImageAssetPlaceholder()">Asset</button>
-          <button class="rail-btn" type="button" onclick="addBarcode()">Barcode</button>
-          <button class="rail-btn" type="button" onclick="addQRCode()">QR</button>
-          <button class="rail-btn" type="button" onclick="toggleDrawing(this)">Draw</button>
-          <div class="rail-title">Edit</div>
-          <button class="rail-btn" type="button" onclick="copySelection()">Copy</button>
-          <button class="rail-btn" type="button" onclick="pasteSelection()">Paste</button>
-          <button class="rail-btn" type="button" onclick="duplicateSelection()">Duplicate</button>
-          <button class="rail-btn" type="button" onclick="deleteSelected()">Delete</button>
-          <button class="rail-btn" type="button" onclick="toggleLockSelected()">Lock</button>
-          <div class="rail-title">Move</div>
-          <button class="rail-btn" type="button" onclick="bringToFront()">Front</button>
-          <button class="rail-btn" type="button" onclick="bringForward()">Forward</button>
-          <button class="rail-btn" type="button" onclick="sendBackwards()">Backward</button>
-          <button class="rail-btn" type="button" onclick="sendToBack()">Back</button>
-          <button class="rail-btn" type="button" onclick="alignActive('left')">Left</button>
-          <button class="rail-btn" type="button" onclick="alignActive('center')">Center</button>
-          <button class="rail-btn" type="button" onclick="alignActive('right')">Right</button>
-          <button class="rail-btn" type="button" onclick="nudgeActive(0, -5)">Up</button>
-          <button class="rail-btn" type="button" onclick="nudgeActive(0, 5)">Down</button>
-          <div class="rail-title">Focus</div>
-          <button class="rail-btn" type="button" onclick="focusLayer('name')">Name</button>
-          <button class="rail-btn" type="button" onclick="focusLayer('role')">Role</button>
-          <button class="rail-btn" type="button" onclick="focusLayer('details')">Details</button>
-          <button class="rail-btn" type="button" onclick="focusLayer('photo')">Card Photo</button>
-          <div class="rail-title">Style</div>
-          <button class="rail-btn" type="button" onclick="applyPreset('official')">Official</button>
-          <button class="rail-btn" type="button" onclick="applyPreset('blue')">Blue</button>
-          <button class="rail-btn" type="button" onclick="applyPreset('clean')">Clean</button>
-        </div>
-      </aside>
-
       <main class="canvas-zone">
         <section class="canvas-meta">
           <div class="canvas-meta-main">
@@ -1741,17 +1669,9 @@
     }
 
     function syncPanelHeights() {
-      const leftRail = field('leftRail');
-      const leftHead = field('leftScrollHead');
-      const leftBody = field('leftRailBody');
       const rightPanel = field('rightPanel');
       const rightHead = field('rightScrollHead');
       const rightBody = field('rightPanelBody');
-      if (leftRail && leftHead && leftBody) {
-        const leftHeight = Math.max(120, leftRail.clientHeight - leftHead.offsetHeight);
-        leftBody.style.height = `${leftHeight}px`;
-        leftBody.style.overflowY = 'auto';
-      }
       if (rightPanel && rightHead && rightBody) {
         const rightHeight = Math.max(120, rightPanel.clientHeight - rightHead.offsetHeight);
         rightBody.style.height = `${rightHeight}px`;
@@ -2218,13 +2138,15 @@
 
     function setToolMode(mode, button) {
       state.currentTool = mode;
-      document.querySelectorAll('.left-rail .rail-btn').forEach((node) => {
-        if (['Select', 'Draw'].includes((node.textContent || '').trim())) {
-          node.classList.remove('active');
-        }
+      [field('quickSelectToolBtn'), field('quickDrawToolBtn')].forEach((node) => {
+        if (node) node.classList.remove('active');
       });
       if (button) {
         button.classList.add('active');
+      } else if (mode === 'select' && field('quickSelectToolBtn')) {
+        field('quickSelectToolBtn').classList.add('active');
+      } else if (mode === 'draw' && field('quickDrawToolBtn')) {
+        field('quickDrawToolBtn').classList.add('active');
       }
       if (state.canvas) {
         state.canvas.isDrawingMode = mode === 'draw';
