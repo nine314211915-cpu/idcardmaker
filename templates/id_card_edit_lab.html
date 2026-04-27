@@ -591,6 +591,12 @@
       flex-wrap: wrap;
       align-items: center;
     }
+    .footer-status-wrap {
+      flex: 1 1 auto;
+      display: flex;
+      justify-content: center;
+      min-width: 220px;
+    }
     @media (max-width: 1480px) {
       .workspace {
         grid-template-columns: minmax(720px, 1fr) 312px;
@@ -628,6 +634,10 @@
       }
       .footer-status {
         width: auto;
+      }
+      .footer-status-wrap {
+        order: -1;
+        width: 100%;
       }
     }
     .hidden {
@@ -1471,10 +1481,12 @@
 
     <footer class="footer-bar">
       <div class="footer-meta">
-        <span class="status-box footer-status{% if not supabase_enabled %} warn{% endif %}" id="statusBox">{% if supabase_enabled %}Editor ready. Select institute and batch to load cards.{% else %}Editor ready. This local run is using Local JSON data because Supabase is not configured in this shell.{% endif %}</span>
         <span>Browser editing: Fabric.js</span>
         <span>Server data flow: Flask JSON APIs</span>
         <span>Batch save: active layout for whole batch</span>
+      </div>
+      <div class="footer-status-wrap">
+        <span class="status-box footer-status{% if not supabase_enabled %} warn{% endif %}" id="statusBox">{% if supabase_enabled %}Editor ready. Select institute and batch to load cards.{% else %}Editor ready. This local run is using Local JSON data because Supabase is not configured in this shell.{% endif %}</span>
       </div>
       <div class="footer-meta">
         <span class="footer-inline-meta" id="activeObjectBadge">Active: none</span>
