@@ -330,10 +330,22 @@
       padding: 10px 20px 20px;
       overflow: auto;
       scrollbar-gutter: stable both-edges;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
       background: #edf2f7;
+    }
+    .canvas-stage-inner {
+      min-width: 100%;
+      min-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .canvas-stage-inner.overflowing {
+      align-items: flex-start;
+      justify-content: flex-start;
+    }
+    .canvas-fit-box {
+      position: relative;
+      flex: 0 0 auto;
     }
     .canvas-shell {
       width: 960px;
@@ -343,7 +355,10 @@
       box-shadow: 0 18px 40px rgba(0,0,0,0.18);
       border-radius: 14px;
       overflow: hidden;
-      transform-origin: center center;
+      position: absolute;
+      left: 0;
+      top: 0;
+      transform-origin: top left;
       transition: transform .16s ease;
     }
     .right-panel {
@@ -415,6 +430,15 @@
       margin-bottom: 12px;
       overflow: hidden;
     }
+    .panel-section.tone-object summary { background: #eef5ff; }
+    .panel-section.tone-text summary { background: #f3f0ff; }
+    .panel-section.tone-shape summary { background: #edf8f2; }
+    .panel-section.tone-shadow summary { background: #f5f7fb; }
+    .panel-section.tone-appearance summary { background: #fff6e7; }
+    .panel-section.tone-background summary { background: #eef8fb; }
+    .panel-section.tone-core summary { background: #f8f0e8; }
+    .panel-section.tone-layers summary { background: #eef3ff; }
+    .panel-section.tone-record summary { background: #f1f7ee; }
     .panel-section summary,
     .section-head {
       padding: 12px 14px;
@@ -1007,7 +1031,7 @@
         <div class="right-scroll-head" id="rightScrollHead">
         </div>
         <div class="right-panel-body" id="rightPanelBody">
-        <details class="panel-section">
+        <details class="panel-section tone-object">
           <summary>
             <span>Object Properties</span>
             <span class="mini-label">Selected layer</span>
@@ -1058,7 +1082,7 @@
           </div>
         </details>
 
-        <details class="panel-section">
+        <details class="panel-section tone-text">
           <summary>
             <span>Text Properties</span>
             <span class="mini-label">For text layers</span>
@@ -1128,7 +1152,7 @@
           </div>
         </details>
 
-        <details class="panel-section" id="shapePropertiesPanel">
+        <details class="panel-section tone-shape" id="shapePropertiesPanel">
           <summary>
             <span>Shape Properties</span>
             <span class="mini-label">Fill and stroke</span>
@@ -1157,7 +1181,7 @@
           </div>
         </details>
 
-        <details class="panel-section">
+        <details class="panel-section tone-shadow">
           <summary>
             <span>Shadow Effect</span>
             <span class="mini-label">Selected layer</span>
@@ -1189,7 +1213,7 @@
           </div>
         </details>
 
-        <details class="panel-section">
+        <details class="panel-section tone-appearance">
           <summary>
             <span>Appearance</span>
             <span class="mini-label">Card-wide controls</span>
@@ -1294,7 +1318,7 @@
           </div>
         </details>
 
-        <details class="panel-section">
+        <details class="panel-section tone-background">
           <summary>
             <span>Backgrounds</span>
             <span class="mini-label" id="backgroundSourceLabel">Institute active</span>
@@ -1345,7 +1369,7 @@
           </div>
         </details>
 
-        <section class="panel-section">
+        <section class="panel-section tone-core">
           <div class="section-head">
             <span>Core Fields</span>
             <span class="mini-label">Add or remove mapped fields</span>
@@ -1355,7 +1379,7 @@
           </div>
         </section>
 
-        <section class="panel-section">
+        <section class="panel-section tone-layers">
           <div class="section-head">
             <span>Layers</span>
             <span class="mini-label">Click to focus</span>
@@ -1365,7 +1389,7 @@
           </div>
         </section>
 
-        <details class="panel-section">
+        <details class="panel-section tone-shape">
           <summary>
             <span>Signature</span>
             <span class="mini-label">Add signature layer</span>
@@ -1388,7 +1412,7 @@
           </div>
         </details>
 
-        <details class="panel-section">
+        <details class="panel-section tone-record">
           <summary>
             <span>Record Data</span>
             <span class="mini-label">Loaded card fields</span>
@@ -1473,8 +1497,12 @@
 
       <main class="canvas-zone">
         <section class="canvas-stage" id="canvasStage">
-          <div class="canvas-shell" id="canvasShell">
-            <canvas id="cardCanvas" width="856" height="540"></canvas>
+          <div class="canvas-stage-inner" id="canvasStageInner">
+            <div class="canvas-fit-box" id="canvasFitBox">
+              <div class="canvas-shell" id="canvasShell">
+                <canvas id="cardCanvas" width="856" height="540"></canvas>
+              </div>
+            </div>
           </div>
         </section>
       </main>
@@ -1618,7 +1646,7 @@
       },
       view: {
         orientation: 'landscape',
-        zoom: 90,
+        zoom: 100,
         fitScale: 1,
         bgOpacity: 100,
         nameSize: 34,
@@ -2086,20 +2114,36 @@
       const stage = field('canvasStage');
       if (!stage) return 1;
       const { width, height } = getCanvasSize();
-      const availableWidth = Math.max(320, stage.clientWidth - 50);
-      const availableHeight = Math.max(240, stage.clientHeight - 50);
-      return Math.min(1, availableWidth / width, availableHeight / height);
+      const availableWidth = Math.max(280, stage.clientWidth - 80);
+      const availableHeight = Math.max(220, stage.clientHeight - 90);
+      const fittedScale = Math.min(availableWidth / width, availableHeight / height);
+      return Math.max(0.35, Math.min(1, fittedScale));
     }
 
     function applyCanvasScale() {
       const shell = field('canvasShell');
+      const fitBox = field('canvasFitBox');
+      const stage = field('canvasStage');
+      const stageInner = field('canvasStageInner');
       if (!shell) return;
       const { width, height } = getCanvasSize();
       shell.style.width = `${width}px`;
       shell.style.height = `${height}px`;
       state.view.fitScale = computeCanvasFitScale();
       const scale = state.view.fitScale * (state.view.zoom / 100);
+      const scaledWidth = Math.ceil(width * scale);
+      const scaledHeight = Math.ceil(height * scale);
+      if (fitBox) {
+        fitBox.style.width = `${scaledWidth}px`;
+        fitBox.style.height = `${scaledHeight}px`;
+      }
       shell.style.transform = `scale(${scale})`;
+      if (stage && stageInner) {
+        stageInner.style.minWidth = `${Math.max(stage.clientWidth - 40, scaledWidth)}px`;
+        stageInner.style.minHeight = `${Math.max(stage.clientHeight - 30, scaledHeight)}px`;
+        const overflowing = scaledWidth > stage.clientWidth || scaledHeight > stage.clientHeight;
+        stageInner.classList.toggle('overflowing', overflowing);
+      }
     }
 
     function setCanvasZoom(zoom) {
