@@ -401,6 +401,12 @@
       border: 0;
       color: #f0cf7a;
     }
+    .footer-inline-meta {
+      color: rgba(255,255,255,0.84);
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
     .panel-section {
       border: 1px solid var(--line);
       border-radius: 14px;
@@ -1471,9 +1477,9 @@
         <span>Batch save: active layout for whole batch</span>
       </div>
       <div class="footer-meta">
-        <span class="status-chip" id="activeObjectBadge">Active: none</span>
-        <span class="status-chip" id="currentSideBadge">Side: front</span>
-        <span class="status-chip" id="sourceBadge">Source: {{ data_source_label }}</span>
+        <span class="footer-inline-meta" id="activeObjectBadge">Active: none</span>
+        <span class="footer-inline-meta" id="currentSideBadge">Side: front</span>
+        <span class="footer-inline-meta" id="sourceBadge">Source: {{ data_source_label }}</span>
         <span id="footerCoords">X: -, Y: -</span>
       </div>
     </footer>
@@ -1637,7 +1643,7 @@
     function setStatus(message, ok = false, warn = false) {
       const box = field('statusBox');
       box.textContent = message;
-      box.className = warn ? 'status-box warn' : (ok ? 'status-box ok' : 'status-box');
+      box.className = `status-box footer-status${warn ? ' warn' : (ok ? ' ok' : '')}`;
     }
 
     function syncPanelHeights() {
