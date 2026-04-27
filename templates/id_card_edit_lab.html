@@ -306,7 +306,7 @@
     }
     .workspace {
       display: grid;
-      grid-template-columns: 336px minmax(0, 1fr);
+      grid-template-columns: 300px minmax(0, 1fr);
       min-height: 0;
       height: 100%;
       overflow: hidden;
@@ -324,10 +324,14 @@
       min-width: 0;
       min-height: 0;
       height: 100%;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr);
       background: var(--canvas-bg);
     }
     .canvas-stage {
       padding: 10px 20px 20px;
+      min-height: 0;
+      height: 100%;
       overflow: auto;
       scrollbar-gutter: stable both-edges;
       background: #edf2f7;
@@ -624,14 +628,14 @@
     }
     @media (max-width: 1480px) {
       .workspace {
-        grid-template-columns: 312px minmax(720px, 1fr);
+        grid-template-columns: 284px minmax(720px, 1fr);
         overflow-x: auto;
         overflow-y: hidden;
       }
     }
     @media (max-width: 1240px) {
       .workspace {
-        grid-template-columns: 288px minmax(680px, 1fr);
+        grid-template-columns: 268px minmax(680px, 1fr);
       }
       .canvas-stage {
         padding: 8px 12px 14px;
@@ -643,7 +647,7 @@
         overflow: hidden;
       }
       .workspace {
-        grid-template-columns: 272px minmax(640px, 1fr);
+        grid-template-columns: 252px minmax(640px, 1fr);
         height: 100%;
         overflow-x: auto;
         overflow-y: hidden;
@@ -1586,10 +1590,11 @@
 <script>
   const FACILITY_LOCATION_INSTITUTES = {{ facility_location_institutes|tojson }};
   const FACILITY_STRUCTURE = {{ facility_structure|tojson }};
-  const CARD_SIZES = {
+    const CARD_SIZES = {
       landscape: { width: 856, height: 540 },
       portrait: { width: 540, height: 856 },
     };
+    const PASTEBOARD_MARGIN = 80;
     const CORE_FIELD_DEFS = [
       { key: 'cardShell', label: 'Card Shell', side: 'shared' },
       { key: 'accentBar', label: 'Accent Bar', side: 'shared' },
@@ -2113,11 +2118,11 @@
     function computeCanvasFitScale() {
       const stage = field('canvasStage');
       if (!stage) return 1;
-      const { width, height } = getCanvasSize();
-      const availableWidth = Math.max(280, stage.clientWidth - 80);
-      const availableHeight = Math.max(220, stage.clientHeight - 90);
+      const { width, height } = getLayoutMetrics();
+      const availableWidth = Math.max(320, stage.clientWidth - 56);
+      const availableHeight = Math.max(260, stage.clientHeight - 56);
       const fittedScale = Math.min(availableWidth / width, availableHeight / height);
-      return Math.max(0.35, Math.min(1, fittedScale));
+      return Math.max(0.62, Math.min(1, fittedScale));
     }
 
     function applyCanvasScale() {
@@ -2126,7 +2131,7 @@
       const stage = field('canvasStage');
       const stageInner = field('canvasStageInner');
       if (!shell) return;
-      const { width, height } = getCanvasSize();
+      const { width, height } = getLayoutMetrics();
       shell.style.width = `${width}px`;
       shell.style.height = `${height}px`;
       state.view.fitScale = computeCanvasFitScale();
@@ -2140,7 +2145,7 @@
       shell.style.transform = `scale(${scale})`;
       if (stage && stageInner) {
         stageInner.style.minWidth = `${Math.max(stage.clientWidth - 40, scaledWidth)}px`;
-        stageInner.style.minHeight = `${Math.max(stage.clientHeight - 30, scaledHeight)}px`;
+        stageInner.style.minHeight = `${Math.max(stage.clientHeight - 40, scaledHeight)}px`;
         const overflowing = scaledWidth > stage.clientWidth || scaledHeight > stage.clientHeight;
         stageInner.classList.toggle('overflowing', overflowing);
       }
@@ -2408,8 +2413,11 @@
     function createFabricObjectFromSpec(spec) {
       if (!spec || !spec.type) return null;
       const common = { ...spec };
+      const metrics = getLayoutMetrics();
       delete common.type;
       delete common.sideTag;
+      if (Object.prototype.hasOwnProperty.call(common, 'left')) common.left = (Number(common.left) || 0) + metrics.cardLeft;
+      if (Object.prototype.hasOwnProperty.call(common, 'top')) common.top = (Number(common.top) || 0) + metrics.cardTop;
       if (spec.type === 'rect') return new fabric.Rect(common);
       if (spec.type === 'circle') return new fabric.Circle(common);
       if (spec.type === 'line') return new fabric.Line(spec.points || [0, 0, 100, 0], common);
@@ -2417,6 +2425,14 @@
       if (spec.type === 'textbox') return new fabric.Textbox(spec.text || '', common);
       if (spec.type === 'text') return new fabric.Text(spec.text || '', common);
       return null;
+    }
+
+    function withCardOffset(patch = {}) {
+      const metrics = getLayoutMetrics();
+      const next = { ...patch };
+      if (Object.prototype.hasOwnProperty.call(next, 'left')) next.left = (Number(next.left) || 0) + metrics.cardLeft;
+      if (Object.prototype.hasOwnProperty.call(next, 'top')) next.top = (Number(next.top) || 0) + metrics.cardTop;
+      return next;
     }
 
     function isManagedObject(obj) {
@@ -2634,16 +2650,17 @@
     }
 
     function getLayoutMetrics() {
-      const { width, height } = getCanvasSize();
+      const { width: cardWidth, height: cardHeight } = getCanvasSize();
       const portrait = state.view.orientation === 'portrait';
-      return portrait
+      const margin = PASTEBOARD_MARGIN;
+      const base = portrait
         ? {
-            width,
-            height,
-            cardLeft: 0,
-            cardTop: 0,
-            cardWidth: width,
-            cardHeight: height,
+            width: cardWidth + (margin * 2),
+            height: cardHeight + (margin * 2),
+            cardLeft: margin,
+            cardTop: margin,
+            cardWidth,
+            cardHeight,
             headerHeight: 112,
             headerStripTop: 92,
             headerStripHeight: 30,
@@ -2653,51 +2670,51 @@
             photoHeight: 230,
             titleLeft: 70,
             titleTop: 40,
-            titleWidth: width - 140,
+            titleWidth: cardWidth - 140,
             typeLeft: 120,
             typeTop: 94,
-            typeWidth: width - 240,
+            typeWidth: cardWidth - 240,
             nameLeft: 70,
             nameTop: 402,
-            nameWidth: width - 140,
+            nameWidth: cardWidth - 140,
             roleLeft: 90,
             roleTop: 458,
-            roleWidth: width - 180,
+            roleWidth: cardWidth - 180,
             detailsLeft: 78,
             detailsTop: 510,
-            detailsWidth: width - 156,
+            detailsWidth: cardWidth - 156,
             serialLeft: 78,
-            serialTop: height - 120,
-            serialWidth: width - 156,
+            serialTop: cardHeight - 120,
+            serialWidth: cardWidth - 156,
             footerLeft: 60,
-            footerTop: height - 74,
-            footerWidth: width - 120,
+            footerTop: cardHeight - 74,
+            footerWidth: cardWidth - 120,
             backTitleLeft: 60,
             backTitleTop: 56,
-            backTitleWidth: width - 120,
+            backTitleWidth: cardWidth - 120,
             backSubtitleLeft: 60,
             backSubtitleTop: 108,
-            backSubtitleWidth: width - 120,
+            backSubtitleWidth: cardWidth - 120,
             addressLeft: 60,
             addressTop: 178,
-            addressWidth: width - 120,
+            addressWidth: cardWidth - 120,
             notesLeft: 60,
             notesTop: 372,
-            notesWidth: width - 120,
+            notesWidth: cardWidth - 120,
             emergencyLeft: 60,
-            emergencyTop: height - 148,
-            emergencyWidth: width - 120,
+            emergencyTop: cardHeight - 148,
+            emergencyWidth: cardWidth - 120,
             backFooterLeft: 60,
-            backFooterTop: height - 92,
-            backFooterWidth: width - 120,
+            backFooterTop: cardHeight - 92,
+            backFooterWidth: cardWidth - 120,
           }
         : {
-            width,
-            height,
-            cardLeft: 0,
-            cardTop: 0,
-            cardWidth: width,
-            cardHeight: height,
+            width: cardWidth + (margin * 2),
+            height: cardHeight + (margin * 2),
+            cardLeft: margin,
+            cardTop: margin,
+            cardWidth,
+            cardHeight,
             headerHeight: 90,
             headerStripTop: 82,
             headerStripHeight: 30,
@@ -2707,44 +2724,49 @@
             photoHeight: 220,
             titleLeft: 272,
             titleTop: 36,
-            titleWidth: width - 340,
+            titleWidth: cardWidth - 340,
             typeLeft: 272,
             typeTop: 84,
             typeWidth: 360,
             nameLeft: 286,
             nameTop: 154,
-            nameWidth: width - 316,
+            nameWidth: cardWidth - 316,
             roleLeft: 286,
             roleTop: 206,
-            roleWidth: width - 356,
+            roleWidth: cardWidth - 356,
             detailsLeft: 286,
             detailsTop: 256,
-            detailsWidth: width - 316,
+            detailsWidth: cardWidth - 316,
             serialLeft: 62,
-            serialTop: height - 136,
+            serialTop: cardHeight - 136,
             serialWidth: 280,
             footerLeft: 62,
-            footerTop: height - 88,
-            footerWidth: width - 124,
+            footerTop: cardHeight - 88,
+            footerWidth: cardWidth - 124,
             backTitleLeft: 64,
             backTitleTop: 56,
-            backTitleWidth: width - 296,
+            backTitleWidth: cardWidth - 296,
             backSubtitleLeft: 64,
             backSubtitleTop: 106,
-            backSubtitleWidth: width - 120,
+            backSubtitleWidth: cardWidth - 120,
             addressLeft: 64,
             addressTop: 168,
             addressWidth: 330,
-            notesLeft: width - 330 - 64,
+            notesLeft: cardWidth - 330 - 64,
             notesTop: 168,
             notesWidth: 330,
             emergencyLeft: 64,
-            emergencyTop: height - 128,
-            emergencyWidth: width - 220,
+            emergencyTop: cardHeight - 128,
+            emergencyWidth: cardWidth - 220,
             backFooterLeft: 64,
-            backFooterTop: height - 86,
-            backFooterWidth: width - 120,
+            backFooterTop: cardHeight - 86,
+            backFooterWidth: cardWidth - 120,
           };
+      Object.keys(base).forEach((key) => {
+        if (key !== 'cardLeft' && key.endsWith('Left')) base[key] += margin;
+        if (key !== 'cardTop' && key.endsWith('Top')) base[key] += margin;
+      });
+      return base;
     }
 
     function clearSnapGuides() {
@@ -2767,18 +2789,17 @@
       const targets = visibleSideObjects().filter((item) => item !== target);
       const centerX = getObjectCenterX(target);
       const centerY = getObjectCenterY(target);
-      const canvasWidth = getCanvasWidth();
-      const canvasHeight = getCanvasHeight();
-      const canvasCenterX = canvasWidth / 2;
-      const canvasCenterY = canvasHeight / 2;
+      const metrics = getLayoutMetrics();
+      const canvasCenterX = metrics.cardLeft + (metrics.cardWidth / 2);
+      const canvasCenterY = metrics.cardTop + (metrics.cardHeight / 2);
 
       if (Math.abs(centerX - canvasCenterX) <= SNAP_MARGIN) {
         target.set('left', canvasCenterX - target.getScaledWidth() / 2);
-        addGuideLine([canvasCenterX, 20, canvasCenterX, canvasHeight - 20]);
+        addGuideLine([canvasCenterX, metrics.cardTop + 20, canvasCenterX, metrics.cardTop + metrics.cardHeight - 20]);
       }
       if (Math.abs(centerY - canvasCenterY) <= SNAP_MARGIN) {
         target.set('top', canvasCenterY - target.getScaledHeight() / 2);
-        addGuideLine([20, canvasCenterY, canvasWidth - 20, canvasCenterY]);
+        addGuideLine([metrics.cardLeft + 20, canvasCenterY, metrics.cardLeft + metrics.cardWidth - 20, canvasCenterY]);
       }
 
       targets.forEach((item) => {
@@ -2897,7 +2918,7 @@
       canvasElement.width = metrics.width;
       canvasElement.height = metrics.height;
       const canvas = new fabric.Canvas('cardCanvas', {
-        backgroundColor: '#ffffff',
+        backgroundColor: '#d6dde6',
         preserveObjectStacking: true,
         selection: true,
         fireRightClick: true,
@@ -3054,9 +3075,10 @@
     }
 
     function addText(text = 'Double click to edit') {
+      const metrics = getLayoutMetrics();
       const textObj = new fabric.IText(text, {
-        left: 120,
-        top: 120,
+        left: metrics.cardLeft + 120,
+        top: metrics.cardTop + 120,
         fontFamily: state.view.bodyFont,
         fontSize: 22,
         fill: state.view.textColor,
@@ -3066,9 +3088,10 @@
     }
 
     function addRect() {
+      const metrics = getLayoutMetrics();
       registerCanvasObject(new fabric.Rect({
-        left: 120,
-        top: 140,
+        left: metrics.cardLeft + 120,
+        top: metrics.cardTop + 140,
         width: 140,
         height: 90,
         fill: '#3498db',
@@ -3079,9 +3102,10 @@
     }
 
     function addCircle() {
+      const metrics = getLayoutMetrics();
       registerCanvasObject(new fabric.Circle({
-        left: 140,
-        top: 150,
+        left: metrics.cardLeft + 140,
+        top: metrics.cardTop + 150,
         radius: 48,
         fill: '#e74c3c',
         stroke: '#b03a2e',
@@ -3091,9 +3115,10 @@
     }
 
     function addLine() {
+      const metrics = getLayoutMetrics();
       registerCanvasObject(new fabric.Line([0, 0, 180, 0], {
-        left: 140,
-        top: 180,
+        left: metrics.cardLeft + 140,
+        top: metrics.cardTop + 180,
         stroke: '#2c3e50',
         strokeWidth: 3,
         name: 'Line',
@@ -3101,6 +3126,7 @@
     }
 
     function addImageAssetPlaceholder() {
+      const metrics = getLayoutMetrics();
       const group = new fabric.Group([
         new fabric.Rect({
           width: 110,
@@ -3119,14 +3145,15 @@
           top: 66,
         }),
       ], {
-        left: 120,
-        top: 140,
+        left: metrics.cardLeft + 120,
+        top: metrics.cardTop + 140,
         name: 'Image Asset',
       });
       registerCanvasObject(group);
     }
 
     function addBarcode() {
+      const metrics = getLayoutMetrics();
       const bars = [];
       let x = 0;
       for (let i = 0; i < 22; i += 1) {
@@ -3148,13 +3175,14 @@
         fontFamily: 'Courier New',
       }));
       registerCanvasObject(new fabric.Group(bars, {
-        left: 130,
-        top: 330,
+        left: metrics.cardLeft + 130,
+        top: metrics.cardTop + 330,
         name: 'Barcode',
       }));
     }
 
     function addQRCode() {
+      const metrics = getLayoutMetrics();
       registerCanvasObject(new fabric.Group([
         new fabric.Rect({
           left: 0,
@@ -3174,8 +3202,8 @@
           fontSize: 24,
         }),
       ], {
-        left: 140,
-        top: 320,
+        left: metrics.cardLeft + 140,
+        top: metrics.cardTop + 320,
         name: 'QR Code',
       }));
     }
@@ -3188,9 +3216,10 @@
         fabric.Image.fromURL(loadEvent.target.result, (img) => {
           if (!img) return;
           img.scaleToWidth(180);
+          const metrics = getLayoutMetrics();
           img.set({
-            left: 140,
-            top: 140,
+            left: metrics.cardLeft + 140,
+            top: metrics.cardTop + 140,
             name: 'Image',
           });
           registerCanvasObject(img);
@@ -3584,16 +3613,16 @@
       Object.entries(spec.managed || {}).forEach(([key, patch]) => {
         const target = managed[key];
         if (!target || !patch) return;
-        target.set({ ...patch });
+        target.set(withCardOffset(patch));
         target.setCoords();
       });
       syncPhotoLabelToFrame();
       syncPhotoImageToFrame();
 
       if (spec.static) {
-        if (spec.static.cardShell && managed.cardShell) managed.cardShell.set({ ...spec.static.cardShell });
-        if (spec.static.accentBar && managed.accentBar) managed.accentBar.set({ ...spec.static.accentBar });
-        if (spec.static.headerBar && managed.headerBar) managed.headerBar.set({ ...spec.static.headerBar });
+        if (spec.static.cardShell && managed.cardShell) managed.cardShell.set(withCardOffset(spec.static.cardShell));
+        if (spec.static.accentBar && managed.accentBar) managed.accentBar.set(withCardOffset(spec.static.accentBar));
+        if (spec.static.headerBar && managed.headerBar) managed.headerBar.set(withCardOffset(spec.static.headerBar));
       }
 
       (spec.customObjects || []).forEach((objectSpec) => {
@@ -3623,17 +3652,18 @@
         applyAppearanceControls();
       } else if (template === 'colorful') {
         applyPreset('clean');
+        const metrics = getLayoutMetrics();
         registerCanvasObject(new fabric.Circle({
-          left: 760,
-          top: 340,
+          left: metrics.cardLeft + 760,
+          top: metrics.cardTop + 340,
           radius: 54,
           fill: '#f093fb',
           opacity: 0.24,
           name: 'Decoration',
         }), 'shared');
         registerCanvasObject(new fabric.Circle({
-          left: 700,
-          top: 385,
+          left: metrics.cardLeft + 700,
+          top: metrics.cardTop + 385,
           radius: 38,
           fill: '#f5576c',
           opacity: 0.24,
@@ -3765,9 +3795,10 @@
 
     function alignActive(mode) {
       applyActiveObjectChanges((active) => {
-        if (mode === 'left') active.set('left', 62);
-        if (mode === 'center') active.set('left', (getCanvasWidth() - active.getScaledWidth()) / 2);
-        if (mode === 'right') active.set('left', getCanvasWidth() - 42 - active.getScaledWidth());
+        const metrics = getLayoutMetrics();
+        if (mode === 'left') active.set('left', metrics.cardLeft + 62);
+        if (mode === 'center') active.set('left', metrics.cardLeft + ((metrics.cardWidth - active.getScaledWidth()) / 2));
+        if (mode === 'right') active.set('left', metrics.cardLeft + metrics.cardWidth - 42 - active.getScaledWidth());
       });
     }
 
@@ -4290,7 +4321,15 @@
       }
       setStatus(`Preparing ${format.toUpperCase()} export...`);
       try {
-        const imageData = state.canvas.toDataURL({ format: 'png', quality: 1 });
+        const metrics = getLayoutMetrics();
+        const imageData = state.canvas.toDataURL({
+          format: 'png',
+          quality: 1,
+          left: metrics.cardLeft,
+          top: metrics.cardTop,
+          width: metrics.cardWidth,
+          height: metrics.cardHeight,
+        });
         const res = await fetch('/api/id-card-edit/export', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -4327,6 +4366,7 @@
           front: state.batchBackgrounds && state.batchBackgrounds.front ? { ...state.batchBackgrounds.front } : null,
           back: state.batchBackgrounds && state.batchBackgrounds.back ? { ...state.batchBackgrounds.back } : null,
         },
+        pasteboard: { coordinateSpace: 'card', margin: PASTEBOARD_MARGIN },
         view: { ...state.view },
         static: serializeObjectMap(state.staticObjects, false),
         photo: serializeCanvasObject(state.photoImage, false),
@@ -4344,6 +4384,7 @@
           front: state.batchBackgrounds && state.batchBackgrounds.front ? { ...state.batchBackgrounds.front } : null,
           back: state.batchBackgrounds && state.batchBackgrounds.back ? { ...state.batchBackgrounds.back } : null,
         },
+        pasteboard: { coordinateSpace: 'card', margin: PASTEBOARD_MARGIN },
         view: { ...state.view },
         static: serializeObjectMap(state.staticObjects, false),
         photo: serializeCanvasObject(state.photoImage, false),
@@ -4354,16 +4395,23 @@
     }
 
     function serializeCustomObjects() {
-      return getCustomObjects().map((obj) => obj.toObject([
-        'name', 'sideTag', 'fontWeight', 'fontStyle', 'underline', 'charSpacing', 'layerHidden',
-      ]));
+      const metrics = getLayoutMetrics();
+      return getCustomObjects().map((obj) => {
+        const serialized = obj.toObject([
+          'name', 'sideTag', 'fontWeight', 'fontStyle', 'underline', 'charSpacing', 'layerHidden',
+        ]);
+        serialized.left = (serialized.left || 0) - metrics.cardLeft;
+        serialized.top = (serialized.top || 0) - metrics.cardTop;
+        return serialized;
+      });
     }
 
     function serializeCanvasObject(obj, includeText) {
       if (!obj) return null;
+      const metrics = getLayoutMetrics();
       const serialized = {
-        left: obj.left || 0,
-        top: obj.top || 0,
+        left: (obj.left || 0) - metrics.cardLeft,
+        top: (obj.top || 0) - metrics.cardTop,
         width: obj.width || 0,
         height: obj.height || 0,
         scaleX: obj.scaleX || 1,
@@ -4392,9 +4440,10 @@
 
     function applySerializedObject(obj, value, includeText) {
       if (!obj || !value) return;
+      const metrics = getLayoutMetrics();
       const nextState = {
-        left: value.left,
-        top: value.top,
+        left: (Number(value.left) || 0) + metrics.cardLeft,
+        top: (Number(value.top) || 0) + metrics.cardTop,
         width: value.width,
         height: value.height,
         scaleX: value.scaleX,
@@ -4435,9 +4484,12 @@
         return;
       }
       fabric.util.enlivenObjects(serializedObjects, (objects) => {
+        const metrics = getLayoutMetrics();
         objects.forEach((obj) => {
           if (!obj) return;
           obj.set({
+            left: (obj.left || 0) + metrics.cardLeft,
+            top: (obj.top || 0) + metrics.cardTop,
             sideTag: obj.sideTag || 'shared',
             visible: (obj.sideTag || 'shared') === 'shared' || (obj.sideTag || 'shared') === (desiredSide || state.currentSide),
           });
