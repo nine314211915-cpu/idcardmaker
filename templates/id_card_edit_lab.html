@@ -324,37 +324,7 @@
       min-width: 0;
       min-height: 0;
       height: 100%;
-      display: grid;
-      grid-template-rows: auto 1fr;
       background: var(--canvas-bg);
-    }
-    .canvas-meta {
-      padding: 6px 12px;
-      border-bottom: 1px solid #ccd5df;
-      background: rgba(255,255,255,0.8);
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
-      flex-wrap: nowrap;
-      align-items: center;
-    }
-    .canvas-meta h1 {
-      margin: 0;
-      font-size: 17px;
-      line-height: 1.1;
-      white-space: nowrap;
-    }
-    .canvas-meta-main {
-      flex: 0 0 auto;
-      min-width: 0;
-    }
-    .canvas-meta-side {
-      flex: 1 1 auto;
-      min-width: 0;
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      gap: 8px;
     }
     .canvas-stage {
       padding: 10px 20px 20px;
@@ -397,16 +367,6 @@
       font-size: 13px;
       margin-bottom: 12px;
     }
-    .canvas-meta .status-box {
-      margin-bottom: 0;
-      width: auto;
-      max-width: 420px;
-      padding: 5px 9px;
-      min-height: 0;
-      font-size: 11px;
-      line-height: 1.2;
-      border-radius: 9px;
-    }
     .status-box.ok {
       background: #eaf8ef;
       border-color: #caead7;
@@ -416,6 +376,13 @@
       background: #fff6e5;
       border-color: #f1ddae;
       color: var(--warn);
+    }
+    .footer-status {
+      margin-bottom: 0;
+      min-width: 320px;
+      max-width: min(620px, 100%);
+      box-shadow: 0 10px 22px rgba(0,0,0,0.14);
+      font-weight: 600;
     }
     .panel-section {
       border: 1px solid var(--line);
@@ -593,11 +560,13 @@
       background: #1f2c39;
       color: rgba(255,255,255,0.88);
       font-size: 12px;
+      flex-wrap: wrap;
     }
     .footer-meta {
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
+      align-items: center;
     }
     @media (max-width: 1480px) {
       .workspace {
@@ -634,11 +603,8 @@
         position: absolute;
         overflow-y: auto;
       }
-      .canvas-meta-side {
-        justify-content: flex-start;
-        flex-wrap: wrap;
-      }
-      .canvas-meta .status-box {
+      .footer-status {
+        min-width: 0;
         width: 100%;
         max-width: none;
       }
@@ -1006,19 +972,6 @@
 
     <div class="workspace" id="editorWorkspace">
       <main class="canvas-zone">
-        <section class="canvas-meta">
-          <div class="canvas-meta-main">
-            <h1>ID Card Edit Lab</h1>
-          </div>
-          <div class="canvas-meta-side">
-            <div class="status-box{% if not supabase_enabled %} warn{% endif %}" id="statusBox">{% if supabase_enabled %}Editor ready. Select institute and batch to load cards.{% else %}Editor ready. This local run is using Local JSON data because Supabase is not configured in this shell.{% endif %}</div>
-            <div class="mini-tools">
-              <span class="status-chip" id="activeObjectBadge">Active: none</span>
-              <span class="status-chip" id="currentSideBadge">Side: front</span>
-              <span class="status-chip" id="sourceBadge">Source: {{ data_source_label }}</span>
-            </div>
-          </div>
-        </section>
         <section class="canvas-stage" id="canvasStage">
           <div class="canvas-shell" id="canvasShell">
             <canvas id="cardCanvas" width="856" height="540"></canvas>
@@ -1497,11 +1450,15 @@
 
     <footer class="footer-bar">
       <div class="footer-meta">
+        <div class="status-box footer-status{% if not supabase_enabled %} warn{% endif %}" id="statusBox">{% if supabase_enabled %}Editor ready. Select institute and batch to load cards.{% else %}Editor ready. This local run is using Local JSON data because Supabase is not configured in this shell.{% endif %}</div>
         <span>Browser editing: Fabric.js</span>
         <span>Server data flow: Flask JSON APIs</span>
         <span>Batch save: active layout for whole batch</span>
       </div>
       <div class="footer-meta">
+        <span class="status-chip" id="activeObjectBadge">Active: none</span>
+        <span class="status-chip" id="currentSideBadge">Side: front</span>
+        <span class="status-chip" id="sourceBadge">Source: {{ data_source_label }}</span>
         <span id="footerCoords">X: -, Y: -</span>
       </div>
     </footer>
