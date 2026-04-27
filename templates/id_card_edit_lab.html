@@ -351,10 +351,6 @@
       border-right: 1px solid var(--line);
       position: relative;
       min-height: 0;
-      grid-column: 1;
-    }
-    .canvas-zone {
-      grid-column: 2;
     }
     .right-scroll-head {
       height: 12px;
@@ -1007,14 +1003,6 @@
     </header>
 
     <div class="workspace" id="editorWorkspace">
-      <main class="canvas-zone">
-        <section class="canvas-stage" id="canvasStage">
-          <div class="canvas-shell" id="canvasShell">
-            <canvas id="cardCanvas" width="856" height="540"></canvas>
-          </div>
-        </section>
-      </main>
-
       <aside class="right-panel" id="rightPanel">
         <div class="right-scroll-head" id="rightScrollHead">
         </div>
@@ -1482,6 +1470,14 @@
         </details>
         </div>
       </aside>
+
+      <main class="canvas-zone">
+        <section class="canvas-stage" id="canvasStage">
+          <div class="canvas-shell" id="canvasShell">
+            <canvas id="cardCanvas" width="856" height="540"></canvas>
+          </div>
+        </section>
+      </main>
     </div>
 
     <footer class="footer-bar">
