@@ -306,7 +306,7 @@
     }
     .workspace {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 336px;
+      grid-template-columns: 336px minmax(0, 1fr);
       min-height: 0;
       height: 100%;
       overflow: hidden;
@@ -329,6 +329,7 @@
     .canvas-stage {
       padding: 10px 20px 20px;
       overflow: auto;
+      scrollbar-gutter: stable both-edges;
       display: flex;
       align-items: flex-start;
       justify-content: center;
@@ -347,9 +348,13 @@
     }
     .right-panel {
       background: var(--panel);
-      border-left: 1px solid var(--line);
+      border-right: 1px solid var(--line);
       position: relative;
       min-height: 0;
+      grid-column: 1;
+    }
+    .canvas-zone {
+      grid-column: 2;
     }
     .right-scroll-head {
       height: 12px;
@@ -599,14 +604,14 @@
     }
     @media (max-width: 1480px) {
       .workspace {
-        grid-template-columns: minmax(720px, 1fr) 312px;
+        grid-template-columns: 312px minmax(720px, 1fr);
         overflow-x: auto;
         overflow-y: hidden;
       }
     }
     @media (max-width: 1240px) {
       .workspace {
-        grid-template-columns: minmax(680px, 1fr) 288px;
+        grid-template-columns: 288px minmax(680px, 1fr);
       }
       .canvas-stage {
         padding: 8px 12px 14px;
@@ -618,13 +623,13 @@
         overflow: hidden;
       }
       .workspace {
-        grid-template-columns: minmax(640px, 1fr) 272px;
+        grid-template-columns: 272px minmax(640px, 1fr);
         height: 100%;
         overflow-x: auto;
         overflow-y: hidden;
       }
       .right-panel {
-        border-left: 1px solid var(--line);
+        border-right: 1px solid var(--line);
         border-top: 0;
         position: relative;
       }
@@ -1617,7 +1622,7 @@
       },
       view: {
         orientation: 'landscape',
-        zoom: 100,
+        zoom: 90,
         fitScale: 1,
         bgOpacity: 100,
         nameSize: 34,
