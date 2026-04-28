@@ -4977,6 +4977,22 @@ def school_directory():
     })
 
 
+@app.route("/api/school-groups")
+def school_groups():
+    records = list_supabase_records() if is_supabase_enabled() else load_records()
+    groups = {}
+    for record in records or []:
+        if not str(record.get("school_name") or "").strip():
+            continue
+        institute = canonicalize_institute_name(record.get("institute_name"))
+        if not institute:
+            continue
+        groups[institute.casefold()] = institute
+    return jsonify({
+        "groups": sorted(groups.values(), key=lambda value: value.casefold()),
+    })
+
+
 @app.route("/api/admin-attach-photo", methods=["POST"])
 @admin_required
 def admin_attach_photo():

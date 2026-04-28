@@ -1403,7 +1403,10 @@
           </div>
           <div class="form-group compact-field" id="otherInstituteWrap" style="display:none">
             <label id="otherInstituteLabel">Other Institute / Office <span class="req">*</span></label>
-            <input type="text" id="otherInstituteName" placeholder="Enter institute or office name" oninput="updatePreview(); loadSettings(); loadSchoolDirectory()">
+            <select id="schoolGroupSelect" style="display:none" onchange="handleSchoolGroupSelectChange()">
+              <option value="">Select institute / school group</option>
+            </select>
+            <input type="text" id="otherInstituteName" placeholder="Enter institute or office name" oninput="handleSchoolGroupInputChange()">
           </div>
           <div class="form-group compact-field school-field" id="schoolNameGroup" style="display:none">
             <label>School Name</label>
@@ -2964,6 +2967,7 @@ function handleInstituteChange() {
   setType(anmMode ? 'student' : ((collegeMode || schoolMode) ? (currentType === 'employee' ? 'student' : currentType) : 'employee'));
   updateBackgroundScopePreview();
   loadSettings();
+  loadSchoolGroups();
   loadSchoolDirectory();
   loadBatchSummary();
   refreshInstituteLock();
@@ -3210,6 +3214,39 @@ async function loadSchoolDirectory() {
   } catch (e) {
     window.SchoolMode.setDirectory([]);
   }
+}
+
+async function loadSchoolGroups() {
+  if (!isSchoolMode()) {
+    window.SchoolMode.setGroups([]);
+    const groupSelect = document.getElementById('schoolGroupSelect');
+    if (groupSelect) groupSelect.style.display = 'none';
+    return;
+  }
+  try {
+    const res = await fetch('/api/school-groups');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Unable to load school groups.');
+    window.SchoolMode.setGroups(data.groups || []);
+  } catch (e) {
+    window.SchoolMode.setGroups([]);
+  }
+}
+
+async function handleSchoolGroupSelectChange() {
+  window.SchoolMode.applySelectedGroup();
+  window.SchoolMode.clearContext();
+  await loadSettings();
+  await loadSchoolDirectory();
+  updatePreview();
+  saveUiState();
+}
+
+async function handleSchoolGroupInputChange() {
+  updatePreview();
+  loadSettings();
+  await loadSchoolDirectory();
+  saveUiState();
 }
 
 function handleSchoolNameSelectChange() {
@@ -4073,6 +4110,7 @@ function resetForm(options = {}) {
   setInstituteLocked(false);
   handleInstituteChange();
   if (preserveSchoolContext) {
+    window.SchoolMode.renderGroupSelect(otherInstitute);
     window.SchoolMode.fillContext(schoolContext);
   }
   if (batchInstituteLocked && isFacilityLocationInstitute()) {

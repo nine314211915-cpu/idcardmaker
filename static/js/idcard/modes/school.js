@@ -8,7 +8,9 @@
     commonFieldIds: ['schoolName', 'schoolAddress', 'academicBatch'],
     studentFieldIds: ['className', 'section', 'rollNo'],
     teacherFieldIds: ['subject', 'joiningDate'],
+    groups: [],
     directory: [],
+    newGroupOption: '__new_group__',
     newSchoolOption: '__new_school__',
 
     isSelected(value) {
@@ -40,6 +42,52 @@
         if (el) el.value = '';
       });
       this.setSchoolName('', false);
+    },
+
+    setGroups(groups) {
+      this.groups = Array.isArray(groups) ? groups : [];
+      this.renderGroupSelect(document.getElementById('otherInstituteName').value);
+    },
+
+    renderGroupSelect(selectedGroup = '') {
+      const select = document.getElementById('schoolGroupSelect');
+      const input = document.getElementById('otherInstituteName');
+      if (!select || !input) return;
+      const normalizedSelected = String(selectedGroup || '').trim();
+      const options = ['<option value="">Select institute / school group</option>'];
+      this.groups.forEach((group, index) => {
+        const selected = group && group.toLowerCase() === normalizedSelected.toLowerCase() ? ' selected' : '';
+        options.push(`<option value="${index}"${selected}>${escapeHtml(group)}</option>`);
+      });
+      options.push(`<option value="${this.newGroupOption}">Add New Group</option>`);
+      select.innerHTML = options.join('');
+      const matched = this.groups.some((group) => String(group || '').toLowerCase() === normalizedSelected.toLowerCase());
+      input.style.display = selectedGroup && !matched ? '' : 'none';
+      select.style.display = '';
+      if (!selectedGroup && !this.groups.length) {
+        select.value = this.newGroupOption;
+        input.style.display = '';
+      }
+    },
+
+    applySelectedGroup() {
+      const select = document.getElementById('schoolGroupSelect');
+      const input = document.getElementById('otherInstituteName');
+      if (!select || !input) return;
+      if (select.value === this.newGroupOption) {
+        input.value = '';
+        input.style.display = '';
+        input.focus();
+        return;
+      }
+      const selected = this.groups[Number(select.value)];
+      if (!selected) {
+        input.value = '';
+        input.style.display = 'none';
+        return;
+      }
+      input.value = selected;
+      input.style.display = 'none';
     },
 
     setDirectory(schools) {
