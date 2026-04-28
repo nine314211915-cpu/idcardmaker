@@ -1,0 +1,19 @@
+{
+  "name": "ID Card System",
+  "short_name": "ID Cards",
+  "description": "Installable workspace for ID card data entry, preview, and batch submission.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f9fa",
+  "theme_color": "#0f4c81",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/static/assets/id-card-system-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

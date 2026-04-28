@@ -1,4 +1,4 @@
-# Medical College ID Card Data Collection System
+# ID Card System
 
 ## Setup
 

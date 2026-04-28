@@ -3468,6 +3468,18 @@ def home():
     return render_template("home.html")
 
 
+@app.route("/manifest.webmanifest")
+def web_app_manifest():
+    return send_from_directory(os.path.join(BASE_DIR, "static"), "manifest.webmanifest", mimetype="application/manifest+json")
+
+
+@app.route("/service-worker.js")
+def service_worker():
+    response = send_from_directory(os.path.join(BASE_DIR, "static"), "service-worker.js", mimetype="application/javascript")
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
+
+
 @app.route("/id-card")
 def index():
     return render_template("index.html")
