@@ -1054,14 +1054,9 @@
   </div>
   <select class="filter-select" id="instituteFilter" onchange="loadRecords()">
     <option value="">All Institutes</option>
-    <option value="Govt. Medical College, Jhunjhunu">Govt. Medical College, Jhunjhunu</option>
-    <option value="Dist. Collector, Jhunjhunu">Dist. Collector, Jhunjhunu</option>
-    <option value="PHED Water Works Jhunjhunu">PHED Water Works Jhunjhunu</option>
-    <option value="Govt. Nursing College, Jhunjhunu">Govt. Nursing College, Jhunjhunu</option>
-          <option value="Govt. Community Health Centre (CHC), Jhunjhunu">Govt. Community Health Centre (CHC)</option>
-          <option value="Govt. Primary Health Centre (PHC), Jhunjhunu">Govt. Primary Health Centre (PHC)</option>
-          <option value="Govt. Health Sub Centre, Jhunjhunu">Govt. Health Sub Centre</option>
-    <option value="Govt. ANM Training Center, Jhunjhunu">Govt. ANM Training Center, Jhunjhunu</option>
+    {% for institute in known_institutes %}
+    <option value="{{ institute }}">{{ institute }}</option>
+    {% endfor %}
     <option value="Other">Other</option>
   </select>
   <select class="filter-select" id="facilityLocationFilter" onchange="handleAdminFacilityLocationChange()" style="display:none">

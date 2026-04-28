@@ -1036,6 +1036,25 @@ def list_known_institutes_from_settings():
     return institutes
 
 
+def build_known_institutes():
+    known_institutes = []
+    seen_institutes = set()
+    sources = DEFAULT_STUDIO_INSTITUTES + sorted(list_known_institutes_from_settings()) + sorted(list_record_backed_institutes())
+    for institute_name in sources:
+        normalized = canonicalize_institute_name(institute_name)
+        if normalized and normalized not in seen_institutes:
+            seen_institutes.add(normalized)
+            known_institutes.append(normalized)
+    return known_institutes
+
+
+def build_admin_context():
+    return {
+        "known_institutes": build_known_institutes(),
+        **build_facility_selector_context(),
+    }
+
+
 
 
 def is_supabase_enabled():
@@ -3457,14 +3476,8 @@ def index():
 def build_id_card_edit_context():
     supabase_enabled = is_supabase_enabled()
     initial_institute = canonicalize_institute_name(request.args.get("institute")) or ""
-    known_institutes = []
-    seen_institutes = set()
-    for institute_name in DEFAULT_STUDIO_INSTITUTES + sorted(list_known_institutes_from_settings()):
-        normalized = canonicalize_institute_name(institute_name)
-        if normalized and normalized not in seen_institutes:
-            seen_institutes.add(normalized)
-            known_institutes.append(normalized)
-    if initial_institute and initial_institute not in seen_institutes:
+    known_institutes = build_known_institutes()
+    if initial_institute and initial_institute not in known_institutes:
         known_institutes.append(initial_institute)
     return {
         "initial_institute": initial_institute,
@@ -3496,7 +3509,7 @@ def certificate():
 def admin():
     if not session.get("admin_authenticated"):
         return render_template("admin_login.html")
-    return render_template("admin.html", **build_facility_selector_context())
+    return render_template("admin.html", **build_admin_context())
 
 
 @app.route("/admin/print-cards")
