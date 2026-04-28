@@ -1,7 +1,5 @@
-const CACHE_NAME = 'id-card-system-v1';
+const CACHE_NAME = 'id-card-system-v2';
 const APP_SHELL = [
-  '/',
-  '/id-card',
   '/static/manifest.webmanifest',
   '/static/assets/id-card-system-icon.svg',
   '/static/js/pwa-install.js',
@@ -26,6 +24,12 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  if (event.request.mode === 'navigate') {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin || !url.pathname.startsWith('/static/')) return;
   event.respondWith(
     fetch(event.request)
       .then((response) => {
@@ -33,6 +37,6 @@ self.addEventListener('fetch', (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/')))
+      .catch(() => caches.match(event.request))
   );
 });

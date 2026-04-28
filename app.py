@@ -4962,6 +4962,16 @@ def get_records():
     return jsonify({"records": records, "institute": institute})
 
 
+def is_school_context_record(record):
+    mode = str(record.get("record_mode") or record.get("context_type") or "").strip().lower()
+    if mode:
+        return mode == "school"
+    institute = canonicalize_institute_name(record.get("institute_name"))
+    if institute in DEFAULT_STUDIO_INSTITUTES:
+        return False
+    return bool(str(record.get("school_name") or "").strip())
+
+
 @app.route("/api/school-directory")
 def school_directory():
     institute = canonicalize_institute_name(request.args.get("institute"))
@@ -4970,6 +4980,8 @@ def school_directory():
     records = list_supabase_records(institute) if is_supabase_enabled() else load_records(institute)
     schools = {}
     for record in records or []:
+        if not is_school_context_record(record):
+            continue
         school_name = str(record.get("school_name") or "").strip()
         if not school_name:
             continue
@@ -4994,6 +5006,8 @@ def school_groups():
     records = list_supabase_records() if is_supabase_enabled() else load_records()
     groups = {}
     for record in records or []:
+        if not is_school_context_record(record):
+            continue
         if not str(record.get("school_name") or "").strip():
             continue
         institute = canonicalize_institute_name(record.get("institute_name"))

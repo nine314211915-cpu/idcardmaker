@@ -1479,8 +1479,8 @@
           <div class="form-group compact-field">
             <label>Photo Upload <span class="req">*</span> — Auto Crop Only</label>
             <div class="photo-upload-area" id="photoArea" onclick="openGalleryPicker()">
-              <div class="photo-placeholder" id="photoPlaceholder">
-                <span class="icon">📷</span>
+            <div class="photo-placeholder" id="photoPlaceholder">
+              <span class="icon">Photo</span>
                 <span>Upload photo</span>
                 <span style="font-size:10px">Photo will be auto-cropped only. No filter or enhancement will be applied.</span>
               </div>
@@ -1503,10 +1503,10 @@
             <div class="type-block-title">Select Profile Type</div>
             <div class="type-selector" id="typeSelector">
               <button class="type-btn active" onclick="setType('student')" id="btnStudent">
-                <span class="icon">🎓</span>Student / Intern
+                <span class="icon">ID</span>Student / Intern
               </button>
               <button class="type-btn" onclick="setType('lecturer')" id="btnLecturer">
-                <span class="icon">👨‍🏫</span>Lecturer / Teacher
+                <span class="icon">ID</span>Lecturer / Teacher
               </button>
             </div>
             <div class="form-group serial-box">
@@ -1661,7 +1661,7 @@
       <div class="panel-body" style="padding:10px">
         <div class="id-card">
           <div class="card-header">
-            <div class="ch-icon">🏥</div>
+            <div class="ch-icon">ID</div>
             <div class="ch-text">
               <div class="institute-name" id="prevInstitute">Institute Name</div>
               <div class="sub" id="prevBadge">Student Identity Card</div>
@@ -1669,7 +1669,7 @@
           </div>
           <div class="card-body">
             <div class="card-photo" id="cardPhotoWrap">
-              <span>📷<br>Photo</span>
+              <span>Photo</span>
             </div>
             <div class="card-info">
               <div class="card-name" id="prevName">Full Name</div>
@@ -1705,7 +1705,7 @@
             </div>
           </div>
           <div class="card-disclaimer">
-            ℹ This card is for information only. Actual card will be issued by the institute.
+            This card is for information only. Actual card will be issued by the institute.
           </div>
         </div>
 
@@ -1772,7 +1772,7 @@
 </div>
 
 <!-- Toast -->
-<div class="toast" id="toast">✅ Record saved successfully!</div>
+<div class="toast" id="toast">Record saved successfully!</div>
 
 <script src="{{ url_for('static', filename='js/idcard/modes/school.js') }}"></script>
 <script>
@@ -2446,7 +2446,6 @@ function buildCurrentDraftPayload() {
     serial_no: document.getElementById('serialNo').value.trim(),
     name: document.getElementById('name').value.trim(),
     profile_type: effectiveType,
-    ...window.SchoolMode.buildContextPayload(),
     dob: document.getElementById('dob').value,
     contact: document.getElementById('contact').value,
     address: document.getElementById('address').value,
@@ -2455,6 +2454,7 @@ function buildCurrentDraftPayload() {
     photo_drive_id: currentPhotoMeta.drive_id || '',
     draft_photo_key: currentPhotoMeta.draft_photo_key || '',
   };
+  applyRecordModeToPayload(payload);
 
   if (effectiveType === 'student') {
     payload.course = anmMode ? 'ANM Training' : (schoolMode ? '' : document.getElementById('course').value);
@@ -2727,6 +2727,30 @@ function isFacilityLocationInstitute() {
   return FACILITY_LOCATION_INSTITUTES.includes(document.getElementById('instituteName').value);
 }
 
+function getCurrentRecordMode() {
+  if (isSchoolMode()) return 'school';
+  if (isAnmMode()) return 'anm';
+  if (isFacilityLocationInstitute()) return 'facility';
+  if (isCollegeMode()) return 'college';
+  const institute = document.getElementById('instituteName').value;
+  return institute === 'Other' ? 'other' : 'department';
+}
+
+function applyRecordModeToPayload(payload) {
+  const recordMode = getCurrentRecordMode();
+  payload.record_mode = recordMode;
+  payload.context_type = recordMode;
+  if (recordMode === 'school') {
+    Object.assign(payload, window.SchoolMode.buildContextPayload());
+  } else {
+    delete payload.school_name;
+    delete payload.school_address;
+    delete payload.place;
+    delete payload.academic_batch;
+  }
+  return payload;
+}
+
 function buildBackgroundScope(institute, block = '', facilitySubLocation = '') {
   const selectedInstitute = String(institute || '').trim();
   const selectedBlock = String(block || '').trim();
@@ -2897,6 +2921,11 @@ function handleInstituteChange() {
   document.getElementById('otherInstituteLabel').innerHTML = schoolMode
     ? 'Institute / School Group <span class="req">*</span>'
     : 'Other Institute / Office <span class="req">*</span>';
+  if (!schoolMode) {
+    window.SchoolMode.clearContext();
+    window.SchoolMode.setGroups([]);
+    window.SchoolMode.setDirectory([]);
+  }
   document.getElementById('facilityLocationWrap').style.display = facilityLocationMode ? '' : 'none';
   document.getElementById('facilitySubLocationWrap').style.display = facilityLocationMode ? '' : 'none';
   if (facilityLocationMode) {
@@ -3337,7 +3366,7 @@ async function handleSignatureUpload(input) {
     if (!res.ok) throw new Error(data.error || 'Upload failed');
     appSettings.signature_url = data.signature_url;
     applyCardAssets();
-    showToast('✅ HOD signature updated for this institute');
+    showToast('HOD signature updated for this institute');
   } catch (e) {
     alert(e.message || 'Signature upload failed.');
   }
@@ -3620,7 +3649,6 @@ async function legacySaveCurrentCard() {
     serial_no: serial,
     name,
     profile_type: effectiveType,
-    ...window.SchoolMode.buildContextPayload(),
     dob: document.getElementById('dob').value,
     contact: document.getElementById('contact').value,
     address: document.getElementById('address').value,
@@ -3629,6 +3657,7 @@ async function legacySaveCurrentCard() {
     photo_drive_id: currentPhotoMeta.drive_id || '',
     draft_photo_key: currentPhotoMeta.draft_photo_key || '',
   };
+  applyRecordModeToPayload(payload);
   if (effectiveType === 'student') {
     payload.course = anmMode ? 'ANM Training' : (schoolMode ? '' : document.getElementById('course').value);
     Object.assign(payload, schoolMode ? window.SchoolMode.studentPayload() : {});
@@ -3661,7 +3690,7 @@ async function legacySaveCurrentCard() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    showToast('✅ ID card saved. Serial: ' + serial);
+    showToast('ID card saved. Serial: ' + serial);
     loadBatchSummary();
     resetForm({ preserveSchoolContext: isSchoolMode(), preserveAcademicBatch: true });
   } catch(e) {
@@ -3691,7 +3720,7 @@ async function legacySubmitWholeBatch() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Batch submit failed');
-    showToast('✅ Whole batch submitted for ' + institute);
+    showToast('Whole batch submitted for ' + institute);
     loadBatchSummary();
   } catch (e) {
     alert(e.message || 'Batch submit failed.');
@@ -3722,7 +3751,7 @@ function legacyResetForm() {
   document.getElementById('photoPlaceholder').style.display = '';
   document.getElementById('photoPreviewWrap').classList.remove('visible');
   document.getElementById('photoArea').classList.remove('has-photo');
-  document.getElementById('cardPhotoWrap').innerHTML = '<span>📷<br>Photo</span>';
+  document.getElementById('cardPhotoWrap').innerHTML = '<span>Photo</span>';
   document.getElementById('otherInstituteName').value = '';
   if (type === 'student') {
     document.getElementById('course').value = '';
@@ -3926,7 +3955,6 @@ async function saveCurrentCard() {
     serial_no: serial,
     name,
     profile_type: effectiveType,
-    ...window.SchoolMode.buildContextPayload(),
     dob: document.getElementById('dob').value,
     contact: document.getElementById('contact').value,
     address: document.getElementById('address').value,
@@ -3935,6 +3963,7 @@ async function saveCurrentCard() {
     photo_drive_id: currentPhotoMeta.drive_id || '',
     draft_photo_key: currentPhotoMeta.draft_photo_key || '',
   };
+  applyRecordModeToPayload(payload);
 
   if (effectiveType === 'student') {
     payload.course = anmMode ? 'ANM Training' : (schoolMode ? '' : document.getElementById('course').value);
