@@ -2443,20 +2443,17 @@ function exportZip() {
   window.open(`/api/export-zip?institute=${institute}&batch_id=${batch}`, '_blank');
 }
 
-const persistedAdminUiState = loadAdminUiState();
 document.getElementById('batchFilter').innerHTML = '<option value="">Select Batch</option>';
-if (typeof persistedAdminUiState.instituteFilter === 'string') {
-  document.getElementById('instituteFilter').value = persistedAdminUiState.instituteFilter;
-}
+document.getElementById('instituteFilter').value = '';
+document.getElementById('facilityLocationFilter').value = '';
+document.getElementById('facilitySubLocationFilter').value = '';
+document.getElementById('batchFilter').value = '';
 syncAdminFacilityFilters({
   preserveLocation: false,
   preserveSubLocation: false,
-  preferredLocation: typeof persistedAdminUiState.facilityLocationFilter === 'string' ? persistedAdminUiState.facilityLocationFilter : '',
-  preferredSubLocation: typeof persistedAdminUiState.facilitySubLocationFilter === 'string' ? persistedAdminUiState.facilitySubLocationFilter : '',
+  preferredLocation: '',
+  preferredSubLocation: '',
 });
-if (typeof persistedAdminUiState.batchFilter === 'string') {
-  document.getElementById('batchFilter').dataset.pendingValue = persistedAdminUiState.batchFilter;
-}
 bindPhotoCellActions();
 loadSettings();
 loadRecords();
