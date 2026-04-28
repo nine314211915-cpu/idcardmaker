@@ -1403,11 +1403,14 @@
           </div>
           <div class="form-group compact-field" id="otherInstituteWrap" style="display:none">
             <label id="otherInstituteLabel">Other Institute / Office <span class="req">*</span></label>
-            <input type="text" id="otherInstituteName" placeholder="Enter institute or office name" oninput="updatePreview(); loadSettings()">
+            <input type="text" id="otherInstituteName" placeholder="Enter institute or office name" oninput="updatePreview(); loadSettings(); loadSchoolDirectory()">
           </div>
           <div class="form-group compact-field school-field" id="schoolNameGroup" style="display:none">
             <label>School Name</label>
-            <input type="text" id="schoolName" placeholder="Enter school or campus name" oninput="updatePreview()">
+            <select id="schoolNameSelect" onchange="handleSchoolNameSelectChange()">
+              <option value="">Select school</option>
+            </select>
+            <input type="text" id="schoolName" placeholder="Enter school or campus name" style="display:none; margin-top:8px;" oninput="handleSchoolNameInputChange()">
           </div>
           <div class="form-group compact-field school-field" id="schoolAddressGroup" style="display:none">
             <label>School Address</label>
@@ -2961,6 +2964,7 @@ function handleInstituteChange() {
   setType(anmMode ? 'student' : ((collegeMode || schoolMode) ? (currentType === 'employee' ? 'student' : currentType) : 'employee'));
   updateBackgroundScopePreview();
   loadSettings();
+  loadSchoolDirectory();
   loadBatchSummary();
   refreshInstituteLock();
   saveUiState();
@@ -3186,6 +3190,37 @@ async function loadSettings() {
     appSettings = { background_url: '', signature_url: '' };
     facilityCustomSubLocations = {};
   }
+}
+
+async function loadSchoolDirectory() {
+  if (!isSchoolMode()) {
+    window.SchoolMode.setDirectory([]);
+    return;
+  }
+  const institute = getInstituteValue();
+  if (!institute || institute === SCHOOL_INSTITUTE || institute === 'Other') {
+    window.SchoolMode.setDirectory([]);
+    return;
+  }
+  try {
+    const res = await fetch(`/api/school-directory?institute=${encodeURIComponent(institute)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Unable to load saved schools.');
+    window.SchoolMode.setDirectory(data.schools || []);
+  } catch (e) {
+    window.SchoolMode.setDirectory([]);
+  }
+}
+
+function handleSchoolNameSelectChange() {
+  window.SchoolMode.applySelectedSchool();
+  updatePreview();
+  saveUiState();
+}
+
+function handleSchoolNameInputChange() {
+  updatePreview();
+  saveUiState();
 }
 
 function applyCardAssets() {
@@ -3563,7 +3598,7 @@ async function legacySaveCurrentCard() {
     });
     showToast('✅ ID card saved. Serial: ' + serial);
     loadBatchSummary();
-    resetForm();
+    resetForm({ preserveSchoolContext: isSchoolMode(), preserveAcademicBatch: true });
   } catch(e) {
     alert('Save failed. Check server connection.');
   }
@@ -3884,7 +3919,7 @@ async function saveCurrentCard() {
       activeRetrievedSource = '';
       document.getElementById('retrieveSerialInput').value = '';
       await loadBatchSummary();
-      resetForm();
+      resetForm({ preserveSchoolContext: isSchoolMode(), preserveAcademicBatch: true });
       hideLoading();
       return;
     }
@@ -3904,7 +3939,7 @@ async function saveCurrentCard() {
     selectedBatchSerial = serial;
     showToast((existingIndex >= 0 ? 'Updated' : 'Draft saved') + ' ID card. Serial: ' + serial);
     await loadBatchSummary();
-    resetForm();
+    resetForm({ preserveSchoolContext: isSchoolMode(), preserveAcademicBatch: true });
   } catch (e) {
     alert(e.message || 'Save failed. Check server connection.');
   }
@@ -3958,8 +3993,9 @@ async function submitWholeBatch(options = {}) {
     if (freshStart) {
       startFreshSession();
     } else {
-      resetForm();
+      resetForm({ preserveSchoolContext: isSchoolMode(), preserveAcademicBatch: false });
     }
+    await loadSchoolDirectory();
     await loadBatchSummary();
   } catch (e) {
     if (!silent) {
@@ -3971,7 +4007,7 @@ async function submitWholeBatch(options = {}) {
   hideLoading();
 }
 
-function resetForm() {
+function resetForm(options = {}) {
   const institute = document.getElementById('instituteName').value;
   const otherInstitute = document.getElementById('otherInstituteName').value;
   const facilityLocation = document.getElementById('facilityLocation').value;
@@ -3979,12 +4015,21 @@ function resetForm() {
   const type = (isCollegeMode() || isSchoolMode()) ? currentType : 'employee';
   const keepAnmBatch = isAnmMode() ? document.getElementById('batchSession').value : '';
   const keepAnmYear = isAnmMode() ? document.getElementById('trainingYear').value : '';
+  const preserveSchoolContext = !!options.preserveSchoolContext && isSchoolMode();
+  const preserveAcademicBatch = preserveSchoolContext && options.preserveAcademicBatch !== false;
+  const schoolContext = {
+    school_name: document.getElementById('schoolName').value,
+    school_address: document.getElementById('schoolAddress').value,
+    academic_batch: preserveAcademicBatch ? document.getElementById('academicBatch').value : '',
+  };
 
-  window.SchoolMode.clearContext();
+  if (!preserveSchoolContext) {
+    window.SchoolMode.clearContext();
+  }
   document.getElementById('name').value = '';
   document.getElementById('serialNo').value = '';
   document.getElementById('shortSerialNo').value = '';
-  document.getElementById('academicBatch').value = '';
+  document.getElementById('academicBatch').value = preserveAcademicBatch ? schoolContext.academic_batch : '';
   document.getElementById('dob').value = '';
   document.getElementById('contact').value = '';
   document.getElementById('address').value = '';
@@ -4027,6 +4072,9 @@ function resetForm() {
   document.getElementById('otherInstituteName').value = otherInstitute;
   setInstituteLocked(false);
   handleInstituteChange();
+  if (preserveSchoolContext) {
+    window.SchoolMode.fillContext(schoolContext);
+  }
   if (batchInstituteLocked && isFacilityLocationInstitute()) {
     document.getElementById('facilityLocation').value = facilityLocation;
     handleFacilityLocationChange();

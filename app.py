@@ -4950,6 +4950,33 @@ def get_records():
     return jsonify({"records": records, "institute": institute})
 
 
+@app.route("/api/school-directory")
+def school_directory():
+    institute = canonicalize_institute_name(request.args.get("institute"))
+    if not institute:
+        return jsonify({"schools": [], "institute": ""})
+    records = list_supabase_records(institute) if is_supabase_enabled() else load_records(institute)
+    schools = {}
+    for record in records or []:
+        school_name = str(record.get("school_name") or "").strip()
+        if not school_name:
+            continue
+        key = school_name.casefold()
+        school_address = str(record.get("school_address") or record.get("place") or "").strip()
+        current = schools.get(key)
+        if not current:
+            schools[key] = {
+                "school_name": school_name,
+                "school_address": school_address,
+            }
+        elif school_address and not current.get("school_address"):
+            current["school_address"] = school_address
+    return jsonify({
+        "schools": sorted(schools.values(), key=lambda item: item.get("school_name", "").casefold()),
+        "institute": institute,
+    })
+
+
 @app.route("/api/admin-attach-photo", methods=["POST"])
 @admin_required
 def admin_attach_photo():
