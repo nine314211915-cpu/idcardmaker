@@ -2323,11 +2323,29 @@ function getFamilyNameType() {
   return document.getElementById('familyNameType').value || "Father's Name";
 }
 
+function isSchoolStudentMode() {
+  return isSchoolMode() && currentType === 'student';
+}
+
 function handleFamilyNameTypeChange() {
+  if (isSchoolStudentMode()) {
+    document.getElementById('familyNameType').value = "Father's Name";
+  }
   const selected = getFamilyNameType();
   document.getElementById('familyNameLabel').textContent = selected;
   document.getElementById('fatherName').placeholder = `Enter ${selected.toLowerCase()}`;
   updatePreview();
+}
+
+function updateFamilyNameMode() {
+  const typeSelect = document.getElementById('familyNameType');
+  if (isSchoolStudentMode()) {
+    typeSelect.value = "Father's Name";
+    typeSelect.style.display = 'none';
+  } else {
+    typeSelect.style.display = '';
+  }
+  handleFamilyNameTypeChange();
 }
 
 function installFieldFormatters() {
@@ -2987,6 +3005,7 @@ function setType(type) {
   } else if (effectiveType === 'employee') {
     document.getElementById('bloodGroupGroup').style.display = facilityLocationMode ? '' : 'none';
   }
+  updateFamilyNameMode();
   updatePreview();
   refreshInstituteLock();
 }
