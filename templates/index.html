@@ -1286,12 +1286,13 @@
     .container { grid-template-columns: 1fr; }
     .card-preview-wrap { position: static; }
     .form-grid { grid-template-columns: 1fr; }
-    .compact-grid, .triple-grid { grid-template-columns: 1fr; }
-    .photo-upload-area, .compact-field, .type-selector { max-width: none; }
+    .compact-grid, .triple-grid, .top-tools-row { grid-template-columns: 1fr; }
+    .photo-upload-area, .compact-field, .type-block, .type-selector, .serial-box, .signature-admin-box { width: 100%; max-width: none; }
     header { width: calc(100% - 24px); padding: 16px; }
     header .right-brand { margin-left: 0; width: 100%; justify-content: space-between; border-radius: 18px; }
     .action-grid, .batch-meta { grid-template-columns: 1fr; }
     .hero-metrics { grid-template-columns: 1fr; }
+    .signature-admin-box { min-height: 0; }
   }
   @media (max-width: 640px) {
     body { font-size: 14px; }
@@ -1326,10 +1327,30 @@
     .panel-header { padding: 10px 12px; font-size: 14px; }
     .panel-body { padding: 12px; }
     .field-label-row { flex-direction: column; align-items: flex-start; }
-    .triple-grid, .compact-grid, .form-grid, .action-grid, .batch-meta { gap: 10px; }
+    .triple-grid, .compact-grid, .form-grid, .top-tools-row, .action-grid, .batch-meta { gap: 10px; }
     .type-btn { min-height: 52px; font-size: 14px; }
-    .photo-upload-area, .compact-field, .type-selector, .card-preview-wrap { width: 100%; max-width: none; }
-    .photo-upload-area { min-height: 168px; }
+    .type-selector { grid-template-columns: 1fr; }
+    .photo-upload-area, .compact-field, .type-block, .type-selector, .serial-box, .signature-admin-box, .card-preview-wrap { width: 100%; max-width: none; }
+    .photo-upload-area { min-height: 128px; }
+    .photo-placeholder {
+      min-height: 128px;
+      padding: 12px;
+      text-align: center;
+      line-height: 1.35;
+    }
+    .type-block {
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+    }
+    .serial-box { margin-bottom: 0; }
+    .signature-admin-box {
+      min-height: 0;
+      padding: 12px;
+    }
+    .signature-admin-box p,
+    .signature-status {
+      overflow-wrap: anywhere;
+    }
     .id-card { width: 100%; max-width: 360px; margin: 0 auto; }
     .action-grid .btn,
     .inline-actions .btn,
@@ -1339,7 +1360,9 @@
     .container { padding-left: 8px; padding-right: 8px; }
     .panel-body { padding: 10px; }
     input, select, textarea { padding: 10px; }
-    .photo-upload-area { min-height: 150px; }
+    .photo-upload-area,
+    .photo-placeholder { min-height: 118px; }
+    .type-btn { min-height: 48px; }
     .helper-text { text-align: left; }
   }
 </style>
