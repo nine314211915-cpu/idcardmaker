@@ -75,9 +75,6 @@
       border-right: 0;
       padding-right: 0;
     }
-    .menu-tools-group {
-      display: none;
-    }
     .top-label {
       font-size: 12px;
       color: rgba(255,255,255,0.72);
@@ -126,12 +123,6 @@
       font-weight: 500;
       white-space: nowrap;
     }
-    .advanced-toolbar-item {
-      display: none;
-    }
-    .topbar.show-advanced .advanced-toolbar-item {
-      display: flex;
-    }
     .toolbar-spacer {
       flex: 1 1 auto;
       min-width: 16px;
@@ -143,14 +134,6 @@
       gap: 8px;
       padding-right: 10px;
       border-right: 1px solid rgba(255,255,255,0.16);
-    }
-    .quick-cluster.advanced-toolbar-item,
-    .toolbar-spacer.advanced-toolbar-item {
-      display: none;
-    }
-    .topbar.show-advanced .quick-cluster.advanced-toolbar-item,
-    .topbar.show-advanced .toolbar-spacer.advanced-toolbar-item {
-      display: flex;
     }
     .quick-cluster:last-child {
       border-right: 0;
@@ -786,50 +769,6 @@
           <span class="top-label">Parallel editor lab</span>
         </div>
         <div class="top-group">
-          <div class="header-dropdown" id="moreToolsDropdown">
-            <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('moreToolsDropdown')">More Tools</button>
-            <div class="header-dropdown-menu">
-              <div class="dropdown-title">File</div>
-              <div class="dropdown-actions">
-                <button class="dropdown-btn" type="button" onclick="openTemplateModal(); closeHeaderDropdowns();">Templates</button>
-                <button class="dropdown-btn" type="button" onclick="saveCurrentTemplate(); closeHeaderDropdowns();">Save Template</button>
-                <button class="dropdown-btn" type="button" onclick="exportCard('png'); closeHeaderDropdowns();">Export PNG</button>
-                <button class="dropdown-btn" type="button" onclick="exportCard('pdf'); closeHeaderDropdowns();">Export PDF</button>
-              </div>
-              <div class="dropdown-title">Edit</div>
-              <div class="dropdown-actions">
-                <button class="dropdown-btn" type="button" onclick="undoCanvas(); closeHeaderDropdowns();">Undo</button>
-                <button class="dropdown-btn" type="button" onclick="redoCanvas(); closeHeaderDropdowns();">Redo</button>
-                <button class="dropdown-btn" type="button" onclick="copySelection(); closeHeaderDropdowns();">Copy</button>
-                <button class="dropdown-btn" type="button" onclick="pasteSelection(); closeHeaderDropdowns();">Paste</button>
-                <button class="dropdown-btn" type="button" onclick="deleteSelected(); closeHeaderDropdowns();">Delete</button>
-                <button class="dropdown-btn" type="button" onclick="resetCanvasLayout(); closeHeaderDropdowns();">Reset</button>
-              </div>
-              <div class="dropdown-title">Insert</div>
-              <div class="dropdown-actions">
-                <button class="dropdown-btn" type="button" onclick="addText(); closeHeaderDropdowns();">Text</button>
-                <button class="dropdown-btn" type="button" onclick="openGenericImagePicker(); closeHeaderDropdowns();">Image</button>
-                <button class="dropdown-btn" type="button" onclick="addRect(); closeHeaderDropdowns();">Rect</button>
-                <button class="dropdown-btn" type="button" onclick="addCircle(); closeHeaderDropdowns();">Circle</button>
-                <button class="dropdown-btn" type="button" onclick="addLine(); closeHeaderDropdowns();">Line</button>
-                <button class="dropdown-btn" type="button" onclick="addBarcode(); closeHeaderDropdowns();">Barcode</button>
-                <button class="dropdown-btn" type="button" onclick="addQRCode(); closeHeaderDropdowns();">QR</button>
-              </div>
-              <div class="dropdown-title">Arrange And View</div>
-              <div class="dropdown-actions">
-                <button class="dropdown-btn" type="button" onclick="bringToFront(); closeHeaderDropdowns();">Bring Front</button>
-                <button class="dropdown-btn" type="button" onclick="sendToBack(); closeHeaderDropdowns();">Send Back</button>
-                <button class="dropdown-btn" type="button" onclick="duplicateSelection(); closeHeaderDropdowns();">Duplicate</button>
-                <button class="dropdown-btn" type="button" onclick="toggleLockSelected(); closeHeaderDropdowns();">Lock / Unlock</button>
-                <button class="dropdown-btn" type="button" onclick="setCanvasZoom(state.view.zoom - 10); closeHeaderDropdowns();">Zoom -</button>
-                <button class="dropdown-btn" type="button" onclick="setCanvasZoom(state.view.zoom + 10); closeHeaderDropdowns();">Zoom +</button>
-                <button class="dropdown-btn" type="button" onclick="fitCanvasToStage(); closeHeaderDropdowns();">Fit</button>
-                <button class="dropdown-btn" id="advancedToolsToggle" type="button" onclick="toggleAdvancedTools(); closeHeaderDropdowns();">Show Advanced Bar</button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="top-group menu-tools-group">
           <div class="header-dropdown" id="fileDropdown">
             <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('fileDropdown')">File</button>
             <div class="header-dropdown-menu">
@@ -851,7 +790,7 @@
             </div>
           </div>
         </div>
-        <div class="top-group menu-tools-group">
+        <div class="top-group">
           <div class="header-dropdown" id="editDropdown">
             <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('editDropdown')">Edit</button>
             <div class="header-dropdown-menu">
@@ -867,7 +806,7 @@
             </div>
           </div>
         </div>
-        <div class="top-group menu-tools-group">
+        <div class="top-group">
           <div class="header-dropdown" id="insertDropdown">
             <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('insertDropdown')">Insert</button>
             <div class="header-dropdown-menu">
@@ -885,7 +824,7 @@
             </div>
           </div>
         </div>
-        <div class="top-group menu-tools-group">
+        <div class="top-group">
           <div class="header-dropdown" id="coreFieldsDropdown">
             <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('coreFieldsDropdown')">Core Fields</button>
             <div class="header-dropdown-menu">
@@ -894,7 +833,7 @@
             </div>
           </div>
         </div>
-        <div class="top-group menu-tools-group">
+        <div class="top-group">
           <div class="header-dropdown" id="textMenuDropdown">
             <button class="tool-btn" id="textMenuToggle" type="button" onclick="toggleHeaderDropdown('textMenuDropdown')">Text</button>
             <div class="header-dropdown-menu">
@@ -926,7 +865,7 @@
             </div>
           </div>
         </div>
-        <div class="top-group menu-tools-group">
+        <div class="top-group">
           <div class="header-dropdown" id="arrangeDropdown">
             <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('arrangeDropdown')">Arrange</button>
             <div class="header-dropdown-menu">
@@ -946,7 +885,7 @@
             </div>
           </div>
         </div>
-        <div class="top-group menu-tools-group">
+        <div class="top-group">
           <div class="header-dropdown" id="viewDropdown">
             <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('viewDropdown')">View</button>
             <div class="header-dropdown-menu">
@@ -960,7 +899,7 @@
             </div>
           </div>
         </div>
-        <div class="top-group menu-tools-group">
+        <div class="top-group">
           <div class="header-dropdown" id="layersDropdown">
             <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('layersDropdown')">Layers</button>
             <div class="header-dropdown-menu">
@@ -968,6 +907,11 @@
               <div id="headerLayersList" class="dropdown-stack"></div>
             </div>
           </div>
+        </div>
+        <div class="top-group">
+          <button class="tool-btn" type="button" onclick="showPreviousRecord()">Previous</button>
+          <span class="status-chip" id="batchBrowserBadge">Card: -- / --</span>
+          <button class="tool-btn" type="button" onclick="showNextRecord()">Next</button>
         </div>
       </div>
       <div class="quick-toolbar">
@@ -990,17 +934,11 @@
           </select>
         </div>
         <div class="quick-cluster">
-          <span class="toolbar-label">Cards</span>
-          <button class="tool-btn" type="button" onclick="showPreviousRecord()">Previous</button>
-          <span class="status-chip" id="batchBrowserBadge">Card: -- / --</span>
-          <button class="tool-btn" type="button" onclick="showNextRecord()">Next</button>
-        </div>
-        <div class="quick-cluster">
           <span class="toolbar-label">Save</span>
           <button class="tool-btn" type="button" onclick="saveInstituteDesign()">Institute</button>
           <button class="tool-btn primary" type="button" onclick="saveBatchDesign()">Batch</button>
         </div>
-        <div class="quick-cluster advanced-toolbar-item">
+        <div class="quick-cluster">
           <span class="toolbar-label">Tools</span>
           <button class="tool-btn active" id="quickSelectToolBtn" type="button" onclick="setToolMode('select', this)">Select</button>
           <button class="tool-btn" id="quickDrawToolBtn" type="button" onclick="toggleDrawing(this)">Draw</button>
@@ -1015,7 +953,7 @@
             <option value="portrait">Portrait</option>
           </select>
         </div>
-        <div class="quick-cluster advanced-toolbar-item">
+        <div class="quick-cluster">
           <span class="toolbar-label">Text</span>
           <select id="quickFontFamily" class="quick-select">
             <option value="Segoe UI">Segoe UI</option>
@@ -1048,14 +986,14 @@
           <button class="quick-tool-btn" id="quickItalicBtn" type="button" onclick="toggleTextStyle('italic')" title="Italic"><em>I</em></button>
           <button class="quick-tool-btn" id="quickUnderlineBtn" type="button" onclick="toggleTextStyle('underline')" title="Underline"><u>U</u></button>
         </div>
-        <div class="quick-cluster advanced-toolbar-item">
+        <div class="quick-cluster">
           <span class="toolbar-label">Zoom</span>
           <button class="quick-tool-btn" type="button" onclick="setCanvasZoom(state.view.zoom - 10)">-</button>
           <span class="quick-zoom-readout" id="quickZoomValue">100%</span>
           <button class="quick-tool-btn" type="button" onclick="setCanvasZoom(state.view.zoom + 10)">+</button>
           <button class="quick-tool-btn" type="button" onclick="fitCanvasToStage()">Fit</button>
         </div>
-        <div class="quick-cluster advanced-toolbar-item">
+        <div class="quick-cluster">
           <span class="toolbar-label">Align</span>
           <button class="quick-tool-btn" type="button" onclick="alignActive('left')" title="Align Left">L</button>
           <button class="quick-tool-btn" type="button" onclick="alignActive('center')" title="Align Center">C</button>
@@ -1063,8 +1001,8 @@
           <button class="quick-tool-btn" type="button" onclick="nudgeActive(0, -5)" title="Move Up">Up</button>
           <button class="quick-tool-btn" type="button" onclick="nudgeActive(0, 5)" title="Move Down">Down</button>
         </div>
-        <div class="toolbar-spacer advanced-toolbar-item"></div>
-        <div class="quick-cluster advanced-toolbar-item">
+        <div class="toolbar-spacer"></div>
+        <div class="quick-cluster">
           <span class="toolbar-label">Quick Colors</span>
           <div class="color-swatches">
             <button class="color-swatch" type="button" style="background:#17324d" onclick="applyTextMenuColor('#17324d')" title="Navy"></button>
@@ -1801,21 +1739,6 @@
     function confirmIfUnsaved(actionText) {
       if (!state.design.dirty) return true;
       return window.confirm(`You have unsaved design changes. ${actionText} will discard them. Continue?`);
-    }
-
-    function toggleAdvancedTools() {
-      const topbar = document.querySelector('.topbar');
-      if (!topbar) return;
-      const open = topbar.classList.toggle('show-advanced');
-      const button = field('advancedToolsToggle');
-      if (button) {
-        button.classList.toggle('active', open);
-        button.textContent = open ? 'Hide Advanced Bar' : 'Show Advanced Bar';
-      }
-      window.setTimeout(() => {
-        applyCanvasScale();
-        refreshPanelScrollControls();
-      }, 40);
     }
 
     function syncPanelHeights() {

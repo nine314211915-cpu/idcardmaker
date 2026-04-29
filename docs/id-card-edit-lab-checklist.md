@@ -13,7 +13,7 @@ Status legend:
 - `[x]` Add visible design status: loaded source, unsaved, saving, saved, failed.
 - `[x]` Confirm destructive actions: reset layout, remove core field, apply template over current design.
 - `[x]` Escape custom layer names in layer list rendering.
-- `[x]` Consolidate header menu buttons into one `More Tools` menu.
+- `[x]` Restore original visible toolbar buttons after review.
 - `[x]` Update this checklist after each completed change.
 
 ## Current Page Audit
@@ -38,7 +38,7 @@ Status legend:
 - `[x]` Show clear save state: saved, saving, failed, unsaved changes.
 - `[x]` Confirm destructive actions: reset layout, remove core field, apply template over current design.
 - `[x]` Escape custom layer names in layer list rendering.
-- `[x]` Make top toolbar smaller so canvas is visible on first screen.
+- `[ ]` Make top toolbar smaller without hiding common action buttons.
 - `[ ]` Move advanced controls into grouped menus or side-panel tabs.
 
 ## Production Functions Missing
