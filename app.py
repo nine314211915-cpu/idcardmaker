@@ -4987,14 +4987,19 @@ def school_directory():
             continue
         key = school_name.casefold()
         school_address = str(record.get("school_address") or record.get("place") or "").strip()
+        academic_batch = str(record.get("academic_batch") or "").strip()
         current = schools.get(key)
         if not current:
             schools[key] = {
                 "school_name": school_name,
                 "school_address": school_address,
+                "academic_batch": academic_batch,
             }
-        elif school_address and not current.get("school_address"):
-            current["school_address"] = school_address
+        elif current:
+            if school_address and not current.get("school_address"):
+                current["school_address"] = school_address
+            if academic_batch and not current.get("academic_batch"):
+                current["academic_batch"] = academic_batch
     return jsonify({
         "schools": sorted(schools.values(), key=lambda item: item.get("school_name", "").casefold()),
         "institute": institute,

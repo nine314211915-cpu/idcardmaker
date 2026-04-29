@@ -1451,6 +1451,14 @@
             <label>Batch / Session</label>
             <input type="text" id="academicBatch" placeholder="e.g. 2026-27 or Class 10 A" oninput="updatePreview()">
           </div>
+          <div class="form-group compact-field school-student-field" id="classNameGroup" style="display:none">
+            <label>Class</label>
+            <input type="text" id="className" placeholder="Enter class" oninput="updatePreview()">
+          </div>
+          <div class="form-group compact-field school-student-field" id="sectionGroup" style="display:none">
+            <label>Section</label>
+            <input type="text" id="section" placeholder="Enter section" oninput="updatePreview()">
+          </div>
           <div class="compact-field stacked-compact-group" id="facilityLocationWrap" style="display:none">
             <div class="form-group">
               <label id="facilityLocationLabel">Block <span class="req">*</span></label>
@@ -1540,14 +1548,6 @@
           <div class="form-group student-field" id="courseGroup">
             <label id="courseLabel">Course <span class="req">*</span></label>
             <select id="course" onchange="updatePreview()"></select>
-          </div>
-          <div class="form-group school-student-field" id="classNameGroup" style="display:none">
-            <label>Class</label>
-            <input type="text" id="className" placeholder="Enter class" oninput="updatePreview()">
-          </div>
-          <div class="form-group school-student-field" id="sectionGroup" style="display:none">
-            <label>Section</label>
-            <input type="text" id="section" placeholder="Enter section" oninput="updatePreview()">
           </div>
           <div class="form-group school-student-field" id="rollNoGroup" style="display:none">
             <label>Roll No.</label>
@@ -2719,6 +2719,25 @@ function isSchoolMode() {
   return document.getElementById('instituteName').value === SCHOOL_INSTITUTE;
 }
 
+function hasSelectedSchoolGroup() {
+  if (!isSchoolMode()) return false;
+  const groupName = String(document.getElementById('otherInstituteName').value || '').trim();
+  return !!groupName;
+}
+
+function updateSchoolContextVisibility() {
+  const readyForSchoolSelection = hasSelectedSchoolGroup();
+  ['schoolNameGroup', 'schoolAddressGroup', 'academicBatchGroup'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = readyForSchoolSelection ? '' : 'none';
+  });
+  const showStudentContext = readyForSchoolSelection && currentType === 'student';
+  ['classNameGroup', 'sectionGroup'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = showStudentContext ? '' : 'none';
+  });
+}
+
 function isAnmMode() {
   return document.getElementById('instituteName').value === ANM_INSTITUTE;
 }
@@ -2926,6 +2945,7 @@ function handleInstituteChange() {
     window.SchoolMode.setGroups([]);
     window.SchoolMode.setDirectory([]);
   }
+  updateSchoolContextVisibility();
   document.getElementById('facilityLocationWrap').style.display = facilityLocationMode ? '' : 'none';
   document.getElementById('facilitySubLocationWrap').style.display = facilityLocationMode ? '' : 'none';
   if (facilityLocationMode) {
@@ -3046,9 +3066,11 @@ function setType(type) {
   document.querySelectorAll('.anm-field').forEach(el => el.style.display = anmMode ? '' : 'none');
   document.querySelectorAll('.anm-preview-row').forEach(el => el.style.display = anmMode ? '' : 'none');
   document.querySelectorAll('.school-field').forEach(el => el.style.display = schoolMode ? '' : 'none');
+  updateSchoolContextVisibility();
   document.querySelectorAll('.school-preview-row').forEach(el => el.style.display = schoolMode ? '' : 'none');
   document.querySelectorAll('.school-student-field').forEach(el => el.style.display = schoolMode && effectiveType === 'student' ? '' : 'none');
   document.querySelectorAll('.school-teacher-field').forEach(el => el.style.display = schoolMode && effectiveType === 'lecturer' ? '' : 'none');
+  updateSchoolContextVisibility();
   const employeeMode = !anmMode && !academicMode;
   document.getElementById('employeeIdGroup').style.display = employeeMode ? '' : 'none';
   document.getElementById('customEmployeeFieldToggleWrap').style.display = employeeMode ? '' : 'none';
@@ -3256,11 +3278,13 @@ async function loadSettings() {
 async function loadSchoolDirectory() {
   if (!isSchoolMode()) {
     window.SchoolMode.setDirectory([]);
+    updateSchoolContextVisibility();
     return;
   }
   const institute = getInstituteValue();
   if (!institute || institute === SCHOOL_INSTITUTE || institute === 'Other') {
     window.SchoolMode.setDirectory([]);
+    updateSchoolContextVisibility();
     return;
   }
   try {
@@ -3271,6 +3295,7 @@ async function loadSchoolDirectory() {
   } catch (e) {
     window.SchoolMode.setDirectory([]);
   }
+  updateSchoolContextVisibility();
 }
 
 async function loadSchoolGroups() {
@@ -3278,6 +3303,7 @@ async function loadSchoolGroups() {
     window.SchoolMode.setGroups([]);
     const groupSelect = document.getElementById('schoolGroupSelect');
     if (groupSelect) groupSelect.style.display = 'none';
+    updateSchoolContextVisibility();
     return;
   }
   try {
@@ -3293,6 +3319,7 @@ async function loadSchoolGroups() {
 async function handleSchoolGroupSelectChange() {
   window.SchoolMode.applySelectedGroup();
   window.SchoolMode.clearContext();
+  updateSchoolContextVisibility();
   await loadSettings();
   await loadSchoolDirectory();
   updatePreview();
@@ -3300,6 +3327,7 @@ async function handleSchoolGroupSelectChange() {
 }
 
 async function handleSchoolGroupInputChange() {
+  updateSchoolContextVisibility();
   updatePreview();
   loadSettings();
   await loadSchoolDirectory();

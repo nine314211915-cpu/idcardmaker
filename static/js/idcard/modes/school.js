@@ -147,6 +147,7 @@
       }
       input.value = selected.school_name || '';
       document.getElementById('schoolAddress').value = selected.school_address || '';
+      document.getElementById('academicBatch').value = selected.academic_batch || '';
       input.style.display = 'none';
     },
 
