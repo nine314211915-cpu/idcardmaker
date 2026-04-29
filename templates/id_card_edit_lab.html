@@ -1325,23 +1325,24 @@
         <details class="panel-section tone-background">
           <summary>
             <span>Backgrounds</span>
-            <span class="mini-label" id="backgroundSourceLabel">Institute active</span>
+            <span class="mini-label" id="backgroundSourceLabel">Institute default</span>
           </summary>
           <div class="section-body">
             <div class="field">
               <label for="backgroundSelect">Institute Background Library</label>
               <select id="backgroundSelect">
-                <option value="">Use institute active background</option>
+                <option value="">Use institute default background</option>
               </select>
             </div>
             <div class="inline-actions">
-              <button class="mini-btn" type="button" onclick="applySelectedBackground()">Apply Selected</button>
-              <button class="mini-btn" type="button" onclick="activateSelectedBackground()">Set Institute Active</button>
-              <button class="mini-btn" type="button" onclick="deleteSelectedBackground()">Delete Selected</button>
+              <button class="mini-btn" type="button" onclick="applySelectedBackground()" title="Use the selected library background for only the current front/back side.">Use For This Side</button>
+              <button class="mini-btn" type="button" onclick="activateSelectedBackground()" title="Make the selected library background the institute default.">Set As Institute Default</button>
+              <button class="mini-btn" type="button" onclick="clearInstituteActiveBackground()" title="Remove the institute default without deleting library backgrounds.">Remove Institute Default</button>
+              <button class="mini-btn" type="button" onclick="deleteSelectedBackground()" title="Delete the selected background from the library.">Delete From Library</button>
             </div>
             <div class="inline-actions">
-              <button class="mini-btn" type="button" onclick="useInstituteActiveBackground()">Use Institute Active</button>
-              <button class="mini-btn" type="button" onclick="clearBatchBackgroundOverride()">Clear Batch Override</button>
+              <button class="mini-btn" type="button" onclick="useInstituteActiveBackground()" title="Follow the institute default background for this side.">Use Institute Default</button>
+              <button class="mini-btn" type="button" onclick="clearBatchBackgroundOverride()" title="Remove only the current side's saved batch background.">Remove This Side Background</button>
             </div>
             <div class="field-grid two">
               <div class="field">
@@ -1354,7 +1355,7 @@
               </div>
             </div>
             <div class="inline-actions">
-              <button class="mini-btn" type="button" onclick="uploadEditorBackground()">Upload To Institute Library</button>
+              <button class="mini-btn" type="button" onclick="uploadEditorBackground()">Upload Background</button>
             </div>
             <div class="field-grid two">
               <div class="field">
@@ -1367,7 +1368,7 @@
               </div>
             </div>
             <div class="inline-actions">
-              <button class="mini-btn" type="button" onclick="linkEditorBackground()">Link Into Institute Library</button>
+              <button class="mini-btn" type="button" onclick="linkEditorBackground()">Add URL Background</button>
             </div>
             <div class="prop-type" id="backgroundActiveMeta">Current background: none</div>
           </div>
@@ -1841,7 +1842,7 @@
       return {
         source: instituteUrl ? 'institute' : 'none',
         id: activeEntry ? activeEntry.id : '',
-        name: activeEntry ? activeEntry.name : (instituteUrl ? 'Institute active background' : 'None'),
+        name: activeEntry ? activeEntry.name : (instituteUrl ? 'Institute default background' : 'None'),
         url: instituteUrl,
       };
     }
@@ -1876,7 +1877,7 @@
       const sourceLabel = field('backgroundSourceLabel');
       const activeMeta = field('backgroundActiveMeta');
       if (!select || !sourceLabel || !activeMeta) return;
-      const options = ['<option value="">Use institute active background</option>'];
+      const options = ['<option value="">Use institute default background</option>'];
       const currentOverride = currentBackgroundOverride();
       state.backgroundLibrary.forEach((item) => {
         const selected = currentOverride && currentOverride.id === item.id
@@ -4801,7 +4802,7 @@
       refreshBackgroundPanel();
       loadCanvasBackground();
       pushHistoryState();
-      setStatus(`Using the institute active background for the ${state.currentSide} side.`, true);
+      setStatus(`Using the institute default background for the ${state.currentSide} side.`, true);
     }
 
     function clearBatchBackgroundOverride() {
@@ -4817,14 +4818,14 @@
       const institute = escapeValue(field('instituteInput').value);
       const backgroundId = selectedBackgroundId();
       if (!institute) {
-        setStatus('Select institute before changing the active background.', false, true);
+        setStatus('Select institute before changing the institute default background.', false, true);
         return;
       }
       if (!backgroundId) {
         setStatus('Select a background first.', false, true);
         return;
       }
-      setStatus('Setting institute active background...');
+      setStatus('Setting institute default background...');
       try {
         const res = await fetch(`/api/print-backgrounds/${encodeURIComponent(backgroundId)}/activate`, {
           method: 'POST',
@@ -4835,9 +4836,34 @@
         if (!res.ok) throw new Error(data.error || 'Unable to activate background.');
         applyBackgroundApiState(data);
         pushHistoryState();
-        setStatus('Institute active background updated.', true);
+        setStatus('Institute default background updated.', true);
       } catch (error) {
         setStatus(error.message || 'Unable to activate background.', false, true);
+      }
+    }
+
+    async function clearInstituteActiveBackground() {
+      const institute = escapeValue(field('instituteInput').value);
+      if (!institute) {
+        setStatus('Select institute before removing the institute default background.', false, true);
+        return;
+      }
+      setStatus('Removing institute default background...');
+      try {
+        const res = await fetch('/api/print-backgrounds/clear-active', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ institute }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unable to remove institute default background.');
+        applyBackgroundApiState(data);
+        refreshBackgroundPanel();
+        loadCanvasBackground();
+        pushHistoryState();
+        setStatus('Institute default background removed.', true);
+      } catch (error) {
+        setStatus(error.message || 'Unable to remove institute default background.', false, true);
       }
     }
 
@@ -5046,7 +5072,7 @@
         const selectedId = escapeValue(field('backgroundSelect').value);
         const entry = getBackgroundLibraryEntry(selectedId);
         if (!entry && !selectedId) {
-          field('backgroundActiveMeta').textContent = `Current ${state.currentSide} background: institute active background`;
+          field('backgroundActiveMeta').textContent = `Current ${state.currentSide} background: institute default background`;
           return;
         }
         if (entry) {

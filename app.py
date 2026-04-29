@@ -1007,9 +1007,6 @@ def ensure_print_background_state(settings):
 
     if active_item:
         settings["background_url"] = active_item.get("url", "")
-    elif backgrounds:
-        settings["background_url"] = backgrounds[0].get("url", "")
-        active_id = backgrounds[0].get("id", "")
     else:
         settings["background_url"] = ""
         active_id = ""
@@ -3999,6 +3996,28 @@ def activate_print_background(background_id):
         "institute": institute,
         "active_background_id": settings.get("print_background_active_id", ""),
         "background_url": settings.get("background_url", ""),
+        "backgrounds": settings.get("print_backgrounds", []),
+    })
+
+
+@app.route("/api/print-backgrounds/clear-active", methods=["POST"])
+@admin_required
+def clear_active_print_background():
+    payload = request.get_json(silent=True) or {}
+    institute = canonicalize_institute_name(request.args.get("institute") or payload.get("institute"))
+    if not institute:
+        return jsonify({"error": "Institute is required"}), 400
+    settings = load_settings(institute)
+    settings["print_backgrounds"] = sanitize_print_backgrounds_list(settings.get("print_backgrounds", []))
+    settings["print_background_active_id"] = ""
+    settings["background_url"] = ""
+    settings["background_drive_id"] = ""
+    save_settings(settings, institute)
+    return jsonify({
+        "status": "cleared",
+        "institute": institute,
+        "active_background_id": "",
+        "background_url": "",
         "backgrounds": settings.get("print_backgrounds", []),
     })
 
