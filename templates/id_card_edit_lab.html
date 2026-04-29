@@ -83,6 +83,12 @@
       padding-top: 8px;
       border-top: 1px solid rgba(255,255,255,0.12);
     }
+    .advanced-toolbar-item {
+      display: none;
+    }
+    .topbar.show-advanced .advanced-toolbar-item {
+      display: flex;
+    }
     .toolbar-spacer {
       flex: 1 1 auto;
       min-width: 16px;
@@ -94,6 +100,14 @@
       gap: 8px;
       padding-right: 10px;
       border-right: 1px solid rgba(255,255,255,0.16);
+    }
+    .quick-cluster.advanced-toolbar-item,
+    .toolbar-spacer.advanced-toolbar-item {
+      display: none;
+    }
+    .topbar.show-advanced .quick-cluster.advanced-toolbar-item,
+    .topbar.show-advanced .toolbar-spacer.advanced-toolbar-item {
+      display: flex;
     }
     .quick-cluster:last-child {
       border-right: 0;
@@ -426,6 +440,18 @@
       font-size: 12px;
       font-weight: 500;
       white-space: nowrap;
+    }
+    .design-status-badge {
+      color: #9fe0af;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .design-status-badge.warn {
+      color: #f0cf7a;
+    }
+    .design-status-badge.error {
+      color: #ffb4a8;
     }
     .panel-section {
       border: 1px solid var(--line);
@@ -923,6 +949,9 @@
           <span class="status-chip" id="batchBrowserBadge">Card: -- / --</span>
           <button class="tool-btn" type="button" onclick="showNextRecord()">Next</button>
         </div>
+        <div class="top-group">
+          <button class="tool-btn" id="advancedToolsToggle" type="button" onclick="toggleAdvancedTools()">Advanced Tools</button>
+        </div>
       </div>
       <div class="quick-toolbar">
         <div class="quick-cluster">
@@ -948,7 +977,7 @@
           <button class="tool-btn" type="button" onclick="saveInstituteDesign()">Institute</button>
           <button class="tool-btn primary" type="button" onclick="saveBatchDesign()">Batch</button>
         </div>
-        <div class="quick-cluster">
+        <div class="quick-cluster advanced-toolbar-item">
           <span class="toolbar-label">Tools</span>
           <button class="tool-btn active" id="quickSelectToolBtn" type="button" onclick="setToolMode('select', this)">Select</button>
           <button class="tool-btn" id="quickDrawToolBtn" type="button" onclick="toggleDrawing(this)">Draw</button>
@@ -963,7 +992,7 @@
             <option value="portrait">Portrait</option>
           </select>
         </div>
-        <div class="quick-cluster">
+        <div class="quick-cluster advanced-toolbar-item">
           <span class="toolbar-label">Text</span>
           <select id="quickFontFamily" class="quick-select">
             <option value="Segoe UI">Segoe UI</option>
@@ -996,14 +1025,14 @@
           <button class="quick-tool-btn" id="quickItalicBtn" type="button" onclick="toggleTextStyle('italic')" title="Italic"><em>I</em></button>
           <button class="quick-tool-btn" id="quickUnderlineBtn" type="button" onclick="toggleTextStyle('underline')" title="Underline"><u>U</u></button>
         </div>
-        <div class="quick-cluster">
+        <div class="quick-cluster advanced-toolbar-item">
           <span class="toolbar-label">Zoom</span>
           <button class="quick-tool-btn" type="button" onclick="setCanvasZoom(state.view.zoom - 10)">-</button>
           <span class="quick-zoom-readout" id="quickZoomValue">100%</span>
           <button class="quick-tool-btn" type="button" onclick="setCanvasZoom(state.view.zoom + 10)">+</button>
           <button class="quick-tool-btn" type="button" onclick="fitCanvasToStage()">Fit</button>
         </div>
-        <div class="quick-cluster">
+        <div class="quick-cluster advanced-toolbar-item">
           <span class="toolbar-label">Align</span>
           <button class="quick-tool-btn" type="button" onclick="alignActive('left')" title="Align Left">L</button>
           <button class="quick-tool-btn" type="button" onclick="alignActive('center')" title="Align Center">C</button>
@@ -1011,8 +1040,8 @@
           <button class="quick-tool-btn" type="button" onclick="nudgeActive(0, -5)" title="Move Up">Up</button>
           <button class="quick-tool-btn" type="button" onclick="nudgeActive(0, 5)" title="Move Down">Down</button>
         </div>
-        <div class="toolbar-spacer"></div>
-        <div class="quick-cluster">
+        <div class="toolbar-spacer advanced-toolbar-item"></div>
+        <div class="quick-cluster advanced-toolbar-item">
           <span class="toolbar-label">Quick Colors</span>
           <div class="color-swatches">
             <button class="color-swatch" type="button" style="background:#17324d" onclick="applyTextMenuColor('#17324d')" title="Navy"></button>
@@ -1525,6 +1554,7 @@
       <div class="footer-meta">
         <span class="footer-inline-meta" id="activeObjectBadge">Active: none</span>
         <span class="footer-inline-meta" id="currentSideBadge">Side: front</span>
+        <span class="design-status-badge" id="designStatusBadge">Design: ready</span>
         <span class="footer-inline-meta" id="sourceBadge">Source: {{ data_source_label }}</span>
         <span id="footerCoords">X: -, Y: -</span>
       </div>
@@ -1650,6 +1680,17 @@
         redoStack: [],
         isApplying: false,
       },
+      design: {
+        dirty: false,
+        loadedSource: 'No design loaded',
+        saveState: 'Ready',
+        lastSavedAt: '',
+        suppressDirty: false,
+        lastInstitute: '',
+        lastBatch: '',
+        lastFacilityLocation: '',
+        lastFacilitySubLocation: '',
+      },
       view: {
         orientation: 'landscape',
         zoom: 100,
@@ -1691,6 +1732,76 @@
       const box = field('statusBox');
       box.textContent = message;
       box.className = `status-box footer-status${warn ? ' warn' : (ok ? ' ok' : '')}`;
+    }
+
+    function nowTimeLabel() {
+      return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function updateDesignStatusBadge() {
+      const badge = field('designStatusBadge');
+      if (!badge) return;
+      const stateText = state.design.dirty ? 'Unsaved changes' : state.design.saveState;
+      const savedText = state.design.lastSavedAt ? ` at ${state.design.lastSavedAt}` : '';
+      badge.textContent = `Design: ${stateText}${savedText} | ${state.design.loadedSource}`;
+      badge.className = `design-status-badge${state.design.dirty ? ' warn' : (state.design.saveState === 'Failed' ? ' error' : '')}`;
+      window.onbeforeunload = state.design.dirty
+        ? () => 'You have unsaved ID card design changes.'
+        : null;
+    }
+
+    function markDesignDirty(reason = 'Design changed') {
+      if (state.design.suppressDirty || state.history.isApplying) return;
+      state.design.dirty = true;
+      state.design.saveState = 'Unsaved changes';
+      state.design.lastSavedAt = '';
+      updateDesignStatusBadge();
+    }
+
+    function markDesignClean(loadedSource = state.design.loadedSource, saveState = 'Saved', savedAt = '') {
+      state.design.dirty = false;
+      state.design.loadedSource = loadedSource || 'No design loaded';
+      state.design.saveState = saveState;
+      state.design.lastSavedAt = savedAt;
+      updateDesignStatusBadge();
+    }
+
+    function setDesignSaveState(saveState, warn = false) {
+      state.design.saveState = saveState;
+      if (warn) state.design.dirty = true;
+      updateDesignStatusBadge();
+    }
+
+    function rememberCurrentSelectors() {
+      state.design.lastInstitute = escapeValue(field('instituteInput').value);
+      state.design.lastBatch = currentBatchId();
+      state.design.lastFacilityLocation = currentFacilityLocation();
+      state.design.lastFacilitySubLocation = currentFacilitySubLocation();
+    }
+
+    function restoreSelectorValue(id, value) {
+      const node = field(id);
+      if (node) node.value = value || '';
+    }
+
+    function confirmIfUnsaved(actionText) {
+      if (!state.design.dirty) return true;
+      return window.confirm(`You have unsaved design changes. ${actionText} will discard them. Continue?`);
+    }
+
+    function toggleAdvancedTools() {
+      const topbar = document.querySelector('.topbar');
+      if (!topbar) return;
+      const open = topbar.classList.toggle('show-advanced');
+      const button = field('advancedToolsToggle');
+      if (button) {
+        button.classList.toggle('active', open);
+        button.textContent = open ? 'Hide Advanced' : 'Advanced Tools';
+      }
+      window.setTimeout(() => {
+        applyCanvasScale();
+        refreshPanelScrollControls();
+      }, 40);
     }
 
     function syncPanelHeights() {
@@ -2519,8 +2630,8 @@
         return `
           <div class="layer-item ${isActive}" data-layer-index="${index}">
             <div class="layer-meta">
-              <span class="layer-name">${humanizeLayerName(label)}</span>
-              <span class="layer-side">${side}</span>
+              <span class="layer-name">${escapeHtml(humanizeLayerName(label))}</span>
+              <span class="layer-side">${escapeHtml(side)}</span>
             </div>
             <div class="layer-actions">
               <span class="layer-side">${isVisible ? 'visible' : 'hidden'}</span>
@@ -2610,6 +2721,7 @@
 
     function removeCoreField(key) {
       if (!getCoreFieldDef(key)) return;
+      if (!window.confirm(`Remove "${getCoreFieldDef(key).label}" from this card design?`)) return;
       state.coreFieldState = normalizeCoreFieldState(state.coreFieldState);
       state.coreFieldState[key] = false;
       if (state.activeCoreFieldMenu === key) state.activeCoreFieldMenu = '';
@@ -3517,6 +3629,7 @@
         return;
       }
       if (!templateId) return;
+      if (!confirmIfUnsaved('Loading this saved template')) return;
       setStatus('Loading saved template...');
       try {
         const res = await fetch(`/api/id-card-edit/templates/${encodeURIComponent(templateId)}?institute=${encodeURIComponent(institute)}`);
@@ -3530,6 +3643,7 @@
         applyBatchDesignSnapshot(design);
         if (state.record) renderRecordOnCanvas();
         closeTemplateModal();
+        markDesignDirty('Saved template applied');
         setStatus(`Applied template ${template.label || templateId}.`, true);
       } catch (error) {
         setStatus(error.message || 'Unable to load saved template.', false, true);
@@ -3567,6 +3681,7 @@
 
     async function loadGraphicTemplate(templateId) {
       if (!templateId) return;
+      if (!confirmIfUnsaved('Loading this graphic template')) return;
       setStatus('Loading graphic template...');
       try {
         const res = await fetch(`/static/id_card_templates/${encodeURIComponent(templateId)}.json?t=${Date.now()}`);
@@ -3638,11 +3753,13 @@
       state.canvas.requestRenderAll();
       closeTemplateModal();
       pushHistoryState(true);
+      markDesignDirty('Graphic template applied');
       setStatus(`${spec.label || 'Graphic template'} applied.`, true);
     }
 
     function loadTemplateStyle(template) {
-      resetCanvasLayout();
+      if (!confirmIfUnsaved('Loading this template style')) return;
+      resetCanvasLayout({ confirmChange: false });
       if (template === 'standard') {
         applyPreset('blue');
       } else if (template === 'corporate') {
@@ -3674,6 +3791,7 @@
       renderRecordOnCanvas();
       closeTemplateModal();
       pushHistoryState(true);
+      markDesignDirty('Template style applied');
       setStatus(`${humanizeLayerName(template)} template applied.`, true);
     }
 
@@ -3756,8 +3874,10 @@
       focusObject(name);
     }
 
-    function resetCanvasLayout() {
+    function resetCanvasLayout(options = {}) {
+      const { confirmChange = true, markDirty = true } = options;
       if (!state.canvas) return;
+      if (confirmChange && !confirmIfUnsaved('Resetting the layout')) return;
       clearSnapGuides();
       state.canvas.dispose();
       state.backgroundImage = null;
@@ -3769,12 +3889,17 @@
       state.history.redoStack = [];
       buildCanvas();
       if (state.record) renderRecordOnCanvas();
+      if (markDirty) markDesignDirty('Layout reset');
       setStatus('Canvas layout reset to default.', true);
     }
 
     function applyOrientation(nextOrientation) {
       const orientation = ['landscape', 'portrait'].includes(nextOrientation) ? nextOrientation : 'landscape';
       if (state.view.orientation === orientation) return;
+      if (!confirmIfUnsaved('Changing orientation')) {
+        field('orientationSelect').value = state.view.orientation;
+        return;
+      }
       state.view.orientation = orientation;
       clearSnapGuides();
       if (state.canvas) {
@@ -3791,6 +3916,7 @@
       syncAppearanceControls();
       applyCanvasScale();
       refreshPanelScrollControls();
+      markDesignDirty('Orientation changed');
       setStatus(`Switched to ${orientation} orientation.`, true);
     }
 
@@ -4186,6 +4312,7 @@
       const facilitySubLocation = currentFacilitySubLocation();
       resetBatchRecords();
       if (!institute || !batchId) return;
+      state.design.suppressDirty = true;
       try {
         const [, recordsRes, batchDesignRes, instituteDesignRes] = await Promise.all([
           loadSettingsForInstitute(institute),
@@ -4202,6 +4329,8 @@
         state.availableRecords = Array.isArray(recordsData.records) ? recordsData.records : [];
         if (!state.availableRecords.length) {
           updateBatchBrowserBadge();
+          markDesignClean('No design loaded', 'Ready');
+          rememberCurrentSelectors();
           setStatus('No cards were found in this batch.', false, true);
           return;
         }
@@ -4227,14 +4356,21 @@
           pushHistoryState(true);
         }
         if (batchDesignData && batchDesignData.design) {
+          markDesignClean('Batch design loaded', 'Loaded');
           setStatus(`Loaded ${state.availableRecords.length} cards for this batch with batch design.`, true);
         } else if (instituteDesignData && instituteDesignData.design) {
+          markDesignClean('Institute design loaded', 'Loaded');
           setStatus(`Loaded ${state.availableRecords.length} cards for this batch with institute design.`, true);
         } else {
+          markDesignClean('No saved design', 'Ready');
           setStatus(`Loaded ${state.availableRecords.length} cards for this batch.`, true);
         }
+        rememberCurrentSelectors();
       } catch (error) {
+        setDesignSaveState('Failed', false);
         setStatus(error.message || 'Unable to load records for this batch.', false, true);
+      } finally {
+        state.design.suppressDirty = false;
       }
     }
 
@@ -4246,6 +4382,7 @@
         return;
       }
       setStatus('Loading card...');
+      state.design.suppressDirty = true;
       try {
         const [, recordPromise] = await Promise.all([
           loadSettingsForInstitute(institute),
@@ -4257,9 +4394,14 @@
         applyRecordToFields(state.record);
         renderRecordOnCanvas();
         pushHistoryState(true);
+        markDesignClean('Single card loaded', 'Loaded');
+        rememberCurrentSelectors();
         setStatus(`Loaded ${state.record.serial_no || serial} for editing.`, true);
       } catch (error) {
+        setDesignSaveState('Failed', false);
         setStatus(error.message || 'Unable to load card.', false, true);
+      } finally {
+        state.design.suppressDirty = false;
       }
     }
 
@@ -4270,6 +4412,7 @@
         setStatus('Select an institute and batch before saving the design.', false, true);
         return;
       }
+      setDesignSaveState('Saving');
       setStatus('Saving batch design...');
       try {
         const res = await fetch('/api/id-card-edit/batch-design', {
@@ -4283,8 +4426,11 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Unable to save batch design.');
+        markDesignClean('Batch design', 'Saved', nowTimeLabel());
+        rememberCurrentSelectors();
         setStatus(`Saved design for batch ${batchId}.`, true);
       } catch (error) {
+        setDesignSaveState('Failed', true);
         setStatus(error.message || 'Unable to save batch design.', false, true);
       }
     }
@@ -4295,6 +4441,7 @@
         setStatus('Select an institute before saving the design.', false, true);
         return;
       }
+      setDesignSaveState('Saving');
       setStatus('Saving institute design...');
       try {
         const res = await fetch('/api/id-card-edit/institute-design', {
@@ -4307,8 +4454,11 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Unable to save institute design.');
+        markDesignClean('Institute design', 'Saved', nowTimeLabel());
+        rememberCurrentSelectors();
         setStatus(`Saved design for institute ${institute}.`, true);
       } catch (error) {
+        setDesignSaveState('Failed', true);
         setStatus(error.message || 'Unable to save institute design.', false, true);
       }
     }
@@ -4515,6 +4665,9 @@
       }
       if (resetRedo) {
         state.history.redoStack = [];
+      }
+      if (state.history.undoStack.length > 1) {
+        markDesignDirty();
       }
     }
 
@@ -5047,6 +5200,12 @@
         applyOrientation(event.target.value);
       });
       field('instituteInput').addEventListener('change', async () => {
+        const nextInstitute = escapeValue(field('instituteInput').value);
+        if (nextInstitute !== state.design.lastInstitute && !confirmIfUnsaved('Changing institute')) {
+          restoreSelectorValue('instituteInput', state.design.lastInstitute);
+          renderRecordOnCanvas();
+          return;
+        }
         state.batchBackgrounds = { front: null, back: null };
         state.savedTemplates = [];
         renderSavedTemplateGrid();
@@ -5055,17 +5214,41 @@
         await loadSettingsForInstitute(escapeValue(field('instituteInput').value));
         await loadBatchOptions();
         renderRecordOnCanvas();
+        rememberCurrentSelectors();
+        markDesignClean('No design loaded', 'Ready');
       });
       field('facilityLocationSelector').addEventListener('change', async () => {
+        const nextLocation = currentFacilityLocation();
+        if (nextLocation !== state.design.lastFacilityLocation && !confirmIfUnsaved('Changing facility block')) {
+          restoreSelectorValue('facilityLocationSelector', state.design.lastFacilityLocation);
+          syncFacilitySelectors({ preserveLocation: true, preserveSubLocation: true });
+          renderRecordOnCanvas();
+          return;
+        }
         syncFacilitySelectors({ preserveLocation: true, preserveSubLocation: false });
         await loadBatchOptions();
         renderRecordOnCanvas();
+        rememberCurrentSelectors();
+        markDesignClean('No design loaded', 'Ready');
       });
       field('facilitySubLocationSelector').addEventListener('change', async () => {
+        const nextSubLocation = currentFacilitySubLocation();
+        if (nextSubLocation !== state.design.lastFacilitySubLocation && !confirmIfUnsaved('Changing facility location')) {
+          restoreSelectorValue('facilitySubLocationSelector', state.design.lastFacilitySubLocation);
+          renderRecordOnCanvas();
+          return;
+        }
         await loadBatchOptions();
         renderRecordOnCanvas();
+        rememberCurrentSelectors();
+        markDesignClean('No design loaded', 'Ready');
       });
       field('batchSelector').addEventListener('change', async () => {
+        const nextBatch = currentBatchId();
+        if (nextBatch !== state.design.lastBatch && !confirmIfUnsaved('Changing batch')) {
+          restoreSelectorValue('batchSelector', state.design.lastBatch);
+          return;
+        }
         await loadBatchRecords();
       });
       field('backgroundSelect').addEventListener('change', () => {
@@ -5093,6 +5276,8 @@
       syncObjectInspector(null);
       refreshBackgroundPanel();
       setToolMode('select');
+      rememberCurrentSelectors();
+      markDesignClean('No design loaded', 'Ready');
       window.setTimeout(refreshPanelScrollControls, 80);
       window.setTimeout(refreshPanelScrollControls, 260);
       if (!SUPABASE_ENABLED) {
