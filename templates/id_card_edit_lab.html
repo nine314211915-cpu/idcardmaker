@@ -42,7 +42,7 @@
     .app-shell {
       height: 100vh;
       display: grid;
-      grid-template-rows: auto 1fr auto;
+      grid-template-rows: auto 1fr;
       overflow: hidden;
     }
     .topbar {
@@ -75,6 +75,9 @@
       border-right: 0;
       padding-right: 0;
     }
+    .menu-tools-group {
+      display: none;
+    }
     .top-label {
       font-size: 12px;
       color: rgba(255,255,255,0.72);
@@ -82,6 +85,46 @@
     .quick-toolbar {
       padding-top: 8px;
       border-top: 1px solid rgba(255,255,255,0.12);
+    }
+    .top-status-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.12);
+      color: rgba(255,255,255,0.86);
+      font-size: 12px;
+    }
+    .top-status-row .status-box {
+      display: inline;
+      margin: 0;
+      padding: 0;
+      min-width: 0;
+      max-width: none;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      font-weight: 700;
+      font-size: 12px;
+      color: rgba(255,255,255,0.92);
+    }
+    .top-status-row .status-box.ok {
+      background: transparent;
+      border: 0;
+      color: #9fe0af;
+    }
+    .top-status-row .status-box.warn {
+      background: transparent;
+      border: 0;
+      color: #f0cf7a;
+    }
+    .top-status-meta {
+      color: rgba(255,255,255,0.84);
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
     }
     .advanced-toolbar-item {
       display: none;
@@ -411,36 +454,6 @@
       border-color: #f1ddae;
       color: var(--warn);
     }
-    .footer-status {
-      display: inline;
-      margin: 0;
-      padding: 0;
-      min-width: 0;
-      max-width: none;
-      border: 0;
-      border-radius: 0;
-      background: transparent;
-      box-shadow: none;
-      font-weight: 600;
-      font-size: 12px;
-      color: rgba(255,255,255,0.92);
-    }
-    .footer-status.ok {
-      background: transparent;
-      border: 0;
-      color: #9fe0af;
-    }
-    .footer-status.warn {
-      background: transparent;
-      border: 0;
-      color: #f0cf7a;
-    }
-    .footer-inline-meta {
-      color: rgba(255,255,255,0.84);
-      font-size: 12px;
-      font-weight: 500;
-      white-space: nowrap;
-    }
     .design-status-badge {
       color: #9fe0af;
       font-size: 12px;
@@ -629,39 +642,15 @@
     .layer-toggle:hover {
       background: #f2f6fa;
     }
-    .footer-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      padding: 8px 14px;
-      background: #1f2c39;
-      color: rgba(255,255,255,0.88);
-      font-size: 12px;
-      flex-wrap: wrap;
-    }
-    .footer-meta {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .footer-status-wrap {
-      flex: 1 1 auto;
-      display: flex;
-      justify-content: center;
-      min-width: 220px;
-    }
     @media (max-width: 1480px) {
       .workspace {
-        grid-template-columns: 284px minmax(720px, 1fr);
-        overflow-x: auto;
-        overflow-y: hidden;
+        grid-template-columns: 284px minmax(0, 1fr);
+        overflow: hidden;
       }
     }
     @media (max-width: 1240px) {
       .workspace {
-        grid-template-columns: 268px minmax(680px, 1fr);
+        grid-template-columns: 268px minmax(0, 1fr);
       }
       .canvas-stage {
         padding: 8px 12px 14px;
@@ -673,10 +662,9 @@
         overflow: hidden;
       }
       .workspace {
-        grid-template-columns: 252px minmax(640px, 1fr);
+        grid-template-columns: 252px minmax(0, 1fr);
         height: 100%;
-        overflow-x: auto;
-        overflow-y: hidden;
+        overflow: hidden;
       }
       .right-panel {
         border-right: 1px solid var(--line);
@@ -686,13 +674,6 @@
       .right-panel-body {
         position: absolute;
         overflow-y: auto;
-      }
-      .footer-status {
-        width: auto;
-      }
-      .footer-status-wrap {
-        order: -1;
-        width: 100%;
       }
     }
     .hidden {
@@ -805,6 +786,50 @@
           <span class="top-label">Parallel editor lab</span>
         </div>
         <div class="top-group">
+          <div class="header-dropdown" id="moreToolsDropdown">
+            <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('moreToolsDropdown')">More Tools</button>
+            <div class="header-dropdown-menu">
+              <div class="dropdown-title">File</div>
+              <div class="dropdown-actions">
+                <button class="dropdown-btn" type="button" onclick="openTemplateModal(); closeHeaderDropdowns();">Templates</button>
+                <button class="dropdown-btn" type="button" onclick="saveCurrentTemplate(); closeHeaderDropdowns();">Save Template</button>
+                <button class="dropdown-btn" type="button" onclick="exportCard('png'); closeHeaderDropdowns();">Export PNG</button>
+                <button class="dropdown-btn" type="button" onclick="exportCard('pdf'); closeHeaderDropdowns();">Export PDF</button>
+              </div>
+              <div class="dropdown-title">Edit</div>
+              <div class="dropdown-actions">
+                <button class="dropdown-btn" type="button" onclick="undoCanvas(); closeHeaderDropdowns();">Undo</button>
+                <button class="dropdown-btn" type="button" onclick="redoCanvas(); closeHeaderDropdowns();">Redo</button>
+                <button class="dropdown-btn" type="button" onclick="copySelection(); closeHeaderDropdowns();">Copy</button>
+                <button class="dropdown-btn" type="button" onclick="pasteSelection(); closeHeaderDropdowns();">Paste</button>
+                <button class="dropdown-btn" type="button" onclick="deleteSelected(); closeHeaderDropdowns();">Delete</button>
+                <button class="dropdown-btn" type="button" onclick="resetCanvasLayout(); closeHeaderDropdowns();">Reset</button>
+              </div>
+              <div class="dropdown-title">Insert</div>
+              <div class="dropdown-actions">
+                <button class="dropdown-btn" type="button" onclick="addText(); closeHeaderDropdowns();">Text</button>
+                <button class="dropdown-btn" type="button" onclick="openGenericImagePicker(); closeHeaderDropdowns();">Image</button>
+                <button class="dropdown-btn" type="button" onclick="addRect(); closeHeaderDropdowns();">Rect</button>
+                <button class="dropdown-btn" type="button" onclick="addCircle(); closeHeaderDropdowns();">Circle</button>
+                <button class="dropdown-btn" type="button" onclick="addLine(); closeHeaderDropdowns();">Line</button>
+                <button class="dropdown-btn" type="button" onclick="addBarcode(); closeHeaderDropdowns();">Barcode</button>
+                <button class="dropdown-btn" type="button" onclick="addQRCode(); closeHeaderDropdowns();">QR</button>
+              </div>
+              <div class="dropdown-title">Arrange And View</div>
+              <div class="dropdown-actions">
+                <button class="dropdown-btn" type="button" onclick="bringToFront(); closeHeaderDropdowns();">Bring Front</button>
+                <button class="dropdown-btn" type="button" onclick="sendToBack(); closeHeaderDropdowns();">Send Back</button>
+                <button class="dropdown-btn" type="button" onclick="duplicateSelection(); closeHeaderDropdowns();">Duplicate</button>
+                <button class="dropdown-btn" type="button" onclick="toggleLockSelected(); closeHeaderDropdowns();">Lock / Unlock</button>
+                <button class="dropdown-btn" type="button" onclick="setCanvasZoom(state.view.zoom - 10); closeHeaderDropdowns();">Zoom -</button>
+                <button class="dropdown-btn" type="button" onclick="setCanvasZoom(state.view.zoom + 10); closeHeaderDropdowns();">Zoom +</button>
+                <button class="dropdown-btn" type="button" onclick="fitCanvasToStage(); closeHeaderDropdowns();">Fit</button>
+                <button class="dropdown-btn" id="advancedToolsToggle" type="button" onclick="toggleAdvancedTools(); closeHeaderDropdowns();">Show Advanced Bar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="top-group menu-tools-group">
           <div class="header-dropdown" id="fileDropdown">
             <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('fileDropdown')">File</button>
             <div class="header-dropdown-menu">
@@ -826,7 +851,7 @@
             </div>
           </div>
         </div>
-        <div class="top-group">
+        <div class="top-group menu-tools-group">
           <div class="header-dropdown" id="editDropdown">
             <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('editDropdown')">Edit</button>
             <div class="header-dropdown-menu">
@@ -842,7 +867,7 @@
             </div>
           </div>
         </div>
-        <div class="top-group">
+        <div class="top-group menu-tools-group">
           <div class="header-dropdown" id="insertDropdown">
             <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('insertDropdown')">Insert</button>
             <div class="header-dropdown-menu">
@@ -860,7 +885,7 @@
             </div>
           </div>
         </div>
-        <div class="top-group">
+        <div class="top-group menu-tools-group">
           <div class="header-dropdown" id="coreFieldsDropdown">
             <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('coreFieldsDropdown')">Core Fields</button>
             <div class="header-dropdown-menu">
@@ -869,7 +894,7 @@
             </div>
           </div>
         </div>
-        <div class="top-group">
+        <div class="top-group menu-tools-group">
           <div class="header-dropdown" id="textMenuDropdown">
             <button class="tool-btn" id="textMenuToggle" type="button" onclick="toggleHeaderDropdown('textMenuDropdown')">Text</button>
             <div class="header-dropdown-menu">
@@ -901,7 +926,7 @@
             </div>
           </div>
         </div>
-        <div class="top-group">
+        <div class="top-group menu-tools-group">
           <div class="header-dropdown" id="arrangeDropdown">
             <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('arrangeDropdown')">Arrange</button>
             <div class="header-dropdown-menu">
@@ -921,7 +946,7 @@
             </div>
           </div>
         </div>
-        <div class="top-group">
+        <div class="top-group menu-tools-group">
           <div class="header-dropdown" id="viewDropdown">
             <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('viewDropdown')">View</button>
             <div class="header-dropdown-menu">
@@ -935,7 +960,7 @@
             </div>
           </div>
         </div>
-        <div class="top-group">
+        <div class="top-group menu-tools-group">
           <div class="header-dropdown" id="layersDropdown">
             <button class="tool-btn" type="button" onclick="toggleHeaderDropdown('layersDropdown')">Layers</button>
             <div class="header-dropdown-menu">
@@ -943,14 +968,6 @@
               <div id="headerLayersList" class="dropdown-stack"></div>
             </div>
           </div>
-        </div>
-        <div class="top-group">
-          <button class="tool-btn" type="button" onclick="showPreviousRecord()">Previous</button>
-          <span class="status-chip" id="batchBrowserBadge">Card: -- / --</span>
-          <button class="tool-btn" type="button" onclick="showNextRecord()">Next</button>
-        </div>
-        <div class="top-group">
-          <button class="tool-btn" id="advancedToolsToggle" type="button" onclick="toggleAdvancedTools()">Advanced Tools</button>
         </div>
       </div>
       <div class="quick-toolbar">
@@ -971,6 +988,12 @@
           <select id="batchSelector">
             <option value="">Select batch</option>
           </select>
+        </div>
+        <div class="quick-cluster">
+          <span class="toolbar-label">Cards</span>
+          <button class="tool-btn" type="button" onclick="showPreviousRecord()">Previous</button>
+          <span class="status-chip" id="batchBrowserBadge">Card: -- / --</span>
+          <button class="tool-btn" type="button" onclick="showNextRecord()">Next</button>
         </div>
         <div class="quick-cluster">
           <span class="toolbar-label">Save</span>
@@ -1055,6 +1078,14 @@
             <button class="color-swatch light" type="button" style="background:#ffffff" onclick="applyTextMenuColor('#ffffff')" title="White"></button>
           </div>
         </div>
+      </div>
+      <div class="top-status-row">
+        <span class="status-box{% if not supabase_enabled %} warn{% endif %}" id="statusBox">{% if supabase_enabled %}Editor ready. Select institute and batch to load cards.{% else %}Editor is connected to Local JSON. Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in this shell to load hosted records.{% endif %}</span>
+        <span class="top-status-meta" id="activeObjectBadge">Active: none</span>
+        <span class="top-status-meta" id="currentSideBadge">Side: front</span>
+        <span class="design-status-badge" id="designStatusBadge">Design: ready</span>
+        <span class="top-status-meta" id="sourceBadge">Source: {{ data_source_label }}</span>
+        <span class="top-status-meta" id="footerCoords">X: -, Y: -</span>
       </div>
       <input id="serialInput" value="{{ initial_serial }}" type="hidden">
     </header>
@@ -1542,23 +1573,6 @@
       </main>
     </div>
 
-    <footer class="footer-bar">
-      <div class="footer-meta">
-        <span>Browser editing: Fabric.js</span>
-        <span>Server data flow: Flask JSON APIs</span>
-        <span>Batch save: active layout for whole batch</span>
-      </div>
-      <div class="footer-status-wrap">
-        <span class="status-box footer-status{% if not supabase_enabled %} warn{% endif %}" id="statusBox">{% if supabase_enabled %}Editor ready. Select institute and batch to load cards.{% else %}Editor ready. This local run is using Local JSON data because Supabase is not configured in this shell.{% endif %}</span>
-      </div>
-      <div class="footer-meta">
-        <span class="footer-inline-meta" id="activeObjectBadge">Active: none</span>
-        <span class="footer-inline-meta" id="currentSideBadge">Side: front</span>
-        <span class="design-status-badge" id="designStatusBadge">Design: ready</span>
-        <span class="footer-inline-meta" id="sourceBadge">Source: {{ data_source_label }}</span>
-        <span id="footerCoords">X: -, Y: -</span>
-      </div>
-    </footer>
   </div>
 
   <div class="context-menu" id="contextMenu">
@@ -1731,7 +1745,7 @@
     function setStatus(message, ok = false, warn = false) {
       const box = field('statusBox');
       box.textContent = message;
-      box.className = `status-box footer-status${warn ? ' warn' : (ok ? ' ok' : '')}`;
+      box.className = `status-box${warn ? ' warn' : (ok ? ' ok' : '')}`;
     }
 
     function nowTimeLabel() {
@@ -1796,7 +1810,7 @@
       const button = field('advancedToolsToggle');
       if (button) {
         button.classList.toggle('active', open);
-        button.textContent = open ? 'Hide Advanced' : 'Advanced Tools';
+        button.textContent = open ? 'Hide Advanced Bar' : 'Show Advanced Bar';
       }
       window.setTimeout(() => {
         applyCanvasScale();
